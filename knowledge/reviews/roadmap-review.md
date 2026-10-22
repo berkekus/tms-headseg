@@ -5,7 +5,7 @@ description: Technical review findings retained separately from source requireme
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T13:41:29+03:00'
+  at: '2026-10-22T14:40:39+03:00'
 sources:
 - id: roadmap
   resource: ../references/module-a-roadmap.md
@@ -20,7 +20,7 @@ sources:
 
 # Roadmap Review and Unresolved Conflicts
 
-These findings are engineering review judgments, not changes to the source documents or proof that implementation is incorrect. All findings remain open until evidence or an explicit decision resolves them.
+These findings record the earlier twelve-page SRC-004 and its conflicts with other requirements. They are engineering review judgments, not proof of an implementation defect. The seventeen-page SRC-005 addresses several concerns at source level; use the [revised alignment review](roadmap-alignment.md) for their current disposition. None is marked implemented or experimentally resolved by document import.
 
 | ID | Source location | Concern | Resolution evidence |
 | --- | --- | --- | --- |

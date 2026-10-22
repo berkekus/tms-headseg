@@ -5,7 +5,7 @@ description: Fingerprints and provenance for the project PDFs and supporting evi
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T13:41:29+03:00'
+  at: '2026-10-22T14:40:39+03:00'
 ---
 
 # Source Catalog
@@ -37,6 +37,15 @@ Snapshot date: 2026-10-22. Original project PDFs are not copied into this reposi
 - Pages: 12; bytes: 531836.
 - SHA-256: `f6a20b72d6661579a0844da60992242642a99783a36b7f42fecb17258c97c118`
 - [Source summary](module-a-roadmap.md). Page citations refer to PDF page numbers.
+- Formal approval and a shared original-file location are not recorded.
+
+### SRC-005: Revised Module A coding roadmap
+
+- Original filename: `tms-modul-a.pdf`
+- Pages: 17; bytes: 697355.
+- SHA-256: `3d0c8ea550db65bc28012057894e0fa8df7c426742617e9f4791d9e8eddd2eea`
+- Received: 2026-10-22. [Source summary](module-a-roadmap-revised.md); [alignment review](../reviews/roadmap-alignment.md). Page citations use PDF page numbers.
+- Later received planning revision of SRC-004, not proof of formal approval. The earlier artifact remains cataloged.
 - Formal approval and a shared original-file location are not recorded.
 
 ## Other evidence

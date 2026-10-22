@@ -12,6 +12,7 @@ Shared English project memory, stored as ordinary Markdown. Begin with current s
 - [Implementation Roadmap](roadmap.md) — Adapted source phases; none marked complete.
 - [Acceptance and Measurement](acceptance.md) — Proposed targets and definitions still to agree.
 - [Open Questions](questions.md) — Missing decisions and evidence needed to close them.
+- [Latest Document Alignment](reviews/roadmap-alignment.md) — Seventeen-page roadmap improvements and remaining conflicts.
 
 # Find the Right Context
 

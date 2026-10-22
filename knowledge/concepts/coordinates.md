@@ -5,7 +5,7 @@ description: Proposed invariants for voxel, physical, and export coordinates.
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T13:41:29+03:00'
+  at: '2026-10-22T14:40:39+03:00'
 sources:
 - id: nib
   resource: https://nipy.org/nibabel/coordinate_systems.html
@@ -14,13 +14,17 @@ sources:
   resource: https://simpleitk.org/doxygen/latest/html/classitk_1_1simple_1_1DICOMOrientImageFilter.html
   title: SimpleITK orientation conventions
 - id: roadmap
-  resource: ../references/module-a-roadmap.md
-  title: Roadmap, pp. 3, 5, 8–9
+  resource: ../references/module-a-roadmap-revised.md
+  title: Revised roadmap, pp. 4–5, 7, 11
 ---
 
 # Geometry and Coordinate Contract
 
-The roadmap's RAS/affine rule needs an explicit library-boundary contract. NiBabel uses RAS+ world coordinates; ITK/SimpleITK uses LPS conventions. Array reorientation and changing world-coordinate conventions are distinct operations.[^nib][^sitk]
+The revised roadmap now proposes an explicit library-boundary contract. NiBabel uses RAS+ world coordinates; ITK/SimpleITK uses LPS conventions. Array reorientation and changing world-coordinate conventions are distinct operations.[^nib][^sitk]
+
+## Latest source proposal
+
+SRC-005 pp. 4–5 specifies world coordinates in millimetres/RAS+, voxel `(i, j, k)` positions through the NIfTI affine, LPS-to-RAS sign changes on the first two physical coordinates, and SimpleITK NumPy array order `(z, y, x)`. It prefers NIfTI file boundaries and centralizes in-memory conversions in one proposed module. These are proposed contracts, not implemented utilities.
 
 ## Contract to agree before implementation
 
@@ -31,11 +35,11 @@ The roadmap's RAS/affine rule needs an explicit library-boundary contract. NiBab
 - Derive mesh vertices from the affine belonging to the actual segmentation grid. Do not apply voxel spacing twice.
 - Publish an explicit frame/unit contract alongside generic surface exports; do not rely on an unnamed viewer convention.
 
-The source example's `marching_cubes` followed by `apply_affine` is reasonable for a NiBabel array when spacing has not already been applied. Its surrounding interfaces still need verification.
+The revised source example's `marching_cubes` followed by the segmentation's `apply_affine` is reasonable for a NiBabel array when spacing has not already been applied. Its prose also says to use the source T1 affine: that is valid only after restoring the mask to that source grid. Track the actual grid and transforms; see ALIGN-05 in the [alignment review](../reviews/roadmap-alignment.md).
 
 ## Proposed checks
 
-Use an asymmetric synthetic object with known physical landmarks, non-unit spacing, translation, and a nontrivial orientation. Check numerical positions after round trips and inspect alignment against MRI. Agree error tolerances before calling the contract passed.
+The revised source explicitly proposes RAS/LPS round trips, cross-library agreement for the same voxel after expressing both physical positions in one convention, and preservation of an asymmetric side marker. Use non-unit spacing, translation, and a nontrivial orientation as well. Check numerical positions and source-MRI overlay. Agree error tolerances before calling the contract passed; none of these checks is recorded as executed.
 
 ## Related notes
 

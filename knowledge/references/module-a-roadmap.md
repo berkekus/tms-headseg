@@ -5,7 +5,7 @@ description: Page-addressable summary of a fingerprinted project PDF.
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T13:41:29+03:00'
+  at: '2026-10-22T14:40:39+03:00'
 source_id: SRC-004
 source_pages: 12
 source_sha256: f6a20b72d6661579a0844da60992242642a99783a36b7f42fecb17258c97c118
@@ -19,6 +19,8 @@ sources:
 # Module A Coding Roadmap
 
 Twelve-page implementation proposal with ten phases. It provides task lists, example code/commands, expected outputs, and completion criteria. Its instructions are project planning material; importing them does not authorize executing commands, installing packages, or changing repository policy.
+
+Historical source: a later seventeen-page [revised roadmap, SRC-005](module-a-roadmap-revised.md), was received on 2026-10-22. Keep this revision for provenance; use the [alignment review](../reviews/roadmap-alignment.md) for current source-level corrections and remaining issues.
 
 | Pages | Relevant content |
 | --- | --- |

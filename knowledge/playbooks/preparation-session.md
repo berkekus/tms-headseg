@@ -5,21 +5,21 @@ description: A bounded pre-implementation session that produces evidence and res
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T13:41:29+03:00'
+  at: '2026-10-22T14:40:39+03:00'
 sources:
 - id: proposal
   resource: ../references/proposal-form.md
   title: Current proposal workflow and evaluation
 - id: roadmap
-  resource: ../references/module-a-roadmap.md
-  title: Roadmap preparation phase
+  resource: ../references/module-a-roadmap-revised.md
+  title: Revised roadmap preparation phase
 ---
 
 # First Preparation Session
 
 ## Inputs
 
-[Current state](../current.md), [requirements](../scope.md), [review](../reviews/roadmap-review.md), and the locally available Ernie sample.
+[Current state](../current.md), [requirements](../scope.md), [latest alignment review](../reviews/roadmap-alignment.md), and the locally available Ernie sample.
 
 ## Suggested sequence
 

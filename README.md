@@ -6,6 +6,8 @@ TMS HeadSeg is a research prototype plan for generating a patient-specific head 
 
 The document describes a planned system. This repository currently contains no application code, trained weights, datasets, or dependency manifests. Performance figures below are provisional targets, not achieved results. All outputs require clinician review; the system is not for autonomous clinical decisions.
 
+The latest received seventeen-page roadmap is summarized as [SRC-005](knowledge/references/module-a-roadmap-revised.md). Its [alignment review](knowledge/reviews/roadmap-alignment.md) records source-level improvements and remaining gaps; it does not establish team approval.
+
 ## Project knowledge
 
 Start with the [knowledge map](knowledge/index.md) and [current state](knowledge/current.md). The English knowledge base records source revisions, requirements, decisions, open questions, and experiment evidence. Follow the [Obsidian setup guide](knowledge/playbooks/obsidian-setup.md) to open the same files as a vault.
@@ -101,16 +103,16 @@ Check facial coverage per case. Image-based boundary extraction can use only ana
 
 Report results per tissue and subject, and separate lesion cases and acquisition centers. Compare against charm, SPM12, and GRACE on the same test subjects; compare with another documented preparation workflow where available. GRACE remains a research-only comparator per the module plan.
 
-| Measure | Initial target in the module specification |
+| Measure | Latest proposal in SRC-005; not approved or achieved |
 | --- | --- |
-| End-to-end runtime | Under 60 seconds on GPU; report CPU and GPU separately |
-| Mean Dice | At least 0.85 across the evaluated tissues |
-| Skin-surface distance | Under 2 mm |
-| Lesion cases | No worse than charm |
-| Quality control | Detect most unusable outputs; quantify confidence-score relationship with Dice and failure rate |
+| End-to-end runtime | GPU at most 60 seconds, NIfTI input through export; report stages separately. CPU at most 10 minutes is informational. |
+| Dice | Skin and brain union at least 0.90; WM 0.85; GM 0.80; skull 0.75; CSF 0.70. Include all test cases. |
+| Skin-surface distance | Whole-head mean at most 1.5 mm; intact-face/ear regional mean at most 2.0 mm. |
+| Failure rate | At most 5%; report every comparison method's failures. |
+| Quality control | Recall at least 80%; false-alarm rate at most 20%; calibrate on validation and freeze before testing. |
 | Export validity | Geometry opens with documented scale, orientation, and source-image alignment in an independent viewer |
 
-These thresholds are starting hypotheses from the module document and should be reviewed with the project advisor after baseline measurements. Report failures, surface-distance mean and worst case, and subgroup results alongside averages.
+See [acceptance and measurement definitions](knowledge/acceptance.md) for source pages, earlier targets, failure accounting, timing boundaries, and unresolved metric choices. The revised plan proposes at least ten intact-face evaluation subjects with manually corrected skin references independent of charm. Keep face calibration separate from untouched test subjects. Report clinical/healthy and center subgroups alongside averages. UI/API, usability, and local-processing acceptance remain required beyond CLI delivery.
 
 ## Risks and safeguards
 
