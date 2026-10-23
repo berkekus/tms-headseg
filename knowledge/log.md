@@ -1,5 +1,9 @@
 # Knowledge Update Log
 
+## 2026-10-23
+
+- **Team update**: Compared the nineteen-page `tms-modul-a (1).pdf` with SRC-005 and cataloged it as [SRC-006](references/module-a-roadmap-team-update.md). Extracted text outside section 9.2 is unchanged after normalization. Added [team workstreams](team.md), relative weekly handoffs, proposed interfaces/backups, and remaining allocation/test-access questions. Four-person team size is user-confirmed; role names, dates, and operating rules remain unassigned/proposed. Existing targets and experiment states are unchanged.
+
 ## 2026-10-22
 
 - **Revised roadmap**: Imported fingerprinted seventeen-page `tms-modul-a.pdf` as [SRC-005](references/module-a-roadmap-revised.md); retained SRC-004. Added the [alignment review](reviews/roadmap-alignment.md), latest proposed measurement definitions, class-specific cleanup/face handling, and calibration questions. No threshold approval, implementation, or experiment success is implied.

@@ -6,7 +6,7 @@ TMS HeadSeg is a research prototype plan for generating a patient-specific head 
 
 The document describes a planned system. This repository currently contains no application code, trained weights, datasets, or dependency manifests. Performance figures below are provisional targets, not achieved results. All outputs require clinician review; the system is not for autonomous clinical decisions.
 
-The latest received seventeen-page roadmap is summarized as [SRC-005](knowledge/references/module-a-roadmap-revised.md). Its [alignment review](knowledge/reviews/roadmap-alignment.md) records source-level improvements and remaining gaps; it does not establish team approval.
+The latest received nineteen-page roadmap, [SRC-006](knowledge/references/module-a-roadmap-team-update.md), expands the [four-person team proposal](knowledge/team.md). Its technical text outside section 9.2 matches the earlier seventeen-page SRC-005 after normalization. The [alignment review](knowledge/reviews/roadmap-alignment.md) retains remaining gaps; source roles and targets do not establish team approval or named assignments.
 
 ## Project knowledge
 
@@ -103,7 +103,7 @@ Check facial coverage per case. Image-based boundary extraction can use only ana
 
 Report results per tissue and subject, and separate lesion cases and acquisition centers. Compare against charm, SPM12, and GRACE on the same test subjects; compare with another documented preparation workflow where available. GRACE remains a research-only comparator per the module plan.
 
-| Measure | Latest proposal in SRC-005; not approved or achieved |
+| Measure | Proposal in SRC-005, unchanged in SRC-006; not approved or achieved |
 | --- | --- |
 | End-to-end runtime | GPU at most 60 seconds, NIfTI input through export; report stages separately. CPU at most 10 minutes is informational. |
 | Dice | Skin and brain union at least 0.90; WM 0.85; GM 0.80; skull 0.75; CSF 0.70. Include all test cases. |

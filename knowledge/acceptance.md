@@ -5,7 +5,7 @@ description: Distinguish proposed thresholds, product acceptance, and measured e
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T14:40:39+03:00'
+  at: '2026-10-23T10:06:38+03:00'
 sources:
 - id: module
   resource: references/module-a-spec.md
@@ -21,6 +21,8 @@ sources:
 # Acceptance and Measurement Definitions
 
 No project performance measurements are recorded yet. The latest source proposes the targets below; team approval and final measurement definitions are not recorded.[^roadmap] Receipt of a revised PDF does not freeze an experiment protocol.
+
+The later [nineteen-page SRC-006](references/module-a-roadmap-team-update.md) expands team planning only; the numerical proposals below are unchanged. Existing page citations remain tied to the seventeen-page SRC-005.
 
 ## Latest numerical proposal: SRC-005
 

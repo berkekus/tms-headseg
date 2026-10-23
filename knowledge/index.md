@@ -10,9 +10,10 @@ Shared English project memory, stored as ordinary Markdown. Begin with current s
 - [Current State](current.md) — Confirmed direction, evidence gaps, and the next action.
 - [Scope and Requirements](scope.md) — Traceable core workflow and implementation boundaries.
 - [Implementation Roadmap](roadmap.md) — Adapted source phases; none marked complete.
+- [Four-Person Team Workstreams](team.md) — Proposed roles, weekly handoffs, backups, and allocation gaps; names unassigned.
 - [Acceptance and Measurement](acceptance.md) — Proposed targets and definitions still to agree.
 - [Open Questions](questions.md) — Missing decisions and evidence needed to close them.
-- [Latest Document Alignment](reviews/roadmap-alignment.md) — Seventeen-page roadmap improvements and remaining conflicts.
+- [Document Alignment](reviews/roadmap-alignment.md) — Technical roadmap concerns and the latest team-update disposition.
 
 # Find the Right Context
 

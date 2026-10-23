@@ -5,12 +5,12 @@ description: Fingerprints and provenance for the project PDFs and supporting evi
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T14:40:39+03:00'
+  at: '2026-10-23T10:06:38+03:00'
 ---
 
 # Source Catalog
 
-Snapshot date: 2026-10-22. Original project PDFs are not copied into this repository. Request the matching artifact from the project team and compare its checksum; a filename alone is not a revision identifier.
+Catalog updated: 2026-10-23. Original project PDFs are not copied into this repository. Request the matching artifact from the project team and compare its checksum; a filename alone is not a revision identifier.
 
 ## Project PDFs
 
@@ -47,6 +47,15 @@ Snapshot date: 2026-10-22. Original project PDFs are not copied into this reposi
 - Received: 2026-10-22. [Source summary](module-a-roadmap-revised.md); [alignment review](../reviews/roadmap-alignment.md). Page citations use PDF page numbers.
 - Later received planning revision of SRC-004, not proof of formal approval. The earlier artifact remains cataloged.
 - Formal approval and a shared original-file location are not recorded.
+
+### SRC-006: Module A roadmap with expanded team plan
+
+- Original filename: `tms-modul-a (1).pdf`
+- Pages: 19; bytes: 755818.
+- SHA-256: `17e66a62d5a9e9b68982d6d9fe1a17a87288418da805ff064520b9e5e7dfb906`
+- Received: 2026-10-23. [Source summary and comparison](module-a-roadmap-team-update.md); [adapted team plan](../team.md).
+- Extracted text outside section 9.2 matches SRC-005 after page-header/footer and whitespace normalization. Section 9.2 expands the four-person role proposal; assigned-person cells remain empty.
+- The earlier artifact remains cataloged. Formal approval, named assignments, and a shared original-file location are not recorded.
 
 ## Other evidence
 

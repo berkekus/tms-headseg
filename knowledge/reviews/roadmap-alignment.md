@@ -5,7 +5,7 @@ description: Source-level improvements, remaining contradictions, and project-sp
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T14:40:39+03:00'
+  at: '2026-10-23T10:06:38+03:00'
 sources:
 - id: revised
   resource: ../references/module-a-roadmap-revised.md
@@ -16,6 +16,9 @@ sources:
 - id: earlier
   resource: roadmap-review.md
   title: Earlier review findings
+- id: team-update
+  resource: ../references/module-a-roadmap-team-update.md
+  title: Nineteen-page team update, SRC-006
 ---
 
 # Revised Roadmap Alignment Review
@@ -50,6 +53,14 @@ These are changes in the source proposal, not closed implementation findings. Th
 | ALIGN-07 | pp. 3, 14–17 vs proposal pp. 1, 3–5 | CLI/package completion does not demonstrate the required integrated local inspection, documented local API, usability, or local-only data/inference. | Schedule those work items and acceptance evidence explicitly. External viewer checks supplement application acceptance. |
 
 These concerns are engineering judgments from comparing the supplied plans, not experimental findings. No detector, threshold, or cleanup policy is marked validated.
+
+## Nineteen-page team update: SRC-006
+
+The later received SRC-006 expands section 9.2 only in normalized extracted-text comparison. Its [source note](../references/module-a-roadmap-team-update.md) records the fingerprint and comparison method; the [team plan](../team.md) records the new K1–K4 weekly work, interfaces, backup pairings, and collaboration proposal. Named-person cells are empty, and none of the technical findings above is resolved by this team expansion.
+
+Technical citations above remain tied to SRC-005: the risk-table contradiction formerly on p. 16 now appears on SRC-006 p. 18, and the completion criteria formerly on p. 17 span SRC-006 pp. 18–19. Core technical text is unchanged.
+
+The expanded assignment still leaves UI/API and deployed local-dataflow work unowned, concentrates quality/evaluation/delivery work in K4, and schedules comparator test runs while model improvement is ongoing. Before accepting it, allocate missing product work, review capacity/backups, and agree who controls held-out test access. Precomputing comparator predictions must not expose test results to tuning. These are allocation recommendations, not evidence that leakage or overload has occurred.
 
 ## What to carry forward
 

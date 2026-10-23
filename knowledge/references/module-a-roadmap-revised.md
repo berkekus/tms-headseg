@@ -5,7 +5,7 @@ description: Seventeen-page planning revision, its additions, and limits on adop
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T14:40:39+03:00'
+  at: '2026-10-23T10:06:38+03:00'
 source_id: SRC-005
 source_pages: 17
 source_sha256: 3d0c8ea550db65bc28012057894e0fa8df7c426742617e9f4791d9e8eddd2eea
@@ -19,6 +19,8 @@ sources:
 # Module A Revised Coding Roadmap
 
 Received on 2026-10-22. This seventeen-page proposal expands the [earlier twelve-page roadmap](module-a-roadmap.md). It supplies clearer engineering and evaluation definitions; receipt does not establish team approval, completed implementation, or measured performance.
+
+A later nineteen-page [team update, SRC-006](module-a-roadmap-team-update.md), was received on 2026-10-23. It expands section 9.2 while preserving the surrounding extracted text. Keep SRC-005 for the technical page references already cited in the knowledge base; use [team workstreams](../team.md) for the latest role/schedule proposal.
 
 | Pages | Relevant content |
 | --- | --- |

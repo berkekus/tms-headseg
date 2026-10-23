@@ -5,7 +5,7 @@ description: Source phase map, dependencies, and entry checks; no phase is marke
 status: draft
 generated:
   by: codex/gpt-6
-  at: '2026-10-22T14:40:39+03:00'
+  at: '2026-10-23T10:06:38+03:00'
 sources:
 - id: roadmap
   resource: references/module-a-roadmap-revised.md
@@ -13,11 +13,14 @@ sources:
 - id: proposal
   resource: references/proposal-form.md
   title: Current five-page project proposal
+- id: team
+  resource: references/module-a-roadmap-team-update.md
+  title: Latest nineteen-page roadmap, SRC-006
 ---
 
 # Implementation Roadmap
 
-The latest received source (SRC-005) retains twelve weeks and F0–F9, while refining geometry, data splits, cleanup, QC, and evaluation. No start date, deadline, or assignment to a named team member is confirmed; weeks are relative planning units. No application phase is marked complete.[^roadmap]
+The technical phase plan below follows SRC-005. The latest received source, SRC-006, keeps that text and expands section 9.2 with four-person work sharing. No start date, deadline, or assignment to a named team member is confirmed; weeks are relative planning units. No application phase is marked complete.[^roadmap][^team]
 
 | Phase | Source weeks | Intended output | Current evidence or prerequisite |
 | --- | --- | --- | --- |
@@ -31,6 +34,12 @@ The latest received source (SRC-005) retains twelve weeks and F0–F9, while ref
 | F7 | Early spike, then 9–10 | Validated generic export workflow. | Adapt source-specific deployment steps to D-002; check geometry independently. |
 | F8 | 10–11 | Reproducible comparisons and subgroup reports. | Lock tissue and intact-face test cohorts, independent references, all-case failure accounting, and repeated stage timing. |
 | F9 | 11–12 | Usable package, model card, docs, demo. | Clean-machine reproduction; UI demonstration also required by the proposal. |
+
+## Proposed team ownership
+
+The [four-person team plan](team.md) records the latest role and weekly handoff proposal: K1 owns the data workstream (F1/F2), K2 preprocessing/model work (F3/F4), K3 coordinates/surfaces/generic export (F5/F7), and K4 quality/evaluation/delivery (F6/F8/F9), with shared F0 preparation. These are proposed role responsibilities, not named assignments or exclusive implementation boundaries.[^team]
+
+Section 9.2 proposes four written interfaces by the end of relative week 2, backup pairs K1/K2 and K3/K4, weekly coordination, and milestone demos. Names, capacity, allocation, interface acceptance, and dates remain to agree. Application/API work remains unassigned; do not infer that K4 owns it.
 
 ## Missing work to schedule
 
@@ -50,3 +59,4 @@ These milestones are planning proposals. Record completion only with evidence in
 
 [^roadmap]: Revised coding roadmap, pp. 1–17. This note adapts the source to accepted project direction; it is not a verbatim instruction list. [Open source](references/module-a-roadmap-revised.md).
 [^proposal]: Current proposal, pp. 1, 3, and 5. [Open source](references/proposal-form.md).
+[^team]: SRC-006 section 9.2, pp. 16–18. The surrounding technical plan is unchanged in extracted-text comparison. [Open source](references/module-a-roadmap-team-update.md).
