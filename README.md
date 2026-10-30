@@ -4,7 +4,7 @@
 
 TMS HeadSeg is a research prototype plan for generating a patient-specific head model from a routine T1-weighted MRI. Module A connects AI-assisted segmentation, surface generation, interactive inspection, and software-independent export. The module roadmap proposes a trained nnU-Net segmenter; the exact implementation and training scope remain planning decisions.
 
-The document describes a planned system. This repository currently contains no application code, trained weights, datasets, or dependency manifests. Performance figures below are provisional targets, not achieved results. All outputs require clinician review; the system is not for autonomous clinical decisions.
+The document describes a planned system. A small [CHARM launcher prototype](tools/charm_gui/README.md) is available for local baseline preparation; the Module A application, trained project weights, and datasets are not yet provided. Performance figures below are provisional targets, not achieved results. All outputs require clinician review; the system is not for autonomous clinical decisions.
 
 The latest received nineteen-page roadmap, [SRC-006](knowledge/references/module-a-roadmap-team-update.md), expands the [four-person team proposal](knowledge/team.md). Its technical text outside section 9.2 matches the earlier seventeen-page SRC-005 after normalization. The [alignment review](knowledge/reviews/roadmap-alignment.md) retains remaining gaps; source roles and targets do not establish team approval or named assignments.
 
@@ -136,7 +136,7 @@ See [acceptance and measurement definitions](knowledge/acceptance.md) for source
 
 ## Development setup
 
-No runtime or launch commands exist yet. Add installation, inference, training, and evaluation instructions when the code and dependency versions are committed. The planned stack above does not imply that dependencies are installed.
+For the Qt desktop CHARM preparation tool, follow [launcher setup and usage](tools/charm_gui/README.md). One codebase targets macOS and Windows, with separate desktop packages; the macOS package has passed startup checks, while Windows execution remains unverified. It calls a separately installed SimNIBS and has its own isolated runtime. No complete reconstruction through the launcher or project-model inference/training workflow is established yet. The planned stack above does not imply that dependencies are installed.
 
 Clone the repository:
 

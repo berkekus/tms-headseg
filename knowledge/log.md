@@ -1,5 +1,10 @@
 # Knowledge Update Log
 
+## 2026-10-30
+
+- **Desktop portability**: The user approved one shared Qt launcher for Windows and macOS. Added Windows launcher resolution, Job Object process ownership, portable log streaming, packaging/runtime isolation, and a manual desktop build workflow. The macOS app built and passed a native startup check. Windows execution/build and real reconstruction remain unverified; no workflow was run or release published. Details are in [launcher usage](../tools/charm_gui/README.md) and [session observations](references/session-observations.md).
+- **Preparation tool**: Added an in-repository [CHARM launcher prototype](../tools/charm_gui/README.md) at the user's request for review before committing. Recorded native-window startup and successful CHARM help invocation separately from stand-in lifecycle checks. Updated [session observations](references/session-observations.md) and [current state](current.md); no full reconstruction, benchmark, final Module A delivery, or team assignment is claimed. [EXP-001](experiments/ernie-baseline.md) remains not run.
+
 ## 2026-10-23
 
 - **Team update**: Compared the nineteen-page `tms-modul-a (1).pdf` with SRC-005 and cataloged it as [SRC-006](references/module-a-roadmap-team-update.md). Extracted text outside section 9.2 is unchanged after normalization. Added [team workstreams](team.md), relative weekly handoffs, proposed interfaces/backups, and remaining allocation/test-access questions. Four-person team size is user-confirmed; role names, dates, and operating rules remain unassigned/proposed. Existing targets and experiment states are unchanged.

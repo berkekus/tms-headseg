@@ -23,7 +23,7 @@ sources:
 
 # Current State
 
-Last substantive update: 2026-10-23. Project stage: preparation and baseline exploration.
+Last substantive update: 2026-10-30. Project stage: preparation and baseline exploration.
 
 ## Confirmed direction
 
@@ -42,11 +42,12 @@ The first two choices come directly from the user; document review is not implie
 - The revised roadmap clarifies coordinates, validation splits, class-specific cleanup, face coverage, numerical targets, and benchmark failures. These are source-level improvements, not approved thresholds or validated implementations. Remaining contradictions are recorded in the [alignment review](reviews/roadmap-alignment.md).[^revised]
 - SRC-006 changes section 9.2: expanded roles, weekly work, interfaces, backups, and coordination rules. Surrounding extracted text matches SRC-005. The [team plan](team.md) captures the update as proposed/unassigned; UI/API ownership and workload balance remain open.[^team]
 - A local SimNIBS 4.6 installation directory and the Ernie sample files were inspected. Successful execution has not been demonstrated in this session.[^session]
-- No application source, trained project model, evaluation result, or implementation completion has been established.
+- A shared Qt desktop [CHARM launcher prototype](../tools/charm_gui/README.md) now targets macOS and Windows with input selection, fresh-job execution, live logs, cancellation, and result-opening controls. The macOS ARM64 app bundle built and passed a native startup check; installed CHARM help also exited successfully. Windows-specific launch/cancellation code and a manual build workflow exist but have not run on Windows. Process checks use stand-ins, not real MRI reconstruction. The user requested review before committing.[^session]
+- No final Module A application, trained project model, evaluation result, or successful new CHARM reconstruction has been established. Viewing supplied Ernie outputs remains distinct from generating a model.[^session]
 
 ## Next useful action
 
-Follow the [Ernie baseline protocol](experiments/ernie-baseline.md): inspect the supplied model, run a separate T1-only reconstruction when authorized, and record elapsed time, logs, outputs, and observed defects. Its current state is **not run**, not successful.
+Review the [launcher prototype](../tools/charm_gui/README.md), run its platform checks and build on Windows, then follow the [Ernie baseline protocol](experiments/ernie-baseline.md): run a separate T1-only reconstruction when authorized, and record elapsed time, logs, outputs, and observed defects. Clear the optional T2 field for that protocol. Its current state remains **not run**, not successful.
 
 ## Decisions and unresolved work
 
