@@ -41,11 +41,28 @@ write_nifti("IXI045_0000.nii.gz", canonical, record.model_affine)
 
 Apply the same call to its labels so image and labels stay on one grid.
 
+## From labels to surfaces
+
+```python
+from headmodel.cleanup import brain_mask, clean_labels, head_envelope
+from headmodel.surfaces import extract_surface
+
+result = clean_labels(labels, source.affine)         # exclusive labels, volumes, warnings
+head = extract_surface(head_envelope(result.labels), source.affine)
+brain = extract_surface(brain_mask(result.labels), source.affine)
+# head.vertices are world coordinates in RAS+ millimetres.
+```
+
+Cleanup follows the class-specific table in [labels and facial coverage](../../knowledge/concepts/labels-and-face.md). The head surface is the outer envelope, so enclosed air cavities stay background in the labels but do not appear in the surface. Brain cavities are kept. The island threshold, smoothing count, and warning limits are provisional values, not validated settings.
+
 ## Files
 
 - `frames.py`: RAS/LPS conversion, voxel/world mapping, ITK geometry.
 - `images.py`: validated NIfTI reading and the project writer.
 - `reversible.py`: lossless reorientation and the carrier file for the model.
+- `labels.py`: project schema and source label mappings.
+- `cleanup.py`: class-specific cleanup with a volume report and warnings.
+- `surfaces.py`: closed surfaces in world millimetres, and integrity measures.
 - `phantom.py`: asymmetric synthetic head for geometry checks.
 
 ## Checks
