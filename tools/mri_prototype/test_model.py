@@ -71,10 +71,10 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(tissue_for_surface(1002), 2)
         self.assertIsNone(tissue_for_surface(2100))
 
-    def test_mri_planes_use_same_physical_frame(self):
+    def test_mri_planes_span_voxel_edges_in_the_physical_frame(self):
         volume = load_volume(self.folder / "T1.nii.gz")
-        np.testing.assert_allclose(plane_geometry(volume, 2, 3), [[0, 0, 12], [8, 0, 12], [0, 15, 12]])
-        np.testing.assert_allclose(plane_geometry(volume, 0, 2), [[4, 0, 0], [4, 15, 0], [4, 0, 24]])
+        np.testing.assert_allclose(plane_geometry(volume, 2, 3), [[-1, -1.5, 12], [9, -1.5, 12], [-1, 16.5, 12]])
+        np.testing.assert_allclose(plane_geometry(volume, 0, 2), [[4, -1.5, -2], [4, 16.5, -2], [4, -1.5, 26]])
 
     def test_missing_or_ambiguous_assets_fail_clearly(self):
         with self.assertRaisesRegex(ValueError, "existing"):

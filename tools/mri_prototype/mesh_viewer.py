@@ -28,13 +28,41 @@ def configure_surface_format():
 
 
 def plane_geometry(volume, axis, index):
-    """Three corners at voxel centers, transformed exactly once into world space."""
+    """Three corners at voxel edges, since a texture fills whole voxels; world space applied once."""
     other = [value for value in range(3) if value != axis]
-    points = np.zeros((3, 3))
+    points = np.full((3, 3), -.5)
     points[:, axis] = index
-    points[1, other[0]] = volume.data.shape[other[0]] - 1
-    points[2, other[1]] = volume.data.shape[other[1]] - 1
+    points[1, other[0]] = volume.data.shape[other[0]] - .5
+    points[2, other[1]] = volume.data.shape[other[1]] - .5
     return points @ volume.image.affine[:3, :3].T + volume.image.affine[:3, 3]
+
+
+def plane_actor(volume, axis, index, level, width):
+    """One MRI slice as a textured quad in world coordinates."""
+    from vtkmodules.util.numpy_support import numpy_to_vtk
+    from vtkmodules.vtkCommonDataModel import vtkImageData
+    from vtkmodules.vtkFiltersSources import vtkPlaneSource
+    from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper, vtkTexture
+    plane = np.take(volume.data, index, axis=axis)
+    gray = (np.clip((plane - (level - width / 2)) / max(width, .001), 0, 1) * 255).astype(np.uint8)
+    image = vtkImageData()
+    image.SetDimensions(*gray.shape, 1)
+    image.GetPointData().SetScalars(numpy_to_vtk(gray.ravel(order="F"), deep=True))
+    texture = vtkTexture()
+    texture.SetInputData(image)
+    texture.InterpolateOn()
+    corners = plane_geometry(volume, axis, index)
+    source = vtkPlaneSource()
+    source.SetOrigin(*corners[0])
+    source.SetPoint1(*corners[1])
+    source.SetPoint2(*corners[2])
+    mapper = vtkPolyDataMapper()
+    mapper.SetInputConnection(source.GetOutputPort())
+    actor = vtkActor()
+    actor.SetMapper(mapper)
+    actor.SetTexture(texture)
+    actor.GetProperty().LightingOff()
+    return actor
 
 
 class MeshView(QWidget):
@@ -255,35 +283,12 @@ class MeshView(QWidget):
     def update_planes(self, *args):
         if self.renderer is None or self.model is None:
             return
-        from vtkmodules.util.numpy_support import numpy_to_vtk
-        from vtkmodules.vtkCommonDataModel import vtkImageData
-        from vtkmodules.vtkFiltersSources import vtkPlaneSource
-        from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper, vtkTexture
         for actor in self.planes:
             self.renderer.RemoveActor(actor)
         self.planes.clear()
         if self.show_planes.isChecked():
-            volume = self.model.volume
             for axis, index in enumerate(self.indices):
-                plane = np.take(volume.data, index, axis=axis)
-                gray = (np.clip((plane - (self.level - self.width / 2)) / max(self.width, .001), 0, 1) * 255).astype(np.uint8)
-                image = vtkImageData()
-                image.SetDimensions(*gray.shape, 1)
-                image.GetPointData().SetScalars(numpy_to_vtk(gray.ravel(order="F"), deep=True))
-                texture = vtkTexture()
-                texture.SetInputData(image)
-                texture.InterpolateOn()
-                corners = plane_geometry(volume, axis, index)
-                source = vtkPlaneSource()
-                source.SetOrigin(*corners[0])
-                source.SetPoint1(*corners[1])
-                source.SetPoint2(*corners[2])
-                mapper = vtkPolyDataMapper()
-                mapper.SetInputConnection(source.GetOutputPort())
-                actor = vtkActor()
-                actor.SetMapper(mapper)
-                actor.SetTexture(texture)
-                actor.GetProperty().LightingOff()
+                actor = plane_actor(self.model.volume, axis, index, self.level, self.width)
                 self.renderer.AddActor(actor)
                 self.planes.append(actor)
         self.render()

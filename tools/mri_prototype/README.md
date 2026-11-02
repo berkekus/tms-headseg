@@ -71,7 +71,7 @@ For an explicit native graphics check, supply an existing model directory:
 tools/mri_prototype/.venv/bin/python tools/mri_prototype/check_3d.py /path/to/m2m_SUBJECT
 ```
 
-This opens and closes a native window, checks rendered geometry, mouse rotation, tissue visibility/opacity, linked MRI-plane bounds, and reopening. It never starts CHARM. Optional `--screenshots /path/to/local/review` saves inspection images; keep those outside Git. Run this check in a normal desktop session with graphics access, not the Qt offscreen platform.
+This first measures where a single bright voxel lands in an orthographic render of its MRI plane, then opens and closes a native window and checks rendered geometry, mouse rotation, tissue visibility/opacity, linked MRI-plane bounds, and reopening. It never starts CHARM. Optional `--screenshots /path/to/local/review` saves inspection images; keep those outside Git. Run this check in a normal desktop session with graphics access, not the Qt offscreen platform.
 
 `--smoke-test` opens the window and exits once any requested preload finishes. For example:
 
