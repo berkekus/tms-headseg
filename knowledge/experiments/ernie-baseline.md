@@ -21,6 +21,12 @@ sources:
 
 Experiment state: **not run**. Presence of supplied outputs is not a completed experiment. Update this state only when logs and outputs establish what happened.
 
+## Status notes (2026-11-02)
+
+- `tools/mri_prototype/README.md` mentions a completed November 2 Ernie reconstruction on the development Mac, with 10 surfaces and 1,160,466 triangles. No log, runtime, command, or version for it is recorded here, so it does not fill this experiment. Ask its author for those records.
+- EXP-005 used the supplied Ernie labels. It is a separate experiment and does not replace this one.
+- The K3 Windows machine has the data but not SimNIBS. The installer is downloaded and its checksum verified; running it needs the machine owner's action.
+
 ## Purpose
 
 Learn MRI-to-model outputs, establish processing and geometry observations, and identify stages relevant to the project's software-independent export contract. One example cannot establish robustness on the intended population.

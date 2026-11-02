@@ -3,6 +3,7 @@
 import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import json
 from pathlib import Path
 import shutil
 import tempfile
@@ -182,6 +183,16 @@ class ProjectModelTests(unittest.TestCase):
         self.assertLess(head.points[:, 0].min(), -74)
         self.assertLess(head.points[:, 0].max(), 74)
         self.assertGreater(head.points[:, 1].max(), 96)
+
+    def test_vtk_reads_the_declared_frame_as_binary_stl(self):
+        from vtkmodules.vtkIOGeometry import vtkSTLReader
+        self.build()
+        record = json.loads((self.folder / "model.json").read_text(encoding="utf-8"))
+        reader = vtkSTLReader()
+        reader.SetFileName(str(self.folder / "head.stl"))
+        reader.Update()
+        self.assertIn("SPACE=RAS", reader.GetHeader())
+        self.assertEqual(reader.GetOutput().GetNumberOfCells(), record["surfaces"]["head"]["triangles"])
 
     def test_notes_state_that_the_face_was_not_assessed(self):
         self.assertTrue(any("not assessed" in note for note in load_model(self.build()).notes))
