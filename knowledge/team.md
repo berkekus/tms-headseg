@@ -47,7 +47,7 @@ Shared: F0 preparation (all), F9 packaging (K3 + K4), final report coordination 
 | Reversible preprocessing (geometry) | K2 | K3 | Coordinate steward owns orientation/inversion. |
 | Inference timing | K2 | K4 | One owner for all timing measurements. |
 | Local inference API | none | K2 (after week 8) | Uses K2's free capacity after model freeze; needs model knowledge. |
-| Application viewer/UI | none | K3 | Displays surfaces and coordinates; a CHARM launcher prototype exists. |
+| Application viewer/UI | none | K3 | Displays surfaces and coordinates; the [MRI Workbench prototype](../tools/mri_prototype/README.md) is its starting point, not a late-phase build. |
 | Test custodian | none | K1 | Must not be the person tuning the model or QC. |
 | Packaging, report coordination | K4 | K3 + K4; rotating | K4 overload. |
 

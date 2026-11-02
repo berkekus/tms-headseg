@@ -1,12 +1,29 @@
-"""Read existing SimNIBS models without altering their subject-world geometry."""
+"""Read existing head models without altering their subject-world geometry.
+
+Two kinds of folder open here: a SimNIBS m2m folder and an exported project model. Their
+label numbers mean different tissues, so surfaces are found by role, never by number.
+"""
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
+import sys
 
+import meshio
 from meshio.gmsh import read as read_gmsh
 import numpy as np
 
 from volume import Volume, bounds, load_labels, load_volume
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from headmodel.verify_model import verify_model
+
+SIMNIBS_WHITE_MATTER, SIMNIBS_GRAY_MATTER, SIMNIBS_SKIN = 1001, 1002, 1005
+_PROJECT_TISSUES = {"skin": ("Skin", (255, 166, 133)), "skull": ("Skull", (255, 239, 179)),
+                    "csf": ("CSF", (104, 163, 255)), "gray_matter": ("Gray matter", (129, 129, 129)),
+                    "white_matter": ("White matter", (230, 230, 230))}
+_PROJECT_SURFACES = {"head": (1, "Head", (255, 166, 133)), "brain": (2, "Brain", (129, 129, 129))}
 
 
 @dataclass
@@ -14,6 +31,9 @@ class Surface:
     tag: int
     points: np.ndarray
     triangles: np.ndarray
+    name: str = ""
+    color: tuple | None = None
+    role: str | None = None
 
 
 @dataclass
@@ -25,6 +45,8 @@ class HeadModel:
     surfaces: list
     tissues: dict
     report: Path | None
+    notes: tuple = ()
+    export_source: tuple | None = None
 
 
 def read_lut(path):
@@ -91,10 +113,43 @@ def read_surfaces(path, volume):
     return surfaces
 
 
+def name_simnibs_surfaces(surfaces, tissues):
+    tags = {surface.tag for surface in surfaces}
+    brain = SIMNIBS_GRAY_MATTER if SIMNIBS_GRAY_MATTER in tags else SIMNIBS_WHITE_MATTER
+    roles = {SIMNIBS_SKIN: "head", brain: "brain"}
+    for surface in surfaces:
+        surface.role = roles.get(surface.tag)
+        if tissue_for_surface(surface.tag) in tissues:
+            surface.name, surface.color = tissues[tissue_for_surface(surface.tag)]
+
+
+def load_project_model(directory):
+    """Open an exported model only if it passes the independent check."""
+    failures = verify_model(directory)
+    if failures:
+        raise ValueError(f"Model failed verification: {failures[0]}")
+    record = json.loads((directory / "model.json").read_text(encoding="utf-8"))
+    volume = load_volume(directory / record["reference_image"]["copy"])
+    aligned = load_labels(directory / record["labels"]["file"], volume)
+    tissues = {int(value): _PROJECT_TISSUES[name] for value, name in record["labels"]["values"].items()
+               if name in _PROJECT_TISSUES}
+    surfaces = []
+    for role, description in record["surfaces"].items():
+        mesh = meshio.read(directory / description["file"])
+        tag, name, color = _PROJECT_SURFACES[role]
+        surfaces.append(Surface(tag, np.asarray(mesh.points, dtype=np.float64), mesh.cells_dict["triangle"],
+                                name, color, role))
+    face = record["coverage"]["face"].replace("_", " ")
+    return HeadModel(directory, volume, aligned, directory / "model.json", surfaces, tissues, None,
+                     (f"Face coverage: {face}.", *record["warnings"]))
+
+
 def load_model(directory):
     directory = Path(directory).expanduser().resolve()
     if not directory.is_dir():
         raise ValueError("Choose an existing SimNIBS m2m model folder.")
+    if (directory / "model.json").is_file():
+        return load_project_model(directory)
     t1 = next((directory / name for name in ("T1.nii.gz", "T1.nii") if (directory / name).is_file()), None)
     labels = directory / "final_tissues.nii.gz"
     if t1 is None or not labels.is_file():
@@ -107,9 +162,11 @@ def load_model(directory):
     aligned = load_labels(labels, volume)
     tissues = read_lut(directory / "final_tissues_LUT.txt")
     surfaces = read_surfaces(candidates[0], volume)
+    name_simnibs_surfaces(surfaces, tissues)
     report = next((directory / name for name in ("charm_report.html", "results.html")
                    if (directory / name).is_file()), None)
-    return HeadModel(directory, volume, aligned, candidates[0], surfaces, tissues, report)
+    return HeadModel(directory, volume, aligned, candidates[0], surfaces, tissues, report,
+                     export_source=(t1, labels, "charm"))
 
 
 def tissue_for_surface(tag):

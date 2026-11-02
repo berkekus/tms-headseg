@@ -8,6 +8,7 @@ from importlib import metadata
 import json
 from pathlib import Path
 import platform
+import shutil
 import sys
 import time
 
@@ -36,7 +37,7 @@ def check_output(out):
 
 
 def build_model(t1, segmentation, out, label_scheme="project", surface_format="stl"):
-    """Write labels, two surfaces, and model.json last, so a partial folder cannot verify."""
+    """Write the reference copy, labels, two surfaces, and model.json last, so a partial folder cannot verify."""
     out = Path(out).expanduser().resolve()
     check_output(out)
     moments = [time.perf_counter()]
@@ -58,6 +59,8 @@ def build_model(t1, segmentation, out, label_scheme="project", surface_format="s
     if set(contact) - {"I"}:
         warnings.append(f"Head reaches the image edge on side(s) {', '.join(contact)}; anatomy there may be cut.")
     out.mkdir(parents=True)
+    reference_copy = "reference.nii.gz" if reference.path.name.lower().endswith(".gz") else "reference.nii"
+    shutil.copyfile(reference.path, out / reference_copy)
     write_nifti(out / "labels.nii.gz", cleaned.labels, reference.affine)
     surfaces = {}
     for name, mesh in meshes.items():
@@ -70,7 +73,7 @@ def build_model(t1, segmentation, out, label_scheme="project", surface_format="s
         "schema": SCHEMA,
         "frame": {"name": "RAS", "units": "mm", "declared_in_surface_files": FRAME_TAG,
                   "definition": "World coordinates of the reference image affine."},
-        "reference_image": {"file": reference.path.name, "sha256": sha256(reference.path),
+        "reference_image": {"file": reference.path.name, "copy": reference_copy, "sha256": sha256(reference.path),
                             "shape": list(reference.data.shape), "affine": reference.affine.tolist(),
                             "axes": "".join(nib.aff2axcodes(reference.affine))},
         "labels": {"file": "labels.nii.gz", "sha256": sha256(out / "labels.nii.gz"),

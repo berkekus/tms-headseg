@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from model import tissue_for_surface
 from viewer import label_color
 
 
@@ -121,6 +120,7 @@ class MeshView(QWidget):
         layout.addLayout(self.viewport, 1)
         self.checks = {}
         self.sliders = {}
+        self.presets = {}
 
     def clear(self):
         self.model = None
@@ -136,6 +136,7 @@ class MeshView(QWidget):
             item.widget().deleteLater()
         self.checks.clear()
         self.sliders.clear()
+        self.presets.clear()
         for button in self.preset_buttons.values():
             button.setEnabled(False)
         self.summary.setText("Open an existing head model to inspect its 3D surfaces.")
@@ -144,18 +145,19 @@ class MeshView(QWidget):
         self.clear()
         self.model = model
         count = sum(len(surface.triangles) for surface in model.surfaces)
-        self.summary.setText(f"{model.directory.name}\n{len(model.surfaces)} surfaces · {count:,} triangles\nSubject space · original mesh geometry")
+        self.summary.setText("\n".join((model.directory.name, f"{len(model.surfaces)} surfaces · {count:,} triangles",
+                                         "Subject space · original mesh geometry", *model.notes)))
         self.summary.setToolTip(str(model.mesh_path))
+        self.presets = {surface.role: surface.tag for surface in model.surfaces if surface.role}
         for surface in model.surfaces:
-            label = tissue_for_surface(surface.tag)
-            name, color = model.tissues.get(label, (f"Surface {surface.tag}", label_color(surface.tag)))
+            name = surface.name or f"Surface {surface.tag}"
             check = QCheckBox(f"{name} · {surface.tag}")
             check.setToolTip(f"{len(surface.triangles):,} triangles")
-            check.setChecked(surface.tag in (1002, 1005))
+            check.setChecked(surface.role is not None)
             check.toggled.connect(lambda checked, tag=surface.tag: self.set_visibility(tag, checked))
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setRange(0, 100)
-            slider.setValue(20 if surface.tag == 1005 else 100)
+            slider.setValue(20 if surface.role == "head" else 100)
             slider.setAccessibleName(f"{name} opacity")
             slider.valueChanged.connect(lambda value, tag=surface.tag: self.set_opacity(tag, value))
             self.checks[surface.tag], self.sliders[surface.tag] = check, slider
@@ -163,8 +165,8 @@ class MeshView(QWidget):
             self.tissue_layout.addWidget(slider)
         if not any(check.isChecked() for check in self.checks.values()):
             next(iter(self.checks.values())).setChecked(True)
-        self.preset_buttons[True].setEnabled(bool({1001, 1002} & self.checks.keys()))
-        self.preset_buttons[False].setEnabled(1005 in self.checks)
+        self.preset_buttons[True].setEnabled("brain" in self.presets)
+        self.preset_buttons[False].setEnabled("head" in self.presets)
         if self.renderer is not None:
             self.build_scene()
 
@@ -223,8 +225,7 @@ class MeshView(QWidget):
             mapper.ScalarVisibilityOff()
             actor = vtkActor()
             actor.SetMapper(mapper)
-            label = tissue_for_surface(surface.tag)
-            color = self.model.tissues.get(label, ("", label_color(surface.tag)))[1]
+            color = surface.color or label_color(surface.tag)
             actor.GetProperty().SetColor(*(channel / 255 for channel in color))
             actor.GetProperty().SetOpacity(self.sliders[surface.tag].value() / 100)
             actor.SetVisibility(self.checks[surface.tag].isChecked())
@@ -262,11 +263,11 @@ class MeshView(QWidget):
             self.render()
 
     def preset(self, brain):
-        selected = (1002 if 1002 in self.checks else 1001) if brain else 1005
+        selected = self.presets["brain" if brain else "head"]
         for tag, check in self.checks.items():
             check.setChecked(tag == selected)
-        if 1005 in self.sliders and not brain:
-            self.sliders[1005].setValue(100)
+        if not brain:
+            self.sliders[selected].setValue(100)
         self.reset_camera()
 
     def reset_camera(self):
