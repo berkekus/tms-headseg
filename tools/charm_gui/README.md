@@ -2,14 +2,14 @@
 
 A small Qt desktop window for running an installed SimNIBS CHARM on macOS and Windows. One shared codebase lives in this repository as a preparation tool. The interface runs on your computer without a browser tab, localhost server, or hosted service. It is not the final Module A application, a new segmenter, or a replacement for anatomy review.
 
-Windows-specific execution and packaging are implemented but have not yet been run on a Windows machine. The macOS app has been built and startup-checked on Apple Silicon. A complete reconstruction through either version remains unverified.
+On 2026-11-02 the stand-in test suite passed on Windows 11 with Python 3.13.1 and pywin32 312, including Job Object cleanup, after fixing a job-creation error that had stopped every Windows run. The Windows package has not been built, and real CHARM has not run through it. The macOS app has been built and startup-checked on Apple Silicon. A complete reconstruction through either version remains unverified.
 
 ## Desktop packages
 
 Install [SimNIBS](https://simnibs.github.io/simnibs/build/html/installation/simnibs_installer.html) separately on each computer. The launcher package includes its own Python/Qt runtime, so teammates using a built package do not need a separate Python installation for the launcher.
 
 - **macOS:** extract the macOS ZIP, then open `CHARM Launcher.app`. A local ARM64 build is in `dist/`. The build is ad-hoc signed, not Apple-notarized.
-- **Windows:** extract the Windows ZIP and open `CHARM Launcher/CHARM Launcher.exe`. Keep the entire folder, including `_internal`, together. A Windows build must be produced on Windows; no Windows executable has been produced on this Mac.
+- **Windows:** extract the Windows ZIP and open `CHARM Launcher/CHARM Launcher.exe`. Keep the entire folder, including `_internal`, together. A Windows build must be produced on Windows; no Windows executable has been produced yet.
 
 These are development packages, not signed public installers. Each OS needs its own build; the ZIP is not a universal executable. Windows x64 and Apple Silicon macOS are the intended first targets. Windows ARM and Linux are not established targets.
 

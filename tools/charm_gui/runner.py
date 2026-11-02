@@ -84,7 +84,7 @@ class Runner:
                     stdin=subprocess.DEVNULL, start_new_session=True,
                     env=external_environment(),
                 )
-        except (OSError, ValueError):
+        except Exception:
             self.close()
             raise
         self.started_at = time.monotonic()

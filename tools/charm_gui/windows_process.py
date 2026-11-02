@@ -29,7 +29,8 @@ class WindowsProcess:
         thread = None
         handles = []
         try:
-            self.job = win32job.CreateJobObject(None, None)
+            # pywin32 requires a string; an empty name creates an unnamed job.
+            self.job = win32job.CreateJobObject(None, "")
             info = win32job.QueryInformationJobObject(self.job, win32job.JobObjectExtendedLimitInformation)
             info["BasicLimitInformation"]["LimitFlags"] |= win32job.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
             win32job.SetInformationJobObject(self.job, win32job.JobObjectExtendedLimitInformation, info)
