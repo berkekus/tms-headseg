@@ -150,11 +150,15 @@ class PrototypeTests(unittest.TestCase):
         window.load_mri(self.path)
         self.wait_idle(window)
         script = self.root / "standin.py"
-        script.write_text("import sys\nfrom pathlib import Path\nimport nibabel as nib\nimport numpy as np\n"
+        script.write_text("import sys,shutil,meshio\nfrom pathlib import Path\nimport nibabel as nib\nimport numpy as np\n"
                           "subject, t1 = sys.argv[1:3]\np = Path('m2m_' + subject)\np.mkdir()\n"
                           "img = nib.load(t1)\nlabels = nib.Nifti1Image(np.ones(img.shape, np.uint16), img.affine)\n"
                           "labels.header.set_xyzt_units('mm')\nnib.save(labels, p / 'final_tissues.nii.gz')\n"
-                          "(p / (subject + '.msh')).touch()\nprint('stand-in complete', flush=True)\n", encoding="utf-8")
+                          "shutil.copyfile(t1, p / 'T1.nii.gz')\n"
+                          "mesh = meshio.Mesh(np.array([[0.,0,0],[2.,0,0],[0,3.,0]]), [('triangle', np.array([[0,1,2]]))], "
+                          "cell_data={'gmsh:physical':[np.array([1001])], 'gmsh:geometrical':[np.array([1001])]})\n"
+                          "meshio.write(p / (subject + '.msh'), mesh, file_format='gmsh22', binary=False)\n"
+                          "print('stand-in complete', flush=True)\n", encoding="utf-8")
         if sys.platform == "win32":
             charm = self.root / "charm.cmd"
             charm.write_text(f'@echo off\n"{sys.executable}" -E -u "{script}" %*\n', encoding="utf-8")

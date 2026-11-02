@@ -15,7 +15,7 @@ def label_color(label):
     return tuple(round(channel * 255) for channel in rgb)
 
 
-def render_slice(volume, labels, axis, index, level, width, opacity):
+def render_slice(volume, labels, axis, index, level, width, opacity, colors=None):
     plane = slice_data(volume.data, axis, index)
     gray = np.clip((plane - (level - width / 2)) / max(width, .001), 0, 1)
     rgb = np.repeat((gray * 255).astype(np.uint8)[..., None], 3, axis=2)
@@ -23,7 +23,8 @@ def render_slice(volume, labels, axis, index, level, width, opacity):
         ids = slice_data(labels, axis, index)
         for label in np.unique(ids[ids > 0]):
             mask = ids == label
-            rgb[mask] = rgb[mask] * (1 - opacity) + np.array(label_color(label)) * opacity
+            color = (colors or {}).get(int(label), label_color(label))
+            rgb[mask] = rgb[mask] * (1 - opacity) + np.array(color) * opacity
     rgb = np.ascontiguousarray(rgb)
     return QImage(rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0],
                   QImage.Format.Format_RGB888).copy()
@@ -64,6 +65,7 @@ class SlicePanel(QFrame):
         self.axis = axis
         self.volume = None
         self.labels = None
+        self.colors = {}
         self.level, self.width, self.opacity = 0., 1., .4
         self.setObjectName("slicePanel")
         layout = QVBoxLayout(self)
@@ -86,6 +88,7 @@ class SlicePanel(QFrame):
     def set_volume(self, volume):
         self.volume = volume
         self.labels = None
+        self.colors = {}
         self.slider.setEnabled(volume is not None)
         if volume is not None:
             self.level, self.width = volume.window
@@ -100,7 +103,7 @@ class SlicePanel(QFrame):
         else:
             index = self.slider.value()
             self.canvas.image = render_slice(self.volume, self.labels, self.axis, index,
-                                             self.level, self.width, self.opacity)
+                                             self.level, self.width, self.opacity, self.colors)
             axes = [axis for axis in range(3) if axis != self.axis]
             spacing = np.diag(self.volume.image.affine)[:3]
             shape = self.volume.data.shape

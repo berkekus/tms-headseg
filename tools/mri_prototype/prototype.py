@@ -1,6 +1,7 @@
 """Isolated local MRI inspection prototype; reuses the CHARM launcher's workflow."""
 
 from pathlib import Path
+from html import escape
 import sys
 
 from PySide6.QtCore import QThread, QTimer, Qt, Signal
@@ -15,6 +16,8 @@ from app import Window as LauncherWindow
 
 from viewer import SlicePanel, label_color
 from volume import load_labels, load_volume
+from model import load_model
+from mesh_viewer import MeshView, configure_surface_format
 
 
 class LoadTask(QThread):
@@ -34,6 +37,7 @@ class LoadTask(QThread):
 
 class Window(LauncherWindow):
     def __init__(self):
+        configure_surface_format()
         super().__init__()
         processing = self.takeCentralWidget()
         processing.layout().setContentsMargins(16, 12, 16, 12)
@@ -42,6 +46,8 @@ class Window(LauncherWindow):
         self.volume = None
         self.task = None
         self.overlay = None
+        self.head_model = None
+        self.tissues = {}
         self.setWindowTitle("MRI Workbench · TMS HeadSeg prototype")
         self.resize(1440, 900)
         self.setMinimumSize(1100, 740)
@@ -72,6 +78,12 @@ class Window(LauncherWindow):
         self.open_button.setObjectName("primary")
         self.open_button.clicked.connect(self.choose_mri)
         controls.addWidget(self.open_button)
+        self.open_model_button = QPushButton("Open head model folder…")
+        self.open_model_button.clicked.connect(self.choose_model)
+        controls.addWidget(self.open_model_button)
+        self.existing_report_button = QPushButton("Open model report")
+        self.existing_report_button.clicked.connect(self.open_head_report)
+        controls.addWidget(self.existing_report_button)
         self.example_button = QPushButton("Use Ernie example")
         self.example_button.clicked.connect(self.load_ernie)
         controls.addWidget(self.example_button)
@@ -135,6 +147,9 @@ class Window(LauncherWindow):
         scroll.setWidgetResizable(True)
         scroll.setWidget(processing)
         self.tabs.addTab(scroll, "02   CHARM processing")
+        self.mesh_view = MeshView()
+        self.tabs.addTab(self.mesh_view, "03   3D model")
+        self.tabs.currentChanged.connect(self.tab_changed)
         self.model_button.setText("Open 3D mesh in Gmsh")
         self.feedback = QLabel("Ready · neurological convention: L on screen left in axial/coronal views.")
         self.feedback.setWordWrap(True)
@@ -143,6 +158,8 @@ class Window(LauncherWindow):
         for control in (self.level, self.width):
             control.valueChanged.connect(self.refresh_slices)
         self.opacity.valueChanged.connect(self.refresh_slices)
+        for panel in self.panels:
+            panel.slider.valueChanged.connect(self.refresh_slices)
         self.update_controls()
         self.setStyleSheet("""
             QMainWindow, QWidget { background: #f1f4f2; color: #213634; font-size: 13px; }
@@ -164,13 +181,15 @@ class Window(LauncherWindow):
             QSlider::groove:horizontal { height: 4px; background: #a4b9ad; border-radius: 2px; }
             QSlider::handle:horizontal { width: 14px; margin: -5px 0; background: #439573; border-radius: 7px; }
             QScrollArea { border: 0; }
+            QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #8fa99a; background: #fafcf9; border-radius: 3px; }
+            QCheckBox::indicator:checked { background: #286b56; border: 1px solid #286b56; }
             QGroupBox { border: 1px solid #c8d6ce; border-radius: 5px; margin-top: 14px; padding-top: 14px; }
             QGroupBox::title { subcontrol-origin: margin; padding: 0 6px; }
         """)
 
     def update_controls(self):
         busy = self.task is not None or self.timer.isActive()
-        for control in (self.open_button, self.example_button, self.selected_button):
+        for control in (self.open_button, self.open_model_button, self.example_button, self.selected_button):
             control.setEnabled(not busy)
         self.start_button.setEnabled(not busy)
         self.labels_button.setEnabled(self.volume is not None and not busy)
@@ -178,11 +197,55 @@ class Window(LauncherWindow):
             control.setEnabled(self.volume is not None)
         self.clear_button.setEnabled(self.overlay is not None and not busy)
         self.opacity.setEnabled(self.overlay is not None)
+        self.existing_report_button.setEnabled(self.head_model is not None and self.head_model.report is not None and not busy)
 
     def choose_mri(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open T1 MRI", str(Path.home()), "NIfTI images (*.nii *.nii.gz)")
         if path:
             self.load_mri(path)
+
+    def choose_model(self):
+        path = QFileDialog.getExistingDirectory(self, "Open SimNIBS m2m model folder", str(Path.home()))
+        if path:
+            self.load_head_model(path)
+
+    def clear_model(self):
+        self.head_model = None
+        self.tissues = {}
+        self.mesh_view.clear()
+        self.update_controls()
+
+    def load_head_model(self, directory):
+        if self.task is not None or self.timer.isActive():
+            return
+        self.clear_model()
+        self.volume = None
+        self.clear_overlay()
+        for panel in self.panels:
+            panel.set_volume(None)
+        self.metadata.clear()
+        self.source.setText(Path(directory).name)
+        self.feedback.setText("Opening model MRI, tissue labels and mesh surfaces…")
+        self.tabs.setCurrentIndex(0)
+        self.run_task(lambda: load_model(directory), self.model_loaded)
+
+    def model_loaded(self, model):
+        self.head_model = model
+        self.tissues = model.tissues
+        self.t1.setText(str(model.volume.path))
+        self.t2.clear()
+        self.mri_loaded(model.volume)
+        self.labels_loaded(model.labels)
+        self.mesh_view.set_model(model)
+        self.feedback.setText("Model ready · inspect slices or select 03 3D model. Mesh and MRI use subject-world millimeters; review alignment.")
+
+    def open_head_report(self):
+        if self.head_model is not None and self.head_model.report is not None:
+            self.open_path(self.head_model.report)
+
+    def tab_changed(self, index):
+        if index == 2:
+            self.mesh_view.ensure_renderer()
 
     def load_ernie(self):
         self.use_ernie()
@@ -208,6 +271,7 @@ class Window(LauncherWindow):
         if not path or self.task is not None or self.timer.isActive():
             return
         self.t1.setText(str(Path(path).expanduser().resolve()))
+        self.clear_model()
         self.volume = None
         self.clear_overlay()
         for panel in self.panels:
@@ -241,6 +305,9 @@ class Window(LauncherWindow):
             panel.level, panel.width = self.level.value(), self.width.value()
             panel.opacity = self.opacity.value() / 100
             panel.refresh()
+        self.mesh_view.indices = [next(panel.slider.value() for panel in self.panels if panel.axis == axis) for axis in range(3)]
+        self.mesh_view.level, self.mesh_view.width = self.level.value(), self.width.value()
+        self.mesh_view.update_planes()
 
     def choose_labels(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open tissue labels for this MRI", str(self.volume.path.parent), "NIfTI labels (*.nii *.nii.gz)")
@@ -250,16 +317,21 @@ class Window(LauncherWindow):
     def load_overlay(self, path):
         if self.volume is None or self.task is not None or self.timer.isActive():
             return
+        self.clear_model()
         self.clear_overlay()
         self.feedback.setText("Aligning discrete tissue labels to the MRI grid…")
         self.run_task(lambda: load_labels(path, self.volume), self.labels_loaded)
 
     def labels_loaded(self, result):
         path, self.overlay, ids = result
-        self.legend.setText("<b>Tissue label IDs</b><br>" + "<br>".join(
-            f'<span style="color:rgb{label_color(label)}">■</span> Label {label}' for label in ids))
+        entries = []
+        for label in ids:
+            name, color = self.tissues.get(int(label), (f"Label {label}", label_color(label)))
+            entries.append(f'<span style="color:rgb{color}">■</span> {escape(name)} ({label})')
+        self.legend.setText("<b>Tissues</b><br>" + "<br>".join(entries))
         for panel in self.panels:
             panel.labels = self.overlay
+            panel.colors = {label: tissue[1] for label, tissue in self.tissues.items()}
         self.refresh_slices()
         self.tabs.setCurrentIndex(0)
         self.feedback.setText(f"{path.name} · header-aligned overlay. Confirm same subject and inspect anatomy; this is not automatic QC.")
@@ -288,7 +360,7 @@ class Window(LauncherWindow):
         if was_running and not self.timer.isActive():
             self.update_controls()
             if self.runner.complete and not self.run_error and not self.closing:
-                self.load_overlay(self.runner.job.model_dir / "final_tissues.nii.gz")
+                self.load_head_model(self.runner.job.model_dir)
 
     def closeEvent(self, event):
         if self.task is not None:
@@ -296,6 +368,8 @@ class Window(LauncherWindow):
             event.ignore()
             return
         super().closeEvent(event)
+        if event.isAccepted():
+            self.mesh_view.shutdown()
 
 
 def main():
@@ -303,7 +377,12 @@ def main():
     app.setApplicationName("MRI Workbench")
     window = Window()
     window.show()
-    if "--ernie" in sys.argv:
+    if "--model" in sys.argv:
+        index = sys.argv.index("--model")
+        if index + 1 >= len(sys.argv):
+            raise SystemExit("--model needs an m2m folder path")
+        window.load_head_model(sys.argv[index + 1])
+    elif "--ernie" in sys.argv:
         window.load_ernie()
     if "--smoke-test" in sys.argv:
         timer = QTimer()
