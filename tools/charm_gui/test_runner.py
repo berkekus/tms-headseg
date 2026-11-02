@@ -107,6 +107,15 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("first stage", text)
         self.assertIsNone(runner.poll())
 
+    def test_unexpected_start_failure_releases_log_files(self):
+        target = "windows_process.WindowsProcess" if sys.platform == "win32" else "runner.subprocess.Popen"
+        runner = Runner(self.job())
+        with patch(target, side_effect=TypeError("process API rejected its arguments")):
+            with self.assertRaises(TypeError):
+                runner.start()
+        self.assertTrue(runner.log.closed)
+        self.assertTrue(runner.reader.closed)
+
     def test_windows_cleanup_does_not_require_unix_signals(self):
         runner = Runner(self.job())
         runner.process = Mock()
