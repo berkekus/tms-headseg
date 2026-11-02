@@ -2,6 +2,7 @@
 
 ## 2026-11-02
 
+- **K3 status sweep**: Recorded the VTK reader check, flagged the unrecorded Mac reconstruction in [EXP-001](experiments/ernie-baseline.md) without changing its `not_run` state, and updated the README, roadmap evidence, Q-02, Q-08, and next actions. SimNIBS is not installed on the K3 machine.
 - **Workbench and project models (K3)**: Added the MRI Workbench to the knowledge base, where it was missing, and corrected the team plan's starting point for the viewer. The Workbench now opens verified project exports, finds surfaces by role instead of SimNIBS numbers, and exports a model from the application. Exports gained a byte-identical reference MRI. Native 3D checks passed on Windows with real Ernie data.
 - **Export and first real head (K3)**: Added STL/PLY export with a declared frame, `model.json`, and independent verification to `tools/headmodel`. Ran it on the supplied Ernie labels as [EXP-005](experiments/ernie-surface-export.md): closed surfaces, about 5.5 s for these stages, and a model-to-mesh mean of about 0.2 mm. This shows alignment, not anatomical accuracy, and no independent viewer has opened the output yet. [D-003](decisions/003-export-route-proposal.md) stays proposed.
 - **Cleanup and surfaces (K3)**: Added class-specific cleanup and closed-surface extraction to `tools/headmodel`, tested on synthetic anatomy and with injected defects. Provisional thresholds are listed in [labels and facial coverage](concepts/labels-and-face.md). Real-data results are recorded with the export experiment.

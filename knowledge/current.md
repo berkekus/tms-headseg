@@ -51,7 +51,9 @@ The first two choices come directly from the user; document review is not implie
 
 ## Next useful action
 
-Hold the kickoff in the [Module A start plan](playbooks/module-a-kickoff.md): record owners, start date, and GPU access; then unpack and audit D01/D04/D05/D06, upload D14/D15 to Drive, and run the [Ernie baseline](experiments/ernie-baseline.md) (still **not run**). The start gate at the end of relative week 2 lists the evidence that marks Module A as started. The [launcher prototype](../tools/charm_gui/README.md) still needs its Windows checks.
+Hold the kickoff in the [Module A start plan](playbooks/module-a-kickoff.md): record owners, start date, and GPU access; then unpack and audit D01/D04/D05/D06, upload D14/D15 to Drive, and run the [Ernie baseline](experiments/ernie-baseline.md) (still **not run**). The start gate at the end of relative week 2 lists the evidence that marks Module A as started.
+
+For K3: install SimNIBS and run the baseline, open an export in 3D Slicer, and get team review of the [coordinate contract](concepts/coordinates.md), whose handoffs ask K1 to state units and share one axis order, and K2 to confirm the model path.
 
 ## Decisions and unresolved work
 
