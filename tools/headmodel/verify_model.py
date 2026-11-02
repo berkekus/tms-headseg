@@ -52,6 +52,8 @@ def verify_model(folder, measurements=None):
         failures.append(f"{labels_path.name}: checksum differs from model.json.")
     labels = read_source(labels_path)
     reference = model["reference_image"]
+    if sha256(folder / reference["copy"]) != reference["sha256"]:
+        failures.append(f"{reference['copy']}: checksum differs from model.json.")
     if (list(labels.data.shape) != reference["shape"]
             or world_disagreement(labels.affine, np.array(reference["affine"]), labels.data.shape) > WORLD_TOLERANCE_MM):
         failures.append(f"{labels_path.name}: not on the reference image grid.")

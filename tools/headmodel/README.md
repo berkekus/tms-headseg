@@ -67,6 +67,7 @@ Use `--label-scheme charm` for SimNIBS `final_tissues.nii.gz`; that mapping is p
 | File | Content |
 | --- | --- |
 | `head.stl`, `brain.stl` | Closed surfaces in RAS millimetres, declaring `SPACE=RAS UNITS=mm`. |
+| `reference.nii.gz` | Byte-identical copy of the input T1, so the folder can be inspected on its own. It is patient data; keep it local. |
 | `labels.nii.gz` | Cleaned project labels on the source grid. |
 | `model.json` | Frame, units, reference image checksum and affine, per-surface checksums and integrity, cleanup volumes, warnings, timing, and software versions. It is written last. |
 

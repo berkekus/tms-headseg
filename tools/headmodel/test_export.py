@@ -94,7 +94,12 @@ class BuildModelTests(unittest.TestCase):
     def test_output_folder_holds_labels_surfaces_and_metadata(self):
         self.build()
         self.assertEqual(sorted(path.name for path in self.out.iterdir()),
-                         ["brain.stl", "head.stl", "labels.nii.gz", "model.json"])
+                         ["brain.stl", "head.stl", "labels.nii.gz", "model.json", "reference.nii.gz"])
+
+    def test_reference_copy_is_byte_identical(self):
+        self.build()
+        self.assertEqual((self.out / "reference.nii.gz").read_bytes(), self.t1.read_bytes())
+        self.assertEqual(self.metadata()["reference_image"]["copy"], "reference.nii.gz")
 
     def test_metadata_names_frame_units_and_reference_identity(self):
         self.build()
@@ -225,6 +230,15 @@ class VerifyTests(unittest.TestCase):
         with (folder / "brain.stl").open("ab") as file:
             file.write(b"\0")
         self.assertTrue(any("checksum" in failure for failure in verify_model(folder)))
+
+    def test_changed_reference_fails_the_checksum(self):
+        folder = Path(self.temp.name) / "other_reference"
+        folder.mkdir()
+        for path in self.source.iterdir():
+            (folder / path.name).write_bytes(path.read_bytes())
+        with (folder / "reference.nii.gz").open("ab") as file:
+            file.write(b"\0")
+        self.assertTrue(any("reference.nii.gz" in failure for failure in verify_model(folder)))
 
     def test_surface_without_a_declared_frame_fails(self):
         folder = self.tampered("unlabeled", lambda points: points)
