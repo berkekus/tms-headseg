@@ -9,7 +9,8 @@ Shared English project memory, stored as ordinary Markdown. Begin with current s
 
 - [Current State](current.md) — Confirmed direction, evidence gaps, and the next action.
 - [Scope and Requirements](scope.md) — Traceable core workflow and implementation boundaries.
-- [Implementation Roadmap](roadmap.md) — Adapted source phases; none marked complete.
+- [Implementation Roadmap](roadmap.md) — Adapted source phases with data-informed updates; none marked complete.
+- [Module A Start Plan](playbooks/module-a-kickoff.md) — Everything needed to start Module A, with the end-of-week-2 start gate.
 - [Four-Person Team Workstreams](team.md) — Proposed roles, weekly handoffs, backups, and allocation gaps; names unassigned.
 - [Acceptance and Measurement](acceptance.md) — Proposed targets and definitions still to agree.
 - [Open Questions](questions.md) — Missing decisions and evidence needed to close them.

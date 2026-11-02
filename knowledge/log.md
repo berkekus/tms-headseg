@@ -1,5 +1,10 @@
 # Knowledge Update Log
 
+## 2026-11-02
+
+- **Team rebalance**: At the user's request, replaced the SRC-006 role table in [team workstreams](team.md) with a rebalanced proposal (dataset builder → K1, preprocessing geometry → K3, timing → K4, inference API → K2 after the model freeze, viewer/UI → K3, K1 test custodian, shared packaging, rotating report coordination). The SRC-006 version is kept for provenance. Updated the [start plan](playbooks/module-a-kickoff.md) and [roadmap](roadmap.md) accordingly. Team acceptance and names remain pending.
+- **Data and start plan**: Cataloged SRC-007 (`docs/roadmap.pdf`, 14-page Module A specification), SRC-008–010 (inventory, Module A literature, snowball workbooks), SRC-011 (shared Drive archive), and SRC-012 (literature review; the SLR copy is a duplicate). Rewrote the [data inventory](references/datasets.md) from the Drive control records and official pages (D14 license corrected to CC BY-NC 4.0; IXI overlap across D05/D06/SHARM noted). Added the [Drive archive note](references/team-drive.md), [literature map](references/module-a-literature.md), and the [Module A start plan](playbooks/module-a-kickoff.md); added data-informed updates to the [roadmap](roadmap.md); added Q-18–Q-20. Added `tools/data_staging/` to stage D14–D16 for manual Drive upload (unit tests pass; nothing downloaded or uploaded). No run, audit, or assignment is claimed.
+
 ## 2026-10-30
 
 - **Desktop portability**: The user approved one shared Qt launcher for Windows and macOS. Added Windows launcher resolution, Job Object process ownership, portable log streaming, packaging/runtime isolation, and a manual desktop build workflow. The macOS app built and passed a native startup check. Windows execution/build and real reconstruction remain unverified; no workflow was run or release published. Details are in [launcher usage](../tools/charm_gui/README.md) and [session observations](references/session-observations.md).

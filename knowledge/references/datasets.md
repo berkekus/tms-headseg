@@ -1,56 +1,97 @@
 ---
 type: Data Inventory
 title: Data and Baseline Inventory
-description: Candidate datasets and methods, with availability and annotation limits kept explicit.
+description: Dataset roles for Module A, the shared Drive archive state, licenses, face coverage, and leakage risks.
 status: draft
 generated:
-  by: codex/gpt-6
-  at: '2026-10-22T13:41:29+03:00'
+  by: claude/opus-5.5
+  at: '2026-11-02T18:00:00+03:00'
 sources:
-- id: module
-  resource: module-a-spec.md
-  title: Module A source plan, pp. 6–9
+- id: inventory
+  resource: source-catalog.md#src-008-data-and-tool-inventory-workbook
+  title: Team data and tool inventory workbook, SRC-008
+- id: drive
+  resource: team-drive.md
+  title: Shared Drive archive snapshot, SRC-011
+- id: spec
+  resource: source-catalog.md#src-007-module-a-specification-revision
+  title: Module A specification revision, SRC-007, pp. 6–8
 - id: multi
   resource: https://arxiv.org/abs/2501.18716
   title: MultiAxial model/data release paper
 - id: ixi
   resource: https://brain-development.org/ixi-dataset/
   title: Official IXI dataset
-- id: grace-code
-  resource: https://github.com/lab-smile/GRACE/blob/main/LICENSE
-  title: GRACE code license
 - id: grace-weights
   resource: https://github.com/lab-smile/GRACE/blob/main/MODEL_LICENSE
   title: GRACE weights license
+- id: zenodo-d14
+  resource: https://zenodo.org/records/17486320
+  title: Paired Head CT-MRI dataset record
+- id: zenodo-d15
+  resource: https://zenodo.org/records/7260705
+  title: SynthRAD2023 training data record
+- id: zenodo-d16
+  resource: https://zenodo.org/records/14918089
+  title: SynthRAD2025 dataset record
+- id: sharm
+  resource: https://arxiv.org/abs/2309.06677
+  title: SHARM paper (arXiv v1)
 ---
 
 # Data and Baseline Inventory
 
-This is a candidate inventory, not evidence that datasets have been downloaded, cleared, split, or labeled. Only the Ernie sample's local presence is recorded.
+Updated 2026-11-02 from the team inventory workbook (SRC-008), the shared Drive archive (SRC-011), and official dataset pages read on that date. "In Drive" means the archive's own control record lists the packages; it does not mean anyone has unpacked, audited, split, or labeled the data in this project. No dataset audit has been recorded yet.[^inventory][^drive]
 
-| Resource | Proposed role | Evidence and open checks |
-| --- | --- | --- |
-| SimNIBS Ernie sample | Learn input/output and establish geometry/runtime baseline. | Locally present. Supplied mesh is not a new experiment result. Sample README records CC BY-NC 4.0. |
-| MultiAxial release | Labeled training and difficult-anatomy evaluation. | Module document proposes about 64 subjects; published study describes 98 MRIs overall. Cohort size, public release size, subjects, and scans must be distinguished by an actual manifest.[^multi] |
-| IXI | Candidate additional images for screened pseudo-labels. | Official site provides nearly 600 healthy-subject MR images and T1/T2 downloads. Check each selected scan's coverage and terms.[^ixi] |
-| SynthStrip | Brain-mask robustness checks. | Module document proposes it. Six-tissue or facial-surface ground truth is not established by a brain mask. Actual selected release remains unverified. |
-| Later institutional data | Optional independent evaluation. | No acquisition or access is assumed; core development uses public data. |
+IDs D01–D17 follow the team workbook and Drive folder names. D18+ are new Module A candidates from the literature workbook (SRC-009) and are numbered here for the first time.
+
+## Module A datasets
+
+| ID | Dataset | Module A role | In Drive (2026-10-23 record) | Face | License / access |
+| --- | --- | --- | --- | --- | --- |
+| D01 | MultiAxial v2 (Kaggle) | Main labeled train/validation/test data; lesion robustness. | Yes: 10 packages, 0.74 GB, SHA-256 per package. | Defaced | CC BY-NC-SA 4.0 per Drive guide. |
+| D04 | SimNIBS examples v4.1 + Ernie Extended | Output-format and geometry reference; local charm timing. | Yes: 39 packages, 1.77 GB. | Intact (sample) | Ernie Extended CC BY-NC 4.0; other packages per archive notes. |
+| D05 | SynthStrip v1.5 selection | Domain-shift robustness: 131 adult T1 (ASL 43, FSM 38, IXI 50) with image, brain mask, and labels. | Yes: 13 packages, 1.03 GB; source SHA-256 matched. | Not defaced | IXI part CC BY-SA; rest CC BY 4.0. |
+| D06 | IXI subset | Teacher pseudo-label pool, intact-face cohort, T1 vs T1+T2 comparison. | Partial: 50 of 393 paired T1/T2 subjects (100 NIfTI), evenly spaced IDs IXI002–IXI442; not random. | Not defaced | CC BY-SA 3.0. |
+| D07 | ATLAS v2.0 | Lesion test (optional). | No data; DUA pending. | To check | ICPSR DUA. Do not mirror. |
+| D09 | HCP Young Adult | Large healthy cohort (optional). | No data; account needed. | Not defaced | HCP terms. Do not mirror. |
+| D10 | UPenn-GBM | Pathology test (optional). | Metadata only; MRI ≈69 GB via Aspera. | To check | TCIA terms. Skull-stripped versions unusable for heads. |
+| D12 | OASIS | Age diversity (optional). | No data; version undecided. | Intact | Terms prohibit face reconstruction: no face surfaces. |
+| D13 | ADNI | Older-adult test (optional). | No data; application needed. | Phases 1–3 intact; ADNI-4 defaced | Long approval: keep off the critical path. |
+| D14 | Paired Head CT-MRI | CT-derived skull reference for our model and charm. | **No** — staging script ready. | Not stated | **CC BY-NC 4.0** (the workbook's "CC BY 4.0" is wrong). 120 patients, 40.1 GB; cerebrovascular subset 4.4 GB. |
+| D15 | SynthRAD2023 brain MR-CT | Multi-center CT-derived skull reference. | **No** — staging script ready. | Defaced (brain) | CC BY-NC 4.0. 180 brain training pairs in Task1.zip (14.5 GB, includes pelvis). Some center B/C MRIs contrast-enhanced. |
+| D16 | SynthRAD2025 head-and-neck | Skull-base CT reference (low priority). | **No** — staging script ready. | Defaced | Centers A/B/C/E CC BY-NC 4.0; center D challenge-only: never mirror. |
+| D17 | CERMEP-IDB-MRXFDG | Healthy CT-derived skull reference; MPRAGE close to routine T1. | No; request form. | To check | Access committee approval. Do not mirror. |
+| D18 | SHARM | Candidate extra labeled training data: 196 IXI subjects, 15 tissues (.mat, 7.62 GB on figshare). | No — license not stated; check before mirroring. | IXI source not defaced; model face handling not stated | Not stated. |
+| D19 | DBB distorted brain benchmark | Extra distorted-anatomy test (paediatric, 37 T1, 6 classes). | No | To check | Not verified (publisher page unreadable). |
+| D20 | Head models population (Sci Data 2025) | Candidate pseudo-labels from SimNIBS headreco models. | No | To check | Not verified (publisher login wall). |
+
+D02, D03 (landmarks/registration), D08 (TMS motor mapping), and D11 (UNITE) are in Drive but serve other modules; they are not Module A inputs. Hospital MRI remains optional, needs ethics approval and KVKK compliance, and does not gate core completion under [D-002](../decisions/002-downstream-independence.md).
+
+## Facts that change the plan
+
+- **MultiAxial counts.** The Drive guide says the archive contains anonymised images plus separate variants of four controls: file count is not subject count. SRC-007 proposes 64 subjects (4 healthy, 60 clinical) from three centers (GU, NC, NYU) split ~44/10/10. The paper describes 98 MRIs overall and the literature workbook cites 61 released clinical MRIs. Only a manifest built from the unpacked archive settles the count.[^multi]
+- **IXI appears in three places.** D05 contains 50 IXI subjects, D06 another selection of 50, and D18 (SHARM) 196 IXI subjects. Any IXI ID may appear in more than one source. Deduplicate on IXI subject ID before splitting, and assign each IXI subject to exactly one split.
+- **SynthStrip labels 100–105 are not tissue classes.** Use D05 for brain-mask and robustness checks only, never as six-tissue ground truth.
+- **CT-derived skull is a new validation track.** D14–D17 give skull references independent of charm; they have no ready labels and are not T1-only clinical inputs. Use them for skull evaluation (and possibly partial skull supervision with all other voxels ignored). Contrast-enhanced or defaced inputs must be reported as such.
+- **Only IXI gives intact faces with open access in the archive.** The intact-face validation/calibration and test cohorts (Q-04, Q-15) must come from distinct IXI subjects (D06 or a larger IXI download), not from D01, D14 (unknown), D15, or D16.
+- **GRACE weights are not in Drive.** Their license forbids redistribution; each user downloads them from the official release for research comparison only.[^grace-weights]
 
 ## Label and face audit
 
-For every selected case record a non-identifying case ID, source release, checksum, subject grouping, center where available, shape/spacing, geometry, reference labels, face coverage, and assigned split. An anonymized subject ID can still link repeated scans: split by subject, not filename.
+For every selected case record a non-identifying case ID, source release, checksum, subject grouping, center, shape/spacing, orientation, reference labels, face coverage, contrast, and assigned split. An anonymized subject ID can still link repeated scans: split by subject, not filename.
 
 Defaced examples can support eligible brain tests but cannot establish accuracy for missing facial anatomy. Reference-method labels used for training must not be treated as independent proof of matching that method.
 
-## Baseline and model terms
+## Baseline and comparator terms
 
-The plan considers CHARM, GRACE, and optionally SPM12. Record failure cases and hardware alongside their conditional accuracy. GRACE source code has an MIT license, while its supplied weights have separate research-use, production, and redistribution restrictions. Code licensing does not establish permission to package the weights.[^grace-code][^grace-weights]
+The plan compares against charm (SimNIBS 4.6, which includes the subcutaneous-fat skull improvement), GRACE, SPM12, and optionally SIAM. GRACE code is MIT; its weights are research-only and non-redistributable. Record failure cases and hardware alongside conditional accuracy.
 
 ## Related notes
 
-[Source catalog](source-catalog.md) · [Label contract](../concepts/labels-and-face.md) · [Acceptance](../acceptance.md)
+[Shared Drive archive](team-drive.md) · [Module A literature](module-a-literature.md) · [Start plan](../playbooks/module-a-kickoff.md) · [Label contract](../concepts/labels-and-face.md) · [Acceptance](../acceptance.md)
 
-[^multi]: MultiAxial paper abstract; it does not establish the contents of a selected downloadable subset. [Open source](https://arxiv.org/abs/2501.18716).
-[^ixi]: Official IXI data page. [Open source](https://brain-development.org/ixi-dataset/).
-[^grace-code]: GRACE repository LICENSE. [Open source](https://github.com/lab-smile/GRACE/blob/main/LICENSE).
-[^grace-weights]: GRACE repository MODEL_LICENSE; inspect the exact model/release terms before use. [Open source](https://github.com/lab-smile/GRACE/blob/main/MODEL_LICENSE).
+[^inventory]: Team workbook `docs/Veri_ve_Arac_Envanteri.xlsx`, sheets 1–3. Its grey cells are unverified by its own note. [Catalog entry](source-catalog.md).
+[^drive]: Drive guides and control records dated 2026-10-22/23: `00_BURADAN_BASLA.txt`, `KAYNAK_DURUM_LISTESI.json`, `SON_KONTROL_KAYDI.json`, and per-dataset `00_OKU_BENI.txt`. [Archive note](team-drive.md).
+[^multi]: MultiAxial paper abstract; it does not establish the contents of the downloaded subset. [Open source](https://arxiv.org/abs/2501.18716).
+[^grace-weights]: GRACE MODEL_LICENSE and the Drive K02 guide. [Open source](https://github.com/lab-smile/GRACE/blob/main/MODEL_LICENSE).

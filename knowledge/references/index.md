@@ -10,5 +10,7 @@
 - [User Direction and Local Observations](session-observations.md) — Separate explicit choices, filesystem evidence, and unmeasured results.
 - [SimNIBS Reference](simnibs.md) — Current baseline tools, documented entry points, and important example limitations.
 - [nnU-Net Reference](nnunet.md) — Dataset, split, and configuration details to resolve before training.
-- [Data and Baseline Inventory](datasets.md) — Candidate datasets and methods, with availability and annotation limits kept explicit.
+- [Data and Baseline Inventory](datasets.md) — Dataset roles for Module A, Drive archive state, licenses, face coverage, and leakage risks.
+- [Shared Drive Data Archive](team-drive.md) — Drive layout, verification scope, unpacking procedure, and datasets still to add.
+- [Module A Literature Map](module-a-literature.md) — Literature candidates per phase and claims that still need full-text checks.
 - [Source Catalog](source-catalog.md) — Fingerprints and provenance for the project PDFs and supporting evidence.
