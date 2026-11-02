@@ -14,7 +14,7 @@
 | Preprocessed | 54 cases, 1.1 GB. |
 
 Known caveats:
-- Label mapping from the release labels is inferred (intensity + overlay check), not documented by the data release. Air cavities (release label 1) are merged into background. No `ignore` label for the removed face yet (Q-16).
+- Label mapping from the release labels is inferred (intensity + overlay check); the paper lists the seven classes but not their numeric values and does not contradict the mapping. Air cavities (release label 1) are merged into background. No `ignore` label for the removed face yet (Q-16).
 - Five NYU cases (NYU003/006/007/008/009) have a sheared sform that ITK-based readers reject. Their affine was replaced by the nearest rotation in the nnU-Net copies; `split_manifest.csv` flags them (`affine_orthonormalized`). Do not use these cases' converted affines for physical-space (mm) checks.
 - This machine has 15.8 GB RAM: use one preprocessing worker and keep `nnUNet_n_proc_DA` at 4 or lower.
 
