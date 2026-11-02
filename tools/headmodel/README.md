@@ -55,6 +55,23 @@ brain = extract_surface(brain_mask(result.labels), source.affine)
 
 Cleanup follows the class-specific table in [labels and facial coverage](../../knowledge/concepts/labels-and-face.md). The head surface is the outer envelope, so enclosed air cavities stay background in the labels but do not appear in the surface. Brain cavities are kept. The island threshold, smoothing count, and warning limits are provisional values, not validated settings.
 
+## Building and checking a model
+
+```bash
+python tools/headmodel/build_model.py T1.nii.gz labels.nii.gz OUTPUT_FOLDER
+python tools/headmodel/verify_model.py OUTPUT_FOLDER
+```
+
+Use `--label-scheme charm` for SimNIBS `final_tissues.nii.gz`; that mapping is proposed, not accepted. Use `--format ply` for PLY surfaces. The output folder must be new and outside any Git checkout, because `.gitignore` does not cover surface files.
+
+| File | Content |
+| --- | --- |
+| `head.stl`, `brain.stl` | Closed surfaces in RAS millimetres, declaring `SPACE=RAS UNITS=mm`. |
+| `labels.nii.gz` | Cleaned project labels on the source grid. |
+| `model.json` | Frame, units, reference image checksum and affine, per-surface checksums and integrity, cleanup volumes, warnings, timing, and software versions. It is written last. |
+
+`coverage.face` stays `not_assessed`: nothing here establishes that a face is intact. `verify_model.py` reads the surfaces with meshio rather than the writer, then measures them against the labels. A failure exits with status 1. `compare_to_mesh.py` measures a model against a SimNIBS mesh of the same subject. Results on the public Ernie example are in [EXP-005](../../knowledge/experiments/ernie-surface-export.md).
+
 ## Files
 
 - `frames.py`: RAS/LPS conversion, voxel/world mapping, ITK geometry.
@@ -63,6 +80,10 @@ Cleanup follows the class-specific table in [labels and facial coverage](../../k
 - `labels.py`: project schema and source label mappings.
 - `cleanup.py`: class-specific cleanup with a volume report and warnings.
 - `surfaces.py`: closed surfaces in world millimetres, and integrity measures.
+- `export.py`: STL and PLY writers that declare their frame.
+- `build_model.py`: T1 and labels to an output folder.
+- `verify_model.py`: independent check of an output folder.
+- `compare_to_mesh.py`: distances to a SimNIBS mesh of the same subject.
 - `phantom.py`: asymmetric synthetic head for geometry checks.
 
 ## Checks
