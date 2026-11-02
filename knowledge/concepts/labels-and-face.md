@@ -55,6 +55,8 @@ A largest-component rule may discard valid disconnected anatomy. Filling all hol
 
 Island thresholds are proposed in cubic millimetres. Merge into mutually exclusive labels, record per-class volumes before/after, and inspect anatomy and surface distances. Whole-head union must contain only the mapped anatomical classes, never an annotation-ignore region. Class priority must not conceal conflicting labels. The 2% volume-change warning vs hard gate remains unresolved. Validate every operation, especially brain component removal, before adoption.
 
+`tools/headmodel/cleanup.py` implements this table as a proposal. Removed voxels take the nearest surviving label, so the map stays exclusive. Three values are provisional: a 100 mm³ island limit, a 1 mL limit above which a removed component is reported, and the 2% change, treated as a warning until ALIGN-04 is settled. Cleanup rejects any label outside the schema, including the `ignore` marker, so it cannot enter the whole-head union. No rule is validated on clinical data.
+
 ## Related notes
 
 [Datasets](../references/datasets.md) · [nnU-Net](../references/nnunet.md) · [Review](../reviews/roadmap-review.md)
