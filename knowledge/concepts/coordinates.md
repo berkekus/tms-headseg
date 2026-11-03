@@ -84,11 +84,11 @@ Proposed values, to be confirmed when real data is measured:
 
 | Role | What this asks for |
 | --- | --- |
-| K1 | Set `mm` units in `tools/nnunet_prep`, because MRI Workbench and `read_source` reject the current output. Pass IXI scans (PSR) through `canonicalize` before adding them to `Dataset001`, so MultiAxial (RAS) and IXI share one axis order in E2. Keep original affines for millimetre measurements of the five sheared NYU cases. Check whether any of them fall in the test hold-out. |
+| K1 | Done on 2026-11-03, per the K1 log: `tools/nnunet_prep` writes `mm` units with coded qform and sform, and the rebuilt files pass `read_source` without warnings. The five sheared NYU source affines are kept in `original_affines.json`; NYU009 is one of them and sits in the test hold-out, so its millimetre metrics must use that saved affine. Pending: pass IXI scans (PSR) through `canonicalize` before E2, so MultiAxial (RAS) and IXI share one axis order; this needs the K3 code on `main`. |
 | K2 | Run inference on `write_model_input` output and bring results back with `read_model_output`. Confirm on a smoke run that nnU-Net 2.8.1 returns predictions on the input grid. |
 | K4 | Compute millimetre metrics in world from source-grid labels, not from carrier files. |
 
-K1's facts above come from its unmerged `feat/k1-data-intake` branch. MultiAxial's paper says RSA while file headers say RAS; K1 follows the header, and this still needs one anatomical check in a viewer.
+MultiAxial's paper says RSA while file headers say RAS, and K1 follows the header. K1's left–right check supports it indirectly: lesion CSF lies on the header's left in 51 of 54 training and validation cases and on the right in none, as expected for aphasia-causing strokes (see the [data inventory](../references/datasets.md)). An anterior–superior swap, which RSA would imply, would be obvious in a viewer; one look at a case would close that question.
 
 ## Related notes
 
