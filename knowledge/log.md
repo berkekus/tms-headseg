@@ -1,5 +1,9 @@
 # Knowledge Update Log
 
+## 2026-11-03
+
+- **First trained model (K2, reviewed by K1)**: K2 trained nnU-Net `3d_fullres` for 100 epochs on the handoff package (L4, about 4.5 h). Its `summary.json` confirms the fixed validation split (10 IDs match) and gives validation mean Dice 0.872 (skin 0.955, skull 0.848, CSF 0.795, GM 0.863, WM 0.897). Recorded as [EXP-003](experiments/e1-multiaxial-100ep.md); preliminary, validation only, training log not yet reviewed.
+
 ## 2026-11-02
 
 - **First charm run (K1)**: SimNIBS 4.6.0 installed on the K1 Windows machine; charm on IXI045 (T1+T2) completed in about 66 minutes with complete outputs and visually plausible tissue labels (one subject, not quantitatively assessed). Recorded as [EXP-002](experiments/charm-ixi-pilot.md), partially run (1 of 3), with a proposed charm-to-project label mapping (not accepted). Corrects an earlier assumption that SimNIBS ran on a Mac of the user; the Apple Silicon note in session observations refers to an earlier session's machine.
