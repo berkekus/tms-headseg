@@ -48,7 +48,7 @@ from headmodel.cleanup import brain_mask, clean_labels, head_envelope
 from headmodel.surfaces import extract_surface
 
 result = clean_labels(labels, source.affine)         # exclusive labels, volumes, warnings
-head = extract_surface(head_envelope(result.labels), source.affine)
+head = extract_surface(head_envelope(result.labels, source.affine), source.affine)
 brain = extract_surface(brain_mask(result.labels), source.affine)
 # head.vertices are world coordinates in RAS+ millimetres.
 ```
