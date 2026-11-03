@@ -93,16 +93,19 @@ def deliver(out, owner, subject, record):
 
 
 def ensure_qc_sheet(out, owner, subjects):
+    """Add rows for new subjects; keep every existing row and its notes (runs may cover other cohorts)."""
     path = out / f"qc_{owner}.csv"
-    existing = {}
+    rows = {}
     if path.exists():
         with open(path, newline="") as f:
-            existing = {r["subject"]: r for r in csv.DictReader(f)}
+            rows = {r["subject"]: r for r in csv.DictReader(f)}
+    for s in subjects:
+        rows.setdefault(s, {"subject": s, "qc": "", "notes": ""})
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["subject", "qc", "notes"])
         writer.writeheader()
-        for s in subjects:
-            writer.writerow(existing.get(s, {"subject": s, "qc": "", "notes": ""}))
+        for s in sorted(rows):
+            writer.writerow(rows[s])
 
 
 def run_subject(row, args, out):

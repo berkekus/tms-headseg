@@ -113,6 +113,16 @@ class RunTests(unittest.TestCase):
             self.assertEqual(batch.main(args), 0)  # second pass skips both
             self.assertFalse(any(out.glob("m2m_IXI100_attempt_*")))
 
+    def test_qc_sheet_keeps_rows_from_other_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            (out / "qc_K1.csv").write_text("subject,qc,notes\nIXI028,pass,ok\n")
+            batch.ensure_qc_sheet(out, "K1", ["IXI111"])
+            with open(out / "qc_K1.csv", newline="") as f:
+                rows = {r["subject"]: r for r in csv.DictReader(f)}
+            self.assertEqual(rows["IXI028"]["notes"], "ok")
+            self.assertIn("IXI111", rows)
+
     def test_large_qform_mismatch_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
