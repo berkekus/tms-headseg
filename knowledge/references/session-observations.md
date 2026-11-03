@@ -9,13 +9,13 @@ generated:
 evidence_kind: mixed_explicit_direction_and_observation
 sources:
 - id: session
-  resource: User messages and bounded local inspection on 2026-10-22, 2026-10-23, and 2026-10-30
+  resource: User messages and bounded local inspection on 2026-10-22, 2026-10-23, 2026-10-30, and 2026-11-02
   title: Project conversation and local inspection
 ---
 
 # User Direction and Local Observations
 
-Initial filesystem evidence date: 2026-10-22. Updated with launcher direction and limited checks on 2026-10-30. This record summarizes the current project conversation and limited local inspection. It is not a raw chat transcript or a record of institutional approval.
+Initial filesystem evidence date: 2026-10-22. Updated with launcher direction, diagnostics, and the completed Ernie run through 2026-11-02. This record summarizes the current project conversation and limited local inspection. It is not a raw chat transcript or a record of institutional approval.
 
 | ID | Statement | Evidence kind | Limit |
 | --- | --- | --- | --- |
@@ -32,6 +32,12 @@ Initial filesystem evidence date: 2026-10-22. Updated with launcher direction an
 | OBS-05 | The user loaded the supplied Ernie m2m folder in the SimNIBS GUI and saw a 3D model before pressing Run. | User clarification in this conversation. | Opening a supplied model is not a new CHARM reconstruction or simulation. |
 | OBS-06 | A [launcher prototype](../../tools/charm_gui/README.md) now exists; its native window opened using ARM64 Python 3.14.7 with PySide6 Essentials 6.12.0. The installed CHARM help command exited successfully outside restricted execution. | Local implementation and startup checks on 2026-10-30. | Startup and stand-in process checks do not establish a complete reconstruction, anatomical quality, or runtime. External result opening still needs a real output check. |
 | OBS-07 | The macOS ARM64 desktop bundle built using PyInstaller 6.22.3 and its native `--smoke-test` exited successfully. Windows wrapper resolution, owned process-tree code, and a manual Windows/macOS build workflow were added. | Local build/startup evidence and source inspection on 2026-10-30. | No Windows host or workflow execution was available in this session. A Windows executable, real reconstruction, and external result opening are not claimed. |
+| OBS-08 | User-started Ernie T1-plus-T2 trials produced OpenBLAS thread-metadata/memory errors. The latest window still showed Running with a stagnant log; cancellation completed at 14:32 displayed elapsed time. A rebuilt launcher started a fresh child-scoped thread-limit retry. | Log and native-window inspection on 2026-10-30; details in [EXP-002](../experiments/ernie-thread-limits.md). | A stalled process is not a completed reconstruction. Native crash causation and effectiveness of the workaround remain unconfirmed until the controlled retry finishes. |
+| OBS-09 | The fresh November 2 Ernie T1-plus-T2 run reached CHARM's finish marker at 14:36:57 +03:00, reporting 40:17 runtime. Local checks found a new nonempty mesh, readable tissue labels, and HTML report. Prior OpenBLAS memory/thread-metadata messages were absent; numerical warnings remained. | User completion update and local log/artifact inspection on 2026-11-02; details in [EXP-002](../experiments/ernie-thread-limits.md). | One completed reference-tool run does not establish anatomical accuracy, coordinate acceptance, general reliability, or Windows support. |
+
+## Desktop E1 integration inspection — 2026-11-03
+
+After the user-requested ten-commit fast-forward, source inspection still finds the existing [MRI Workbench](../../tools/mri_prototype/README.md): `prototype.py` offers slice-label loading and a `MeshView` tab, while `model.py:load_model` requires an existing SimNIBS MRI/label/mesh folder. `volume.py:load_labels` resamples discrete NIfTI labels for slice overlays; it does not extract 3D surfaces. The desktop source contains no E1/nnU-Net inference connection. The separate [E1 demo](../../tools/e1_training/DEMO.md) already contains prediction/report and display-surface code. Reusing the desktop renderer with an explicit E1 label map is proposed, not implemented. MRI import still requires explicit spatial units and a coded affine; new team preparation metadata must not be confused with the original training handoff. This was source inspection, not a new native graphics test.
 
 ## Source revision observation
 
@@ -39,7 +45,7 @@ During creation, the proposal file changed from the fingerprinted four-page snap
 
 ## Not established
 
-Ernie runtime, quality scores, a successful complete reconstruction, training access, final team roles, and approved delivery dates have not been recorded. No result should be inferred from the presence of installed binaries or supplied example files.
+Anatomical quality scores, coordinate/export acceptance, training access, final team roles, and approved delivery dates have not been recorded. EXP-002's observed execution result and runtime apply to one new public Ernie T1-plus-T2 reconstruction, not the supplied example model or the planned project segmenter.
 
 ## Portability
 

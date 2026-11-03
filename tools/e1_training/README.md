@@ -2,6 +2,14 @@
 
 Standalone Colab notebook and small local tools for the supplied K2 handoff. No training starts when these files are opened or imported. This tool is separate from the MRI/CHARM prototype.
 
+For teammates reusing the completed model, start with [the handoff guide](HANDOFF.md). Code, clean notebooks, dependency versions and experiment records belong in Git; MRI data, model weights and generated reports remain outside Git in the shared Drive output folder.
+
+## Completed-model demonstration
+
+Use [E1_Demo.ipynb](E1_Demo.ipynb) and the short [demo guide](DEMO.md) to present the completed `E1_L4_001` model. Recorded-result mode needs no GPU and creates an offline HTML report with rotatable tissue surfaces, visibility/opacity controls, and the original slice comparisons. Approximate display surfaces are not a SimNIBS/FEM volume mesh. Explicitly enabled inference loads the existing final checkpoint and produces a new NIfTI prediction in a fresh demo folder. It never starts training or changes training outputs. Rebuild the standalone notebook with `python tools/e1_training/build_demo_notebook.py` from the repository root.
+
+The full demo test suite additionally needs `scikit-image==0.26.0` and `plotly==7.1.0`. Use the separate demo environment; the original audit-only requirements remain minimal.
+
 ## Handoff contract
 
 The supplied `K2_BASLA.md`, `hazirlik_notlari_en.md`, and `splits_final.json` specify:

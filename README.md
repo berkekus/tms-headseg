@@ -136,7 +136,9 @@ See [acceptance and measurement definitions](knowledge/acceptance.md) for source
 
 ## Development setup
 
-For the Qt desktop CHARM preparation tool, follow [launcher setup and usage](tools/charm_gui/README.md). One codebase targets macOS and Windows, with separate desktop packages; the macOS package has passed startup checks, while Windows execution remains unverified. It calls a separately installed SimNIBS and has its own isolated runtime. No complete reconstruction through the launcher or project-model inference/training workflow is established yet. The planned stack above does not imply that dependencies are installed.
+For the Qt desktop CHARM preparation tool, follow [launcher setup and usage](tools/charm_gui/README.md). One codebase targets macOS and Windows, with separate desktop packages; the macOS package passed startup checks and one public Ernie T1-plus-T2 run completed in 40:17 using child-scoped thread limits. Anatomy/geometry acceptance and Windows execution remain unverified. It calls a separately installed SimNIBS and has its own isolated runtime. The planned stack above does not imply that dependencies are installed.
+
+The separate [E1 training and demonstration tools](tools/e1_training/README.md) contain the Colab training notebook, custom trainer, pinned dependencies and an inference-only demo with 3D display surfaces. Teammates reusing the completed model should start with [the model handoff](tools/e1_training/HANDOFF.md). MRI data, checkpoints and generated reports remain outside Git. The preliminary model completed fixed-split validation; it is not accepted held-out test performance or an integrated final application.
 
 Clone the repository:
 
