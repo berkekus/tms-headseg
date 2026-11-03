@@ -2,7 +2,7 @@
 
 A small Qt desktop window for running an installed SimNIBS CHARM on macOS and Windows. One shared codebase lives in this repository as a preparation tool. The interface runs on your computer without a browser tab, localhost server, or hosted service. It is not the final Module A application, a new segmenter, or a replacement for anatomy review.
 
-On 2026-11-02 the stand-in test suite passed on Windows 11 with Python 3.13.1 and pywin32 312, including Job Object cleanup, after fixing a job-creation error that had stopped every Windows run. The Windows package has not been built, and real CHARM has not run through it. The macOS app has been built and startup-checked on Apple Silicon. A complete reconstruction through either version remains unverified.
+On 2026-11-02 the stand-in test suite passed on Windows 11 with Python 3.13.1 and pywin32 312, including Job Object cleanup, after fixing a job-creation error that had stopped every Windows run. On 2026-11-03 the launcher's `Runner` ran a complete SimNIBS 4.6.0 charm reconstruction of the public Ernie T1 on Windows: exit 0, expected outputs present, 1 h 16 min ([EXP-001](../../knowledge/experiments/ernie-baseline.md)). That run used the runner code, not the window; the Windows package has not been built. The macOS app has been built and startup-checked on Apple Silicon. A complete reconstruction through either version remains unverified.
 
 ## Desktop packages
 
