@@ -45,7 +45,8 @@ The first two choices come directly from the user; document review is not implie
 - A shared Qt desktop [CHARM launcher prototype](../tools/charm_gui/README.md) now targets macOS and Windows with input selection, fresh-job execution, live logs, cancellation, and result-opening controls. The macOS ARM64 app bundle built and passed a native startup check; installed CHARM help also exited successfully. The Windows process path passed its stand-in tests on 2026-11-02 after a job-creation fix; the Windows package and manual build workflow have not run. Process checks use stand-ins, not real MRI reconstruction.[^session]
 - The [MRI Workbench prototype](../tools/mri_prototype/README.md) inspects MRI, opens SimNIBS folders and verified project exports, shows surfaces in 3D, and exports a model. On 2026-11-02 its checks and native 3D check passed on Windows with real Ernie data. It is a prototype, not the final application.
 - K3 code in [`tools/headmodel`](../tools/headmodel/README.md) covers the [coordinate contract](concepts/coordinates.md), lossless reorientation, cleanup, surfaces, and generic export. [EXP-005](experiments/ernie-surface-export.md) ran it on one supplied real head; it shows alignment with the supplied mesh, not anatomical accuracy. The contract and D-004 are proposed, not accepted.
-- No final Module A application, trained project model, evaluation result, or successful new CHARM reconstruction has been established. Viewing supplied Ernie outputs remains distinct from generating a model.[^session]
+- [EXP-001](experiments/ernie-baseline.md) completed on 2026-11-03: a fresh SimNIBS 4.6 charm reconstruction of the Ernie T1 on the K3 Windows machine in 1 h 16 min, with outputs on the input grid. Running the K3 surface pipeline on those labels found that open airways entered the head surface ([EXP-006](experiments/ernie-fresh-charm-surfaces.md), fix in progress).
+- No final Module A application or test-set evaluation has been established. [EXP-003](experiments/e1-multiaxial-100ep.md) reports a preliminary model with validation results only.[^session]
 - The team's shared Drive archive packages the Module A core data (MultiAxial, SimNIBS samples, SynthStrip selection, 50-subject IXI subset) with checksums; access-controlled sets have no data. CT-paired skull datasets D14/D15 are missing from Drive; a [staging tool](../tools/data_staging/README.md) prepares them for manual upload. Nothing has been unpacked or audited in this project yet.[^data]
 - The literature review (SRC-012), Module A literature candidates, snowball workbook, and the 14-page Module A specification revision (SRC-007) are now cataloged.[^data]
 
@@ -53,7 +54,7 @@ The first two choices come directly from the user; document review is not implie
 
 Hold the kickoff in the [Module A start plan](playbooks/module-a-kickoff.md): record owners, start date, and GPU access; then unpack and audit D01/D04/D05/D06, upload D14/D15 to Drive, and run the [Ernie baseline](experiments/ernie-baseline.md) (still **not run**). The start gate at the end of relative week 2 lists the evidence that marks Module A as started.
 
-For K3: install SimNIBS and run the baseline, open an export in 3D Slicer, and get team review of the [coordinate contract](concepts/coordinates.md), whose handoffs ask K1 to state units and share one axis order, and K2 to confirm the model path.
+For K3: fix the airway defect found in EXP-006, open an export in 3D Slicer, and get team review of the [coordinate contract](concepts/coordinates.md), whose handoffs ask K1 to state units and share one axis order, and K2 to confirm the model path.
 
 ## Decisions and unresolved work
 
