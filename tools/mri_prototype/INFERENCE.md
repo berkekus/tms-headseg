@@ -33,7 +33,7 @@ OUTPUT_PARENT/
 
 The desktop record captures input/model/runtime paths, exact command, device, mirror augmentation, unit opt-in, four math-library threads, elapsed time, exit code and final outcome. It is the cancellation record when a terminated child retains an incomplete `running` status. The child report contains model hashes and measured model-load/prediction timings. No reference is supplied by the desktop form, so no case Dice or new cohort score is claimed.
 
-The direct E1 3D scene uses approximate display surfaces, not a simulation-ready tetrahedral FEM mesh. Its unit/anatomical limitations remain visible. K3's strict geometry/export requirements are not bypassed by the inference unit opt-in.
+The MRI reaches the model in its stored axis order. E1 was trained on RAS-stored MultiAxial scans, so a PSR scan such as IXI or Ernie arrives in a different order; the effect is unmeasured, and `tools/headmodel/model_io.py` offers the reversible alternative (see the open gap in the [coordinate contract](../../knowledge/concepts/coordinates.md)). The direct E1 3D scene uses approximate display surfaces, not a simulation-ready tetrahedral FEM mesh. Its unit/anatomical limitations remain visible. K3's strict geometry/export requirements are not bypassed by the inference unit opt-in.
 
 ## Developer interfaces
 

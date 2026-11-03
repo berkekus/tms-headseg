@@ -70,7 +70,7 @@ The separate L4 100-epoch preliminary E1 model (`E1_L4_001`) completed after che
 
 Review the report, MRI tissue boundaries, and new mesh from [EXP-002](experiments/ernie-thread-limits.md); record geometry and anatomical findings separately from execution success. The [T1-only baseline](experiments/ernie-baseline.md) completed on Windows on 2026-11-03.
 
-For K3: run the surface pipeline on E1 predictions that state their units (the Workbench now displays E1 predictions, but exports only sources with known units), check the 8 mm envelope seal on more subjects, open an export in 3D Slicer, and get team review of the [coordinate contract](concepts/coordinates.md), whose handoffs ask K1 to state units and share one axis order, and K2 to confirm the model path.
+For K3 (2026-11-03): charm blood now maps to CSF in `tools/headmodel/labels.py`. `tools/headmodel/model_io.py` puts training pairs and inference inputs into RAS order and returns model labels to the source grid; the real Ernie files round-tripped exactly. The Workbench exports E1 predictions whose units are stated, and the 8 mm seal held on a second head ([EXP-007](experiments/mni152-envelope-seal.md)). Still open: E1 inference passes PSR scans such as IXI and Ernie to the RAS-trained model as stored, with unmeasured effect ([D-004](decisions/004-reversible-preprocessing-proposal.md) proposes one comparison); K1 should run `model_io.py prepare` on IXI pairs before E2; export a real E1 prediction; open an export in 3D Slicer (not installed on the K3 machine); face coverage (Q-16) waits for K1's references; and the team still has to review the [coordinate contract](concepts/coordinates.md), D-003, D-004, and the label mapping.
 
 ## Decisions and unresolved work
 

@@ -322,7 +322,8 @@ class Window(LauncherWindow):
         if model.kind == "e1":
             if model.units_assumed:
                 self.metadata.setText(self.metadata.text() + "\nMRI/prediction units assumed mm · physical scale unverified")
-            self.feedback.setText("E1 ready · inspect slices or select 03 3D model. " + model.geometry_note)
+            export = "" if model.export_source else "Export needs MRI and prediction units stated in their headers. "
+            self.feedback.setText("E1 ready · inspect slices or select 03 3D model. " + export + model.geometry_note)
         else:
             self.feedback.setText(" ".join(("Model ready · inspect slices or select 03 3D model. Mesh and MRI use subject-world millimeters; review alignment.", *model.notes)))
 

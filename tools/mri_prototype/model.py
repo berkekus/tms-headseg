@@ -196,7 +196,10 @@ def load_e1_model(mri_path, prediction_path, assume_mm=False):
     assumed = volume.units_assumed or prediction_assumed
     if assumed:
         note += "\nUnknown units assumed mm · physical scale unverified"
-    return HeadModel(path.parent, volume, labels, None, surfaces, E1_TISSUES.copy(), None, "e1", note, assumed)
+    # K3 export reads both files under the coordinate contract, which needs units stated in the headers.
+    export = None if assumed else (Path(mri_path), Path(prediction_path), "project")
+    return HeadModel(path.parent, volume, labels, None, surfaces, E1_TISSUES.copy(), None, "e1", note, assumed,
+                     export_source=export)
 
 
 def tissue_for_surface(tag, kind="simnibs"):

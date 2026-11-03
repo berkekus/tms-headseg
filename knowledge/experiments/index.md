@@ -5,6 +5,7 @@
 Concurrent records retain their original IDs: the two EXP-002 notes describe distinct IXI and Ernie runs; the EXP-003 notes describe the same E1 model, with team-summary and local preparation/demo evidence respectively. Use the linked note title to distinguish them.
 
 - [IXI K2 Batch Preparation and Preflight](ixi-k2-preflight.md) — completed_execution_qc_pending. IXI037 finished in 32:52 (batch 33.0 min), exit 0; input/output/delivery hashes passed. Native batch monitoring shows 1/15 completed. Anatomical QC and the other 14 runs remain pending.
+- [EXP-007: Envelope Seal on a Second Head (SimNIBS MNI152 Example)](mni152-envelope-seal.md) — EXP-007 — completed. The 8 mm seal filled 123.5 mL of internal air and left the outer skin in place; the surface lay 0.24 mm from charm's skin on average.
 - [EXP-006: Surfaces from Fresh charm 4.6 Labels](ernie-fresh-charm-surfaces.md) — EXP-006 — completed. Open airways entered the head surface; an 8 mm seal brought it to a 0.29 mm mean from SimNIBS 4.6's skin.
 - [EXP-001: Ernie T1 Baseline](ernie-baseline.md) — EXP-001 — completed. Fresh SimNIBS 4.6 charm run on the Ernie T1 in 1 h 16 min, 10.1 GB peak memory, outputs on the input grid.
 - [EXP-005: Surfaces and Export from Supplied Ernie Labels](ernie-surface-export.md) — EXP-005 — completed. Cleanup, surfaces, export, and verification on one real head, measured against the supplied mesh.

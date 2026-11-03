@@ -165,6 +165,31 @@ class E1ModelTests(unittest.TestCase):
         self.assertIs(window.volume, old)
         self.assertIsNone(window.task)
 
+    def test_e1_prediction_with_stated_units_exports_through_k3(self):
+        loaded = self.load()
+        self.assertEqual(loaded.export_source, (self.mri, self.pred, "project"))
+        window = Window()
+        self.addCleanup(window.close)
+        window.load_e1_prediction(self.mri, self.pred)
+        self.wait_idle(window)
+        self.assertTrue(window.export_button.isEnabled())
+        folder = self.root / "e1_export"
+        window.export_model(folder)
+        self.wait_idle(window)
+        self.assertTrue((folder / "model.json").is_file())
+        self.assertEqual(window.head_model.kind, "project")
+        self.assertEqual({surface.role for surface in window.head_model.surfaces}, {"head", "brain"})
+
+    def test_e1_prediction_with_assumed_units_is_not_exported(self):
+        unknown = self.save("unknown.nii.gz", self.labels.astype(np.float32), units="unknown")
+        self.assertIsNone(self.load(mri=unknown, assume_mm=True).export_source)
+        window = Window()
+        self.addCleanup(window.close)
+        window.load_e1_prediction(unknown, self.pred, assume_mm=True)
+        self.wait_idle(window)
+        self.assertFalse(window.export_button.isEnabled())
+        self.assertIn("export needs", window.feedback.text().lower())
+
     def test_assumption_is_shown_in_ui_and_not_used_by_later_mri_import(self):
         window = Window()
         self.addCleanup(window.close)
