@@ -5,6 +5,7 @@
 .venv/
 __pycache__/
 *.py[cod]
+.DS_Store
 
 # Local reconstruction outputs must not enter version control.
 m2m_*/
@@ -12,6 +13,10 @@ m2m_*/
 *.nii.gz
 *.msh
 *.launcher.log
+*.pth
+*.pt
+*.ckpt
+/tools/e1_training/*.zip
 
 # Local desktop packaging outputs and caches.
 /tools/charm_gui/.build/
