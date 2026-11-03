@@ -41,6 +41,22 @@ write_nifti("IXI045_0000.nii.gz", canonical, record.model_affine)
 
 Apply the same call to its labels so image and labels stay on one grid.
 
+### From the command line
+
+`model_io.py` does the same for files, for training data and for inference:
+
+```bash
+# Training pair (for example IXI with charm labels): image and project labels in RAS order.
+python tools/headmodel/model_io.py prepare IXI045-T1.nii.gz IXI045_0000.nii.gz --record IXI045.geometry.json \
+    --labels final_tissues.nii.gz --labels-out IXI045.nii.gz --label-scheme charm
+
+# Inference: prepare the MRI, run the model on the prepared file, then return its labels to the MRI grid.
+python tools/headmodel/model_io.py prepare T1.nii.gz case_0000.nii.gz --record case.geometry.json
+python tools/headmodel/model_io.py restore prediction.nii.gz case.geometry.json labels_on_T1.nii.gz
+```
+
+`prepare` permutes and flips axes only; no voxel value changes, so a RAS scan comes out with the same array. Labels must be on the image grid. `--label-scheme charm` maps raw charm labels with the proposed table in `labels.py` first; the default expects project labels 0–5. The record stores the source file name, checksum, axis order, and both affines; keep it with the case. `restore` refuses a prediction that is not on the prepared grid and writes the labels with the source affine, sheared or not. Outputs are never overwritten and must be outside any Git checkout. Units must be stated in the header (`read_source`); the tool makes no unit assumption.
+
 ## From labels to surfaces
 
 ```python
@@ -78,6 +94,7 @@ Use `--label-scheme charm` for SimNIBS `final_tissues.nii.gz`; that mapping is p
 - `frames.py`: RAS/LPS conversion, voxel/world mapping, ITK geometry.
 - `images.py`: validated NIfTI reading and the project writer.
 - `reversible.py`: lossless reorientation and the carrier file for the model.
+- `model_io.py`: command line for `prepare` (scan and labels into RAS order) and `restore` (model labels back to the scan).
 - `labels.py`: project schema and source label mappings.
 - `cleanup.py`: class-specific cleanup with a volume report and warnings.
 - `surfaces.py`: closed surfaces in world millimetres, and integrity measures.
