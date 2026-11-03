@@ -1,17 +1,20 @@
-"""Explicit native GPU/Qt check; reads an existing model and never runs CHARM."""
+"""Native Qt/VTK check for an existing SimNIBS model or E1 prediction; never runs inference."""
 
 import argparse
 from pathlib import Path
 import time
+from types import SimpleNamespace
 
+import nibabel as nib
 import numpy as np
 from PySide6.QtCore import QEventLoop, QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from vtkmodules.util.numpy_support import vtk_to_numpy
-from vtkmodules.vtkRenderingCore import vtkWindowToImageFilter
+from vtkmodules.vtkRenderingCore import vtkRenderer, vtkRenderWindow, vtkWindowToImageFilter
+import vtkmodules.vtkRenderingOpenGL2  # register OpenGL renderer
 
-from mesh_viewer import plane_geometry
+from mesh_viewer import plane_actor, plane_geometry
 from prototype import Window
 
 
@@ -28,21 +31,85 @@ def wait_for_model(app, window):
     assert window.head_model is not None, window.feedback.text()
 
 
+def capture(window):
+    grabber = vtkWindowToImageFilter()
+    grabber.SetInput(window)
+    grabber.ReadFrontBufferOff()
+    grabber.Update()
+    image = grabber.GetOutput()
+    width, height, _ = image.GetDimensions()
+    return vtk_to_numpy(image.GetPointData().GetScalars()).reshape(height, width, -1)
+
+
+def rendered_voxel_position(voxel, count=256, size=1024):
+    """World x of one bright 1 mm voxel, measured from an orthographic render of its plane."""
+    data = np.zeros((count, count, 3), np.float32)
+    data[voxel, count // 2, 1] = 1
+    volume = SimpleNamespace(data=data, image=nib.Nifti1Image(data, np.eye(4)))
+    renderer = vtkRenderer()
+    renderer.AddActor(plane_actor(volume, 2, 1, .5, 1))
+    window = vtkRenderWindow()
+    window.SetOffScreenRendering(1)
+    window.SetSize(size, size)
+    window.AddRenderer(renderer)
+    camera = renderer.GetActiveCamera()
+    camera.ParallelProjectionOn()
+    center = (count - 1) / 2
+    camera.SetFocalPoint(center, center, 1)
+    camera.SetPosition(center, center, 500)
+    camera.SetViewUp(0, 1, 0)
+    span = count + 8
+    camera.SetParallelScale(span / 2)
+    renderer.ResetCameraClippingRange()
+    window.Render()
+    profile = capture(window)[..., 0].astype(float).sum(axis=0)
+    pixels = np.nonzero(profile > profile.max() / 4)[0]
+    centroid = (pixels * profile[pixels]).sum() / profile[pixels].sum() + .5
+    return center + (centroid - size / 2) * span / size
+
+
+def check_plane_texture_registration():
+    for voxel in (10, 64, 128, 192, 245):
+        error = rendered_voxel_position(voxel) - voxel
+        assert abs(error) < .1, f"Voxel {voxel} is drawn {error:+.2f} mm from its world position"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("model", type=Path)
+    parser.add_argument("model", type=Path, nargs="?")
+    parser.add_argument("--e1-mri", type=Path)
+    parser.add_argument("--e1-prediction", type=Path)
+    parser.add_argument("--assume-mm", action="store_true", help="Explicit E1 display assumption for unknown units")
     parser.add_argument("--screenshots", type=Path, help="Optional local directory for review images")
     args = parser.parse_args()
+    e1 = args.e1_mri is not None or args.e1_prediction is not None
+    if (e1 and (args.model or not args.e1_mri or not args.e1_prediction)) or (not e1 and not args.model):
+        parser.error("Choose one model folder, or both --e1-mri and --e1-prediction.")
+    if args.assume_mm and not e1:
+        parser.error("--assume-mm applies only to E1 display imports.")
+    check_plane_texture_registration()
     app = QApplication([])
     window = Window()
     window.show()
+    def load():
+        if e1:
+            window.e1_assume_mm.setChecked(args.assume_mm)
+            window.load_e1_prediction(args.e1_mri, args.e1_prediction, assume_mm=args.assume_mm)
+        else:
+            window.load_head_model(args.model)
     try:
-        window.load_head_model(args.model)
+        load()
         wait_for_model(app, window)
         window.tabs.setCurrentIndex(2)
         for _ in range(5):
             pump(app)
         view = window.mesh_view
+        if e1:
+            assert window.head_model.kind == "e1"
+            assert window.head_model.mesh_path is None
+            assert set(view.checks) == set(window.head_model.tissues) & set(window.head_model.labels[2])
+            if window.head_model.units_assumed:
+                assert "assumed" in window.metadata.text().lower()
         assert len(view.actors) == len(window.head_model.surfaces)
         for surface in window.head_model.surfaces:
             actual = np.array(view.actors[surface.tag].GetBounds()).reshape(3, 2)
@@ -67,14 +134,8 @@ def main():
         view.reset_camera()
         view.render()
         pump(app)
-        capture = vtkWindowToImageFilter()
-        capture.SetInput(view.canvas.GetRenderWindow())
-        capture.ReadFrontBufferOff()
-        capture.Update()
-        image = capture.GetOutput()
-        pixels = vtk_to_numpy(image.GetPointData().GetScalars())
-        width, height, _ = image.GetDimensions()
-        pixels = pixels.reshape(height, width, -1)
+        pixels = capture(view.canvas.GetRenderWindow())
+        height, width = pixels.shape[:2]
         center = pixels[height // 4:3 * height // 4, width // 4:3 * width // 4]
         assert np.ptp(center.astype(float), axis=(0, 1)).max() > 20, "No model geometry rendered in the viewport"
         if args.screenshots:
@@ -94,12 +155,12 @@ def main():
         pump(app)
         if args.screenshots:
             window.grab().save(str(args.screenshots / "model-planes.png"))
-        window.load_head_model(args.model)
+        load()
         wait_for_model(app, window)
         window.tabs.setCurrentIndex(2)
         pump(app)
         assert view.actors, "Reopening lost the 3D scene"
-        print("Native 3D check passed: geometry, mouse rotation, visibility, opacity, linked MRI planes, and model reopening.", flush=True)
+        print("Native 3D check passed: plane texture registration, geometry, mouse rotation, visibility, opacity, linked MRI planes, and model reopening.", flush=True)
     finally:
         window.close()
 

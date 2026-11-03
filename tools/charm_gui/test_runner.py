@@ -85,6 +85,21 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse((self.root / "nope").exists())
         self.assertFalse(runner.complete)
 
+    def test_math_thread_limits_reach_child_without_changing_parent(self):
+        import os
+        import json
+        keys = ("OPENBLAS_NUM_THREADS", "OPENBLAS_DEFAULT_NUM_THREADS", "OMP_NUM_THREADS")
+        self.write_charm("import os,json\n" + f"print(json.dumps({{k:os.environ.get(k) for k in {keys!r}}}), flush=True)\n")
+        with patch.dict(os.environ, {key: "256" for key in keys}):
+            runner = Runner(self.job())
+            runner.start()
+            self.addCleanup(runner.close)
+            text = self.wait_done(runner)
+            child = json.loads(next(line for line in text.splitlines() if line.startswith("{")))
+            self.assertEqual(child, {key: "1" for key in keys})
+            self.assertEqual({key: os.environ[key] for key in keys}, {key: "256" for key in keys})
+            self.assertIn("OPENBLAS_NUM_THREADS=1", runner.log_path.read_text())
+
     def test_success_requires_mesh_and_labels(self):
         self.write_charm("from pathlib import Path\np = Path('m2m_trial_01')\np.mkdir()\n"
                          "(p / 'trial_01.msh').touch()\n(p / 'final_tissues.nii.gz').touch()\n")
@@ -106,6 +121,15 @@ class RunnerTests(unittest.TestCase):
             time.sleep(0.02)
         self.assertIn("first stage", text)
         self.assertIsNone(runner.poll())
+
+    def test_unexpected_start_failure_releases_log_files(self):
+        target = "windows_process.WindowsProcess" if sys.platform == "win32" else "runner.subprocess.Popen"
+        runner = Runner(self.job())
+        with patch(target, side_effect=TypeError("process API rejected its arguments")):
+            with self.assertRaises(TypeError):
+                runner.start()
+        self.assertTrue(runner.log.closed)
+        self.assertTrue(runner.reader.closed)
 
     def test_windows_cleanup_does_not_require_unix_signals(self):
         runner = Runner(self.job())

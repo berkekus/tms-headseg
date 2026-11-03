@@ -60,6 +60,7 @@ class Runner:
         self.log_path = None
         self.log = None
         self.reader = None
+        self.environment = None
         self.decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
     def start(self):
@@ -67,24 +68,30 @@ class Runner:
             raise ValueError("This job has already started.")
         self.job.validate()
         stamp = time.time_ns()
+        self.environment = external_environment()
+        # Avoid nested OpenBLAS/OpenMP pools exhausting the library's thread metadata.
+        limits = {key: "1" for key in ("OPENBLAS_NUM_THREADS", "OPENBLAS_DEFAULT_NUM_THREADS", "OMP_NUM_THREADS")}
+        self.environment.update(limits)
         self.log_path = self.job.output / f"charm.{self.job.subject}.{stamp}.launcher.log"
         self.log = self.log_path.open("xb", buffering=0)
         try:
+            header = "Launcher thread limits: " + ", ".join(f"{key}={value}" for key, value in limits.items()) + "\n\n"
+            self.log.write(header.encode("utf-8"))
             self.reader = self.log_path.open("rb", buffering=0)
             if sys.platform == "win32":
                 try:
                     from windows_process import WindowsProcess
                 except ImportError as error:
                     raise OSError("Windows process support is missing. Install requirements.txt in the launcher environment.") from error
-                self.process = WindowsProcess(self.job.command(), self.job.output, self.log)
+                self.process = WindowsProcess(self.job.command(), self.job.output, self.log, self.environment)
             else:
                 self.process = subprocess.Popen(
                     self.job.command(), cwd=self.job.output,
                     stdout=self.log, stderr=subprocess.STDOUT,
                     stdin=subprocess.DEVNULL, start_new_session=True,
-                    env=external_environment(),
+                    env=self.environment,
                 )
-        except (OSError, ValueError):
+        except Exception:
             self.close()
             raise
         self.started_at = time.monotonic()

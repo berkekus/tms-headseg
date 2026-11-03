@@ -17,7 +17,7 @@ sources:
 
 # Modeling Pipeline
 
-Proposed flow: MRI import → validated image/geometry → segmentation → surfaces → QC and inspection → documented export. These are planned boundaries, not implemented packages.[^proposal][^module]
+Proposed flow: MRI import → validated image/geometry → segmentation → surfaces → QC and inspection → documented export. These are planned boundaries.[^proposal][^module] `tools/headmodel` implements proposed versions of the preprocessing geometry, surface, and export stages, and the [MRI Workbench](../../tools/mri_prototype/README.md) prototypes inspection; DICOM import, segmentation, QC, and the local API do not exist yet.
 
 | Stage | Input and output contract to establish |
 | --- | --- |

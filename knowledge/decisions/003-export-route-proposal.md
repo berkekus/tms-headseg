@@ -31,6 +31,14 @@ Keep optional volume meshing separate until a demonstrated requirement justifies
 
 Demonstrate overlay alignment, physical scale, left/right consistency, and usable surface quality. Document format limitations and stage timings. Then choose the first supported export contract in a reviewed decision.
 
+## Evidence so far
+
+`tools/headmodel` implements a candidate: `head` and `brain` surfaces in RAS millimetres, `labels.nii.gz` on the source grid, and `model.json` with frame, units, reference identity, cleanup volumes, warnings, timing, and software versions. Surface files declare `SPACE=RAS UNITS=mm`, the tag 3D Slicer reads from an STL header or PLY comment. [EXP-005](../experiments/ernie-surface-export.md) measured one real head.
+
+Format limits observed while implementing: binary STL stores float32 coordinates, repeats vertices, and has only an 80-byte header, so it cannot carry the contract alone. PLY keeps shared vertices. Both rely on `model.json` for everything beyond the frame tag.
+
+Still missing: an opening in an independent viewer, usable-surface review by a person, and team acceptance.
+
 ## Alternatives
 
 A volume-mesh route may be useful for research interoperability but adds runtime and packaging questions. SimNIBS already provides a documented label-to-mesh tool; that alone does not prove the full project output contract.

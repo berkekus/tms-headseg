@@ -2,14 +2,14 @@
 
 A small Qt desktop window for running an installed SimNIBS CHARM on macOS and Windows. One shared codebase lives in this repository as a preparation tool. The interface runs on your computer without a browser tab, localhost server, or hosted service. It is not the final Module A application, a new segmenter, or a replacement for anatomy review.
 
-Windows-specific execution and packaging are implemented but have not yet been run on a Windows machine. The macOS app has been built and startup-checked on Apple Silicon. A complete reconstruction through either version remains unverified.
+On 2026-11-02 the stand-in test suite passed on Windows 11 with Python 3.13.1 and pywin32 312, including Job Object cleanup, after fixing a job-creation error that had stopped every Windows run. On 2026-11-03 the launcher's `Runner` ran a complete SimNIBS 4.6.0 charm reconstruction of the public Ernie T1 on Windows: exit 0, expected outputs present, 1 h 16 min ([EXP-001](../../knowledge/experiments/ernie-baseline.md)). That run used the runner code, not the window, and predates the thread limits described below; the Windows package has not been built. The macOS app has been built and startup-checked on Apple Silicon, and one fresh public Ernie T1-plus-T2 reconstruction completed there on 2026-11-02. Anatomical accuracy and external viewer opening remain unverified.
 
 ## Desktop packages
 
 Install [SimNIBS](https://simnibs.github.io/simnibs/build/html/installation/simnibs_installer.html) separately on each computer. The launcher package includes its own Python/Qt runtime, so teammates using a built package do not need a separate Python installation for the launcher.
 
 - **macOS:** extract the macOS ZIP, then open `CHARM Launcher.app`. A local ARM64 build is in `dist/`. The build is ad-hoc signed, not Apple-notarized.
-- **Windows:** extract the Windows ZIP and open `CHARM Launcher/CHARM Launcher.exe`. Keep the entire folder, including `_internal`, together. A Windows build must be produced on Windows; no Windows executable has been produced on this Mac.
+- **Windows:** extract the Windows ZIP and open `CHARM Launcher/CHARM Launcher.exe`. Keep the entire folder, including `_internal`, together. A Windows build must be produced on Windows; no Windows executable has been produced yet.
 
 These are development packages, not signed public installers. Each OS needs its own build; the ZIP is not a universal executable. Windows x64 and Apple Silicon macOS are the intended first targets. Windows ARM and Linux are not established targets.
 
@@ -59,6 +59,12 @@ It never uses `--forcerun`. Existing `m2m_SUBJECT` paths are rejected, including
 
 Full console output goes directly to a unique `charm.SUBJECT.TIMESTAMP.launcher.log` in the output folder. The window tails that file and retains up to 10,000 lines, avoiding platform-specific pipe modes. Logs can contain local paths and scan information; keep them with the local data. CHARM also writes its own reports and logs.
 
+### OpenBLAS threading workaround
+
+Following repeated stalled Ernie trials with OpenBLAS thread-metadata and memory-unallocation errors on the development M4 Pro, launcher-started CHARM jobs now receive `OPENBLAS_NUM_THREADS=1`, `OPENBLAS_DEFAULT_NUM_THREADS=1`, and `OMP_NUM_THREADS=1`. These values override inherited values only for that child job and are printed at the beginning of its log. System settings and installed SimNIBS packages are not changed. OpenMP limits can also affect other OpenMP code; record these settings when comparing runtimes. One capped Ernie T1-plus-T2 run completed in 40:17 without the prior OpenBLAS memory/thread-metadata messages; this does not establish general reliability or anatomical accuracy.
+
+The installed OpenBLAS runtime reported one thread in a small diagnostic with these settings. NumPy 2.3.0 on the development M4 also emitted `matmul` warnings for a correct identity-matrix result; that diagnostic does not establish the correctness of segmentation calculations. Warnings are not suppressed. See the [experiment record](../../knowledge/experiments/ernie-thread-limits.md) and [OpenBLAS runtime controls](https://www.openmathlib.org/OpenBLAS/docs/runtime_variables/).
+
 A zero exit code plus the expected `.msh` and `final_tissues.nii.gz` files counts as a completed job. This is an output-presence check, not an anatomical, numerical, or clinical quality check. Failed or incomplete runs show an explicit status.
 
 ## Try Ernie
@@ -71,7 +77,7 @@ For a prefilled preview:
 tools/charm_gui/.venv/bin/python tools/charm_gui/app.py --ernie
 ```
 
-Clear T2 for a T1-only experiment. Keep inputs, supplied example outputs, and new reconstruction outputs separate. Reconstruction can take several minutes or longer; no performance measurement is claimed here.
+Clear T2 for a T1-only experiment. Keep inputs, supplied example outputs, and new reconstruction outputs separate. One Ernie T1-plus-T2 run on the development M4 Pro with the above limits reported 40:17. Treat this as a single observed reference-tool runtime, not a speed target, general benchmark, or T1-only result.
 
 ## Checks and current limits
 
@@ -83,7 +89,7 @@ On Windows, replace `tools/charm_gui/.venv/bin/python` with `tools/charm_gui/.ve
 
 Checks use temporary stand-in executables and do not require SimNIBS. They cover input validation, existing models, Git output rejection, paths containing shell characters, output streaming before exit, failed/incomplete jobs, successful output detection, tree cancellation, standard Windows wrapper parsing, packaging environment isolation, and the Qt start/finish workflow. The Windows-only job cleanup check is skipped on macOS.
 
-On 2026-10-30, the source preview opened using ARM64 Python 3.14.7 and PySide6 Essentials 6.12.0. The installed SimNIBS 4.6 `charm --help` exited successfully. The macOS desktop package built with PyInstaller 6.22.3 and its native startup check exited successfully. This does not establish Windows execution, a complete reconstruction, or external report/mesh opening through the launcher. Restricted agent execution blocks macOS GUI services and CHARM's local MPI socket; normal desktop execution is separate from those restrictions.
+On 2026-10-30, the source preview opened using ARM64 Python 3.14.7 and PySide6 Essentials 6.12.0. The installed SimNIBS 4.6 `charm --help` exited successfully. The macOS desktop package built with PyInstaller 6.22.3 and its native startup check exited successfully. On 2026-11-02, a new public Ernie T1-plus-T2 run completed with mesh, labels, and report present; its label volume was successfully read. Anatomy, coordinate acceptance, external viewer opening, and Windows execution remain unverified. Restricted agent execution blocks macOS GUI services and CHARM's local MPI socket; normal desktop execution is separate from those restrictions.
 
 Before declaring the Windows version ready, run the tests on Windows, open the packaged application, select an installed SimNIBS, reconstruct a fresh public Ernie case, cancel a separate trial, and check reports and Gmsh opening. Do not substitute the supplied Ernie model for a newly generated result.
 

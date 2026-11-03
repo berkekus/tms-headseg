@@ -4,7 +4,7 @@
 
 TMS HeadSeg is a research prototype plan for generating a patient-specific head model from a routine T1-weighted MRI. Module A connects AI-assisted segmentation, surface generation, interactive inspection, and software-independent export. The module roadmap proposes a trained nnU-Net segmenter; the exact implementation and training scope remain planning decisions.
 
-The document describes a planned system. A small [CHARM launcher prototype](tools/charm_gui/README.md) is available for local baseline preparation; the Module A application, trained project weights, and datasets are not yet provided. Performance figures below are provisional targets, not achieved results. All outputs require clinician review; the system is not for autonomous clinical decisions.
+The document describes a planned system. Working parts so far are a [CHARM launcher](tools/charm_gui/README.md), the [MRI Workbench prototype](tools/mri_prototype/README.md), and [head model geometry code](tools/headmodel/README.md) for reorientation, surfaces, and export. The final Module A application, trained project weights, and datasets are not provided. Performance figures below are provisional targets, not achieved results. All outputs require clinician review; the system is not for autonomous clinical decisions.
 
 The latest received nineteen-page roadmap, [SRC-006](knowledge/references/module-a-roadmap-team-update.md), expands the [four-person team proposal](knowledge/team.md). Its technical text outside section 9.2 matches the earlier seventeen-page SRC-005 after normalization. The [alignment review](knowledge/reviews/roadmap-alignment.md) retains remaining gaps; source roles and targets do not establish team approval or named assignments.
 
@@ -136,7 +136,11 @@ See [acceptance and measurement definitions](knowledge/acceptance.md) for source
 
 ## Development setup
 
-For the Qt desktop CHARM preparation tool, follow [launcher setup and usage](tools/charm_gui/README.md). One codebase targets macOS and Windows, with separate desktop packages; the macOS package has passed startup checks, while Windows execution remains unverified. It calls a separately installed SimNIBS and has its own isolated runtime. No complete reconstruction through the launcher or project-model inference/training workflow is established yet. The planned stack above does not imply that dependencies are installed.
+For the Qt desktop CHARM preparation tool, follow [launcher setup and usage](tools/charm_gui/README.md). One codebase targets macOS and Windows, with separate desktop packages. The macOS package passed startup checks, and one public Ernie T1-plus-T2 run completed there in 40:17 using child-scoped thread limits. On Windows the process path passed its stand-in tests and the launcher's runner completed a public Ernie T1-only run; no Windows package has been built. Anatomy and geometry acceptance remain open. It calls a separately installed SimNIBS and has its own isolated runtime. The planned stack above does not imply that dependencies are installed.
+
+For inspection, follow the [MRI Workbench guide](tools/mri_prototype/README.md). For labels to documented surfaces, follow the [head model guide](tools/headmodel/README.md), which also explains how a model's input and output pass through the [coordinate contract](knowledge/concepts/coordinates.md).
+
+The separate [E1 training and demonstration tools](tools/e1_training/README.md) contain the Colab training notebook, custom trainer, pinned dependencies and an inference-only demo with 3D display surfaces. Teammates reusing the completed model should start with [the model handoff](tools/e1_training/HANDOFF.md). MRI data, checkpoints and generated reports remain outside Git. The preliminary model completed fixed-split validation; it is not accepted held-out test performance or an integrated final application.
 
 Clone the repository:
 
