@@ -38,7 +38,7 @@ Choose **Open head model folder…** in the inspection tab and select an `m2m_SU
 
 The same button opens a folder exported by [`tools/headmodel`](../headmodel/README.md), recognized by its `model.json`. Such a folder must pass `verify_model` first; a failed check refuses the model and clears the view. Its face-coverage status and warnings stay visible beside the 3D view. SimNIBS and project label numbers mean different tissues, so the viewer finds head and brain surfaces by role rather than by number.
 
-**Export head model…** turns the open SimNIBS folder, or a T1 with loaded project labels, into a new exported folder and opens it. Name a new folder outside any Git checkout. SimNIBS labels use the mapping proposed in EXP-002, which is not accepted.
+**Export head model…** turns the open SimNIBS folder, a T1 with loaded project labels, or an E1 prediction whose MRI and prediction headers state their units, into a new exported folder and opens it. An E1 import that relies on **E1: assume mm** is not exported, because the export reads both files under the coordinate contract; the status line says so. Name a new folder outside any Git checkout. SimNIBS labels use the mapping proposed in EXP-002, which is not accepted.
 
 MRI, segmentation, and tagged mesh surfaces are read in the background. The lookup table supplies tissue names and colors for both the slice overlays and 3D controls; absent names stay numeric. **Open model report** opens the selected folder's report without needing a processing job in this session.
 
@@ -116,6 +116,8 @@ Windows observations on 2026-11-02 on an NVIDIA RTX 4070 SUPER, with Python 3.13
 - All 26 prototype checks passed. `check_3d.py` passed natively on the supplied Ernie folder and on a project export built from its labels. Screenshots of the export were reviewed by the agent running the check, not by a clinician.
 - Opening an exported Ernie model includes verification, which took about 10 seconds. This demonstrates viewing on Windows, not anatomical accuracy. Packaged installers and other graphics hardware remain unverified.
 - After merging the E1 display on 2026-11-03, all 38 prototype checks passed on Windows, and `check_3d.py` passed natively for a SimNIBS folder, a project export, and the E1 path. The E1 run used fresh Ernie labels mapped to the project schema as a stand-in prediction, with stated millimetre units; no real E1 prediction was available on this machine.
+
+- On 2026-11-03 (K3), E1 predictions with stated units became exportable; all 64 prototype checks passed on Windows, including two new export checks on a synthetic prediction. No real E1 prediction was exported on this machine.
 
 E1 desktop extension observations on 2026-11-03:
 
