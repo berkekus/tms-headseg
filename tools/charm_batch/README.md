@@ -98,6 +98,17 @@ Araç `qc_K2.csv` dosyasını oluşturur. Biten her kişi için `m2m_<ID>/charm_
 - Ayar, bayrak veya sürüm değiştirme. Bir sorun çıkarsa K1'e sor. Farklı ayarla üretilen etiketler iki makinenin sonuçlarını karşılaştırılamaz hale getirir.
 - IXI verisi CC BY-SA 3.0 lisanslı. Çıktılar yalnızca ekip Drive'ında tutulur, Git'e girmez.
 
+## MultiAxial (E2, K1)
+
+E2'de MultiAxial'ın E1 eğitim ve doğrulama vakaları da charm ile etiketlenir (54 vaka, karar 2026-11-04). Atama [multiaxial_assignment.csv](multiaxial_assignment.csv) içinde; `make_assignment.py --multiaxial <split_manifest.csv> <çıktı>` ile üretilir. MultiAxial test vakaları listede yoktur.
+
+MultiAxial'da T2 yok. Girdi, Dataset001'deki nnU-Net görüntüsüdür (`<ID>_0000.nii.gz`), böylece etiketler E2'ye girecek görüntüyle aynı ızgarada olur. Makineler `--part K/N` ile çakışmadan bölünür; N'i başta seç ve değiştirme.
+
+```powershell
+& $py tools/charm_batch/run_charm_batch.py --owner K1 --assignment tools/charm_batch/multiaxial_assignment.csv `
+    --cohort train,val --t1-only --part 3/3 --data <Dataset001 imagesTr> --out <çıktı> --charm $charm
+```
+
 ## Testler
 
 ```bash

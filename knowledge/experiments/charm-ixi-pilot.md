@@ -93,6 +93,8 @@ QC by K1 (six T1 overlay slices per subject plus volume and connectivity checks;
 
 Held-out subjects (10 `test_face`, 5 `calibration`) run on the K1 desktop from 2026-11-03 23:13. K2 runs its 15 training subjects with the same tool.
 
+**Decision (2026-11-04, team):** E2 uses charm labels only. The 54 MultiAxial E1 train/val cases are relabeled with charm (T1 only, on the Dataset001 images) so that IXI and MultiAxial share one GM/CSF convention; the MultiAxial test hold-out is not relabeled. Runs: K1 laptop parts 1/3 and 2/3, K1 desktop part 3/3 after the held-out runs. Dataset assembly: `tools/nnunet_prep/prepare_e2.py` (`Dataset002_E2Charm`). Caveat: MultiAxial charm runs are T1-only, which NC033 suggests gives a weaker skull than T1+T2.
+
 ## Related notes
 
 [Data inventory](../references/datasets.md) · [Start plan](../playbooks/module-a-kickoff.md) · [EXP-001](ernie-baseline.md)

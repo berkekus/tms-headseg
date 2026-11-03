@@ -40,14 +40,31 @@ def load_assignment(path, owner):
     return rows
 
 
-def find_inputs(data_dir, subject):
-    """Return (T1, T2) for a subject; files may sit in DATA/SUBJECT/ or directly in DATA/."""
+def find_inputs(data_dir, subject, t1_only=False):
+    """Return (T1, T2) for a subject; files may sit in DATA/SUBJECT/ or directly in DATA/.
+
+    With t1_only, T2 is None and the T1 may also be an nnU-Net image (SUBJECT_0000.nii.gz, MultiAxial)."""
     for folder in (Path(data_dir) / subject, Path(data_dir)):
         t1 = sorted(folder.glob(f"{subject}-*-T1.nii.gz"))
+        if t1_only:
+            t1 = t1 or sorted(folder.glob(f"{subject}_0000.nii.gz"))
+            if len(t1) == 1:
+                return t1[0], None
+            continue
         t2 = sorted(folder.glob(f"{subject}-*-T2.nii.gz"))
         if len(t1) == 1 and len(t2) == 1:
             return t1[0], t2[0]
-    raise FileNotFoundError(f"{subject}: expected one T1 and one T2 under {data_dir}")
+    raise FileNotFoundError(f"{subject}: expected one T1{'' if t1_only else ' and one T2'} under {data_dir}")
+
+
+def select_part(rows, part):
+    """Deterministic share K of N of the rows (sorted by subject), so several machines never overlap."""
+    if not part:
+        return rows
+    k, n = (int(x) for x in part.split("/"))
+    if not 1 <= k <= n:
+        raise SystemExit(f"--part {part}: expected K/N with 1 <= K <= N")
+    return [r for i, r in enumerate(sorted(rows, key=lambda r: r["subject"])) if i % n == k - 1]
 
 
 def qform_sform_check(paths):
@@ -135,14 +152,17 @@ def completion_matches(record, expected, out):
 def run_subject(row, args, out):
     subject = row["subject"]
     record_path = out / "runs" / f"{subject}.json"
-    t1, t2 = find_inputs(args.data, subject)
-    diff, charm_ok = qform_sform_check([t1, t2])
+    t1, t2 = find_inputs(args.data, subject, args.t1_only)
+    inputs = [p for p in (t1, t2) if p is not None]
+    diff, charm_ok = qform_sform_check(inputs)
     flags = charm_flags(diff, charm_ok)
-    command = command_prefix(args.charm) + [subject, str(t1.resolve()), str(t2.resolve()), *(flags or [])]
+    command = command_prefix(args.charm) + [subject, *(str(p.resolve()) for p in inputs), *(flags or [])]
     print(f"{subject}: {' '.join(command)}  (qform/sform max diff {diff:.1e})")
-    record = {"subject": subject, "owner": args.owner, "cohort": row["cohort"], "t1": t1.name, "t2": t2.name,
+    record = {"subject": subject, "owner": args.owner, "cohort": row["cohort"], "t1": t1.name,
+              "t2": t2.name if t2 else None, "t1_only": t2 is None,
               "qform_sform_max_diff": diff, "forceqform": bool(flags), "thread_limits": THREAD_LIMITS,
-              "host_os": sys.platform, "input_sha256": {"t1": sha256(t1), "t2": sha256(t2)}}
+              "host_os": sys.platform,
+              "input_sha256": {name: sha256(p) for name, p in (("t1", t1), ("t2", t2)) if p is not None}}
     if flags is None:
         record.update(outputs_ok=False, skipped_reason="qform/sform differ by more than rounding; ask K1")
         if not args.dry_run and not record_path.exists():
@@ -200,15 +220,19 @@ def main(argv=None):
     parser.add_argument("--data", required=True, type=Path, help="Folder with the unpacked D06 IXI files")
     parser.add_argument("--out", required=True, type=Path, help="Output folder outside any Git checkout")
     parser.add_argument("--assignment", type=Path, default=HERE / "ixi_assignment.csv")
-    parser.add_argument("--cohort", default="train", help="Cohort to run (default: train)")
+    parser.add_argument("--cohort", default="train", help="Cohort(s) to run, comma-separated (default: train)")
     parser.add_argument("--charm", default="charm", help="charm executable if not on PATH")
     parser.add_argument("--only", nargs="*", help="Run only these subject IDs")
+    parser.add_argument("--t1-only", action="store_true", help="No T2 (MultiAxial); T1 may be SUBJECT_0000.nii.gz")
+    parser.add_argument("--part", help="Run share K of N, e.g. 1/2 on one machine and 2/2 on another")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
-    rows = [r for r in load_assignment(args.assignment, args.owner) if r["cohort"] == args.cohort]
+    cohorts = set(args.cohort.split(","))
+    rows = [r for r in load_assignment(args.assignment, args.owner) if r["cohort"] in cohorts]
     if args.only:
         rows = [r for r in rows if r["subject"] in set(args.only)]
+    rows = select_part(rows, args.part)
     out = args.out.resolve()
     if (out / ".git").exists() or any((p / ".git").exists() for p in out.parents):
         raise SystemExit("Choose an output folder outside any Git checkout.")
