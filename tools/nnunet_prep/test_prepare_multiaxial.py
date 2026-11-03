@@ -72,5 +72,31 @@ class AffineTests(unittest.TestCase):
         np.testing.assert_array_equal(fixed[:3, 3], [5, 6, 7])
 
 
+class WriteCaseTests(unittest.TestCase):
+    def test_header_states_mm_and_coded_geometry(self):
+        import tempfile
+        from pathlib import Path
+        import nibabel as nib
+
+        sheared = np.eye(4)
+        sheared[0, 1] = 0.2
+        data = np.zeros((4, 5, 6), dtype=np.int16)
+        labels = np.full((4, 5, 6), 6, dtype=np.uint8)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            nib.save(nib.Nifti1Image(data, sheared), str(tmp / "t1.nii"))
+            nib.save(nib.Nifti1Image(labels, sheared), str(tmp / "lab.nii"))
+            error, source_affine = prep.write_case(
+                tmp / "t1.nii", tmp / "lab.nii", tmp / "out" / "img.nii.gz", tmp / "out" / "lab.nii.gz")
+            for name in ("img.nii.gz", "lab.nii.gz"):
+                header = nib.load(str(tmp / "out" / name)).header
+                self.assertEqual(header.get_xyzt_units()[0], "mm")
+                self.assertEqual(int(header["sform_code"]), 1)
+                self.assertEqual(int(header["qform_code"]), 1)
+            self.assertEqual(np.unique(np.asanyarray(nib.load(str(tmp / "out" / "lab.nii.gz")).dataobj)).tolist(), [1])
+        self.assertGreater(error, prep.SHEAR_TOLERANCE)
+        np.testing.assert_allclose(source_affine, sheared, atol=1e-6)  # header stores float32
+
+
 if __name__ == "__main__":
     unittest.main()
