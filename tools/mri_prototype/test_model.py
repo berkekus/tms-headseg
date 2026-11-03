@@ -135,6 +135,27 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(window.mesh_view.checks, {})
         self.assertIsNone(window.volume)
 
+    def test_switching_between_simnibs_and_e1_keeps_tissue_names_and_presets_separate(self):
+        window = Window()
+        self.addCleanup(window.close)
+        window.load_head_model(self.folder)
+        self.wait_idle(window)
+        self.assertEqual(set(window.mesh_view.checks), {1002, 1005})
+        window.load_e1_prediction(self.folder / "T1.nii.gz", self.folder / "final_tissues.nii.gz")
+        self.wait_idle(window)
+        self.assertEqual(window.head_model.kind, "e1", window.feedback.text())
+        self.assertIn("Skin", window.mesh_view.checks[1].text())
+        self.assertFalse(window.mesh_view.preset_buttons[True].isEnabled())
+        self.assertTrue(window.mesh_view.preset_buttons[False].isEnabled())
+        window.load_head_model(self.folder)
+        self.wait_idle(window)
+        self.assertEqual(window.head_model.kind, "simnibs")
+        self.assertEqual(set(window.mesh_view.checks), {1002, 1005})
+        self.assertIn("Scalp", window.mesh_view.checks[1005].text())
+        self.assertEqual(window.mesh_view.sliders[1005].value(), 20)
+        window.mesh_view.preset(True)
+        self.assertTrue(window.mesh_view.checks[1002].isChecked())
+
 
 if __name__ == "__main__":
     unittest.main()

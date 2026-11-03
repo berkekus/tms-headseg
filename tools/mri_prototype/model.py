@@ -2,11 +2,20 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 
 from meshio.gmsh import read as read_gmsh
 import numpy as np
 
-from volume import Volume, bounds, load_labels, load_volume
+from volume import Volume, bounds, load_labels, load_volume, read_image
+
+# Reuse the bounded E1 display geometry; no inference/training dependencies are imported.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from e1_training.surface_view import COLORS, extract_surfaces
+
+E1_TISSUES = {label: (name, tuple(bytes.fromhex(COLORS[label][1:])))
+              for label, name in enumerate(("Background", "Skin", "Skull", "CSF", "Gray matter", "White matter"))
+              if label}
 
 
 @dataclass
@@ -21,10 +30,13 @@ class HeadModel:
     directory: Path
     volume: Volume
     labels: tuple
-    mesh_path: Path
+    mesh_path: Path | None
     surfaces: list
     tissues: dict
     report: Path | None
+    kind: str = "simnibs"
+    geometry_note: str = "Subject space · original mesh geometry"
+    units_assumed: bool = False
 
 
 def read_lut(path):
@@ -112,6 +124,26 @@ def load_model(directory):
     return HeadModel(directory, volume, aligned, candidates[0], surfaces, tissues, report)
 
 
-def tissue_for_surface(tag):
+def load_e1_model(mri_path, prediction_path, assume_mm=False):
+    """Read paired E1 volumes; extract display surfaces without changing originals."""
+    volume = load_volume(mri_path, assume_mm=assume_mm)
+    path, source, prediction_assumed = read_image(prediction_path, assume_mm=assume_mm)
+    if source.shape != volume.source_shape or not np.allclose(source.affine, volume.source_affine, rtol=0, atol=1e-4):
+        raise ValueError("E1 prediction must match the MRI source grid; no registration is applied.")
+    values = np.asarray(source.dataobj)
+    if not np.isin(values, range(6)).all() or not np.any(values):
+        raise ValueError("E1 prediction needs nonempty integer labels 0–5 (skin/skull/CSF/GM/WM).")
+    labels = load_labels(path, volume, assume_mm=assume_mm)
+    meshes = extract_surfaces(values, source.affine)
+    surfaces = [Surface(mesh["label"], mesh["vertices"], mesh["faces"]) for mesh in meshes]
+    step = max(mesh["step_size"] for mesh in meshes)
+    note = f"E1 display surfaces · sampling up to {step} voxels · not a FEM mesh"
+    assumed = volume.units_assumed or prediction_assumed
+    if assumed:
+        note += "\nUnknown units assumed mm · physical scale unverified"
+    return HeadModel(path.parent, volume, labels, None, surfaces, E1_TISSUES.copy(), None, "e1", note, assumed)
+
+
+def tissue_for_surface(tag, kind="simnibs"):
     """SimNIBS tissue surfaces use 1000 + volume ID; other tags stay explicit."""
-    return tag - 1000 if 1000 < tag < 2000 else None
+    return tag if kind == "e1" else (tag - 1000 if 1000 < tag < 2000 else None)

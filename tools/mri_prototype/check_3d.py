@@ -1,4 +1,4 @@
-"""Explicit native GPU/Qt check; reads an existing model and never runs CHARM."""
+"""Native Qt/VTK check for an existing SimNIBS model or E1 prediction; never runs inference."""
 
 import argparse
 from pathlib import Path
@@ -30,19 +30,39 @@ def wait_for_model(app, window):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("model", type=Path)
+    parser.add_argument("model", type=Path, nargs="?")
+    parser.add_argument("--e1-mri", type=Path)
+    parser.add_argument("--e1-prediction", type=Path)
+    parser.add_argument("--assume-mm", action="store_true", help="Explicit E1 display assumption for unknown units")
     parser.add_argument("--screenshots", type=Path, help="Optional local directory for review images")
     args = parser.parse_args()
+    e1 = args.e1_mri is not None or args.e1_prediction is not None
+    if (e1 and (args.model or not args.e1_mri or not args.e1_prediction)) or (not e1 and not args.model):
+        parser.error("Choose one model folder, or both --e1-mri and --e1-prediction.")
+    if args.assume_mm and not e1:
+        parser.error("--assume-mm applies only to E1 display imports.")
     app = QApplication([])
     window = Window()
     window.show()
+    def load():
+        if e1:
+            window.e1_assume_mm.setChecked(args.assume_mm)
+            window.load_e1_prediction(args.e1_mri, args.e1_prediction, assume_mm=args.assume_mm)
+        else:
+            window.load_head_model(args.model)
     try:
-        window.load_head_model(args.model)
+        load()
         wait_for_model(app, window)
         window.tabs.setCurrentIndex(2)
         for _ in range(5):
             pump(app)
         view = window.mesh_view
+        if e1:
+            assert window.head_model.kind == "e1"
+            assert window.head_model.mesh_path is None
+            assert set(view.checks) == set(window.head_model.tissues) & set(window.head_model.labels[2])
+            if window.head_model.units_assumed:
+                assert "assumed" in window.metadata.text().lower()
         assert len(view.actors) == len(window.head_model.surfaces)
         for surface in window.head_model.surfaces:
             actual = np.array(view.actors[surface.tag].GetBounds()).reshape(3, 2)
@@ -94,7 +114,7 @@ def main():
         pump(app)
         if args.screenshots:
             window.grab().save(str(args.screenshots / "model-planes.png"))
-        window.load_head_model(args.model)
+        load()
         wait_for_model(app, window)
         window.tabs.setCurrentIndex(2)
         pump(app)

@@ -5,3 +5,4 @@ scipy>=1.15,<2
 meshio>=5.3,<6
 vtk>=9.5,<10
 pyvistaqt>=0.13.1,<0.14
+scikit-image==0.26.0

@@ -23,13 +23,14 @@ class Volume:
     source_orientation: str
     source_spacing: np.ndarray
     window: tuple
+    units_assumed: bool = False
 
     @property
     def data(self):
         return np.asarray(self.image.dataobj)
 
 
-def read_image(path):
+def read_image(path, assume_mm=False):
     path = Path(path).expanduser().resolve()
     if not str(path).lower().endswith((".nii", ".nii.gz")):
         raise ValueError("Choose a NIfTI file (.nii or .nii.gz). DICOM is not supported.")
@@ -51,7 +52,8 @@ def read_image(path):
         if not any(int(image.header[key]) > 0 for key in ("sform_code", "qform_code")):
             raise ValueError("Image needs a coded qform or sform to establish orientation.")
         unit = image.header.get_xyzt_units()[0]
-        scale = {"mm": 1, "meter": 1000, "micron": .001}.get(unit)
+        assumed = unit == "unknown" and assume_mm
+        scale = {"mm": 1, "meter": 1000, "micron": .001}.get("mm" if assumed else unit)
         if scale is None:
             raise ValueError("Image spatial units are unknown. Explicit spatial units are required.")
         affine[:3] *= scale
@@ -59,7 +61,7 @@ def read_image(path):
         data = data.reshape(image.shape[:3])
         if not np.isfinite(data).all():
             raise ValueError("Image contains non-finite voxel values.")
-        return path, nib.Nifti1Image(data, affine)
+        return path, nib.Nifti1Image(data, affine), assumed
     except (OSError, nib.filebasedimages.ImageFileError, EOFError) as error:
         raise ValueError(f"Cannot read NIfTI volume: {error}") from error
 
@@ -70,8 +72,8 @@ def bounds(image):
     return world.min(axis=0), world.max(axis=0)
 
 
-def load_volume(path):
-    path, source = read_image(path)
+def load_volume(path, assume_mm=False):
+    path, source, assumed = read_image(path, assume_mm=assume_mm)
     spacing = nib.affines.voxel_sizes(source.affine)
     canonical = nib.as_closest_canonical(source)
     display_spacing = nib.affines.voxel_sizes(canonical.affine)
@@ -92,11 +94,11 @@ def load_volume(path):
     width = max(float(high - low), 1.)
     return Volume(path, canonical, source.affine.copy(), source.shape,
                   "".join(nib.aff2axcodes(source.affine)), spacing,
-                  (float((high + low) / 2), width))
+                  (float((high + low) / 2), width), assumed)
 
 
-def load_labels(path, volume):
-    path, labels = read_image(path)
+def load_labels(path, volume, assume_mm=False):
+    path, labels, _ = read_image(path, assume_mm=assume_mm)
     data = np.asarray(labels.dataobj)
     if np.any(data < 0) or np.any(data != np.floor(data)) or np.max(data) > 65535:
         raise ValueError("Tissue labels must be non-negative integer IDs up to 65535.")

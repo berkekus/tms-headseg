@@ -53,7 +53,7 @@ class MeshView(QWidget):
         sidebar.setFixedWidth(265)
         controls = QVBoxLayout(sidebar)
         controls.setContentsMargins(0, 0, 18, 0)
-        self.summary = QLabel("Open an existing head model to inspect its 3D surfaces.")
+        self.summary = QLabel("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
         self.summary.setTextFormat(Qt.TextFormat.PlainText)
         self.summary.setWordWrap(True)
         controls.addWidget(self.summary)
@@ -81,12 +81,12 @@ class MeshView(QWidget):
         self.tissue_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         scroll.setWidget(self.tissue_controls)
         controls.addWidget(scroll, 1)
-        note = QLabel("RAS world coordinates · mm\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
-        note.setWordWrap(True)
-        controls.addWidget(note)
+        self.coordinate_note = QLabel("RAS world coordinates · mm\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
+        self.coordinate_note.setWordWrap(True)
+        controls.addWidget(self.coordinate_note)
         layout.addWidget(sidebar)
         self.viewport = QVBoxLayout()
-        self.empty = QLabel("3D model appears here after opening a model folder.")
+        self.empty = QLabel("3D surfaces appear here after opening a head model folder or E1 segmentation.")
         self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty.setStyleSheet("background: #101c21; color: #c6d9d8; border-radius: 5px;")
         self.viewport.addWidget(self.empty)
@@ -110,24 +110,28 @@ class MeshView(QWidget):
         self.sliders.clear()
         for button in self.preset_buttons.values():
             button.setEnabled(False)
-        self.summary.setText("Open an existing head model to inspect its 3D surfaces.")
+        self.summary.setText("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
 
     def set_model(self, model):
         self.clear()
         self.model = model
+        self.brain_tags, self.head_tag = ((4, 5), 1) if model.kind == "e1" else ((1002, 1001), 1005)
         count = sum(len(surface.triangles) for surface in model.surfaces)
-        self.summary.setText(f"{model.directory.name}\n{len(model.surfaces)} surfaces · {count:,} triangles\nSubject space · original mesh geometry")
-        self.summary.setToolTip(str(model.mesh_path))
+        title = model.labels[0].name if model.kind == "e1" else model.directory.name
+        self.summary.setText(f"{title}\n{len(model.surfaces)} surfaces · {count:,} triangles\n{model.geometry_note}")
+        self.summary.setToolTip(str(model.mesh_path or model.labels[0]))
+        units = "assumed mm · physical scale unverified" if model.units_assumed else "mm"
+        self.coordinate_note.setText(f"RAS coordinates · {units}\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
         for surface in model.surfaces:
-            label = tissue_for_surface(surface.tag)
+            label = tissue_for_surface(surface.tag, model.kind)
             name, color = model.tissues.get(label, (f"Surface {surface.tag}", label_color(surface.tag)))
             check = QCheckBox(f"{name} · {surface.tag}")
             check.setToolTip(f"{len(surface.triangles):,} triangles")
-            check.setChecked(surface.tag in (1002, 1005))
+            check.setChecked(surface.tag in (self.brain_tags[0], self.head_tag))
             check.toggled.connect(lambda checked, tag=surface.tag: self.set_visibility(tag, checked))
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setRange(0, 100)
-            slider.setValue(20 if surface.tag == 1005 else 100)
+            slider.setValue(20 if surface.tag == self.head_tag else 100)
             slider.setAccessibleName(f"{name} opacity")
             slider.valueChanged.connect(lambda value, tag=surface.tag: self.set_opacity(tag, value))
             self.checks[surface.tag], self.sliders[surface.tag] = check, slider
@@ -135,8 +139,8 @@ class MeshView(QWidget):
             self.tissue_layout.addWidget(slider)
         if not any(check.isChecked() for check in self.checks.values()):
             next(iter(self.checks.values())).setChecked(True)
-        self.preset_buttons[True].setEnabled(bool({1001, 1002} & self.checks.keys()))
-        self.preset_buttons[False].setEnabled(1005 in self.checks)
+        self.preset_buttons[True].setEnabled(bool(set(self.brain_tags) & self.checks.keys()))
+        self.preset_buttons[False].setEnabled(self.head_tag in self.checks)
         if self.renderer is not None:
             self.build_scene()
 
@@ -195,7 +199,7 @@ class MeshView(QWidget):
             mapper.ScalarVisibilityOff()
             actor = vtkActor()
             actor.SetMapper(mapper)
-            label = tissue_for_surface(surface.tag)
+            label = tissue_for_surface(surface.tag, self.model.kind)
             color = self.model.tissues.get(label, ("", label_color(surface.tag)))[1]
             actor.GetProperty().SetColor(*(channel / 255 for channel in color))
             actor.GetProperty().SetOpacity(self.sliders[surface.tag].value() / 100)
@@ -234,11 +238,13 @@ class MeshView(QWidget):
             self.render()
 
     def preset(self, brain):
-        selected = (1002 if 1002 in self.checks else 1001) if brain else 1005
+        if self.model is None:
+            return
+        selected = next((tag for tag in self.brain_tags if tag in self.checks), None) if brain else self.head_tag
         for tag, check in self.checks.items():
             check.setChecked(tag == selected)
-        if 1005 in self.sliders and not brain:
-            self.sliders[1005].setValue(100)
+        if self.head_tag in self.sliders and not brain:
+            self.sliders[self.head_tag].setValue(100)
         self.reset_camera()
 
     def reset_camera(self):

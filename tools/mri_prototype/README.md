@@ -1,6 +1,6 @@
 # MRI Workbench prototype
 
-A local PySide6 desktop tool for inspecting NIfTI MRI, reopening existing SimNIBS head models, viewing tissue surfaces in 3D, and launching installed CHARM. Everything new lives in this folder. It imports the existing `tools/charm_gui` window and runner; that tool's source and the rest of the application are not modified.
+A local PySide6 desktop tool for inspecting NIfTI MRI, reopening existing SimNIBS head models, viewing tissue surfaces in 3D, and launching installed CHARM. Desktop code lives in this folder. It imports the existing `tools/charm_gui` window/runner and reuses `tools/e1_training/surface_view.py` for E1 display geometry; keep those sibling folders together. Their source and the rest of the application are not modified by this extension.
 
 ## Run
 
@@ -48,6 +48,19 @@ tools/mri_prototype/.venv/bin/python tools/mri_prototype/prototype.py --model /p
 
 Loading and resampling run in a background thread. Import controls are disabled during loading or processing; slice and contrast controls remain available. Closing during image loading asks you to wait for loading to finish. Closing during a CHARM run retains the existing confirmation/cancellation behavior. No reconstruction starts automatically, and original MRI/label files are never written.
 
+### Open our E1 model's segmentation
+
+1. Start the Workbench using the command above. If its environment predates this extension, install the updated requirements first; E1 surfaces need `scikit-image==0.26.0`.
+2. Click **Open E1 segmentation…** in the header. Choose the source T1 MRI, then its saved E1 prediction (`.nii` or `.nii.gz`). Select the corresponding subject's prediction from `fold_0/validation/`, or an output from the separate E1 inference demo. This action reads a prediction; it does not run the neural network.
+3. Original E1 handoff MRIs have unknown header units. For those originals only, explicitly enable **E1: assume mm** before importing if using the handoff's millimetre assumption. It is off by default, applies only to this E1 import, and never rewrites headers. The metadata and 3D view state that units are assumed and physical scale is unverified. Later team-prepared copies with explicit units need no opt-in. Ordinary MRI and SimNIBS imports remain strict.
+4. Inspect the three slice overlays, then select **03 3D model**. Rotate, zoom, change tissue visibility/opacity, choose **Brain** or **Head**, and optionally show the linked MRI slice planes.
+
+E1 IDs are **1 skin / 2 skull / 3 CSF / 4 gray matter / 5 white matter**. These differ from SimNIBS IDs; names, colors and presets switch with the imported source. The prediction must contain nonempty integer IDs 0–5 and match the original MRI's shape and affine after unit normalization. Different grids are rejected, not registered. Matching metadata does not prove subject identity or anatomical accuracy.
+
+The shared marching-cubes extractor uses the prediction's original affine for surface placement and bounded, approximate geometry (at most 360,000 triangles). The summary states the display sampling step. Source labels and scores are unchanged. These surfaces need no `.msh` conversion and are **not** a simulation-ready tetrahedral FEM mesh. Loading a new input that fails clears the previous scene; canceling a file picker leaves it unchanged.
+
+Weights, model training and new inference remain in the separate [E1 tools](../e1_training/HANDOFF.md). The desktop action currently displays a completed prediction; there is no desktop inference button.
+
 ## Geometry and validation
 
 - Supports real numeric, finite 3D `.nii`/`.nii.gz` volumes with coded qform/sform and explicit mm, meter, or micron spatial units. Trailing singleton dimensions are accepted (as used by supplied SimNIBS labels); multi-volume 4D data is rejected. Unsupported or malformed data produces an inline error. A failed MRI replacement clears the old preview.
@@ -92,8 +105,23 @@ Embedded 3D extension observations on the same date:
 - The model folder's MRI, generated labels, subject mesh, lookup table, and report loaded without rerunning CHARM. Native inspection screenshots were reviewed. This demonstrates viewing that existing reconstruction; it does not establish anatomical accuracy or a new reconstruction through the extended prototype.
 - The environment additionally used meshio 5.3.5, VTK 9.7.1, and PyVistaQt 0.13.1. Native Windows rendering, packaged installers, and broad hardware compatibility remain unverified.
 
+E1 desktop extension observations on 2026-11-03:
+
+- All 29 prototype checks passed, including ten new E1 checks and a SimNIBS/E1 switching regression. The E1 tool suite passed 37 checks; CHARM passed 19 with one native Windows check skipped.
+- The native check below passed on the original GU011 MRI and its recorded prediction, using explicit `--assume-mm`. Five surfaces / 348,104 triangles rendered. Actor bounds, mouse rotation, visibility/opacity, linked MRI planes and reopening passed; screenshots were inspected. Source MRI/prediction hashes remained unchanged.
+- The native macOS environment added scikit-image 0.26.0. NumPy 2.5 emits dependency deprecation warnings during marching cubes; the display checks still passed. Windows rendering and anatomical/physical-scale validation are not established.
+
+```bash
+tools/mri_prototype/.venv/bin/python tools/mri_prototype/check_3d.py \
+  --e1-mri /outside/git/GU011_0000.nii.gz \
+  --e1-prediction /outside/git/GU011.nii \
+  --assume-mm --screenshots /outside/git/e1-desktop-review
+```
+
+`--assume-mm` explicitly opts into the provisional original-handoff assumption; omit it for inputs with known units. The check opens and closes a native window and never runs the model.
+
 ## Prototype boundaries
 
-No DICOM conversion, editing, measurements, model training, automatic QC, electric-field display, coil placement, or installer is included. The embedded viewer displays existing tissue surfaces; it does not reproduce the full SimNIBS simulation interface. Windows execution and a new full CHARM reconstruction through this prototype require separate checks; supplied Ernie segmentation files are example data, not new reconstruction evidence.
+No DICOM conversion, editing, measurements, model training, desktop nnU-Net inference, automatic QC, electric-field display, coil placement, or installer is included. The embedded viewer displays existing SimNIBS surfaces or display surfaces extracted from E1 predictions; it does not reproduce the full SimNIBS simulation interface. Windows execution and a new full CHARM reconstruction through this prototype require separate checks; supplied Ernie segmentation files are example data, not new reconstruction evidence.
 
 Dependencies and interfaces: [NiBabel processing](https://nipy.org/nibabel/reference/nibabel.processing.html), [Qt for Python](https://doc.qt.io/qtforpython-6/), [PyVistaQt framebuffer adapter](https://github.com/pyvista/pyvistaqt/blob/main/pyvistaqt/rwi.py), [SimNIBS coordinates](https://simnibs.github.io/simnibs/build/html/documentation/coordinates.html), [surface numbering](https://simnibs.github.io/simnibs/build/html/tutorial/visualization.html), and [existing CHARM launcher](../charm_gui/README.md).

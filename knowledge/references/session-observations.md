@@ -39,6 +39,10 @@ Initial filesystem evidence date: 2026-10-22. Updated with launcher direction, d
 
 After the user-requested ten-commit fast-forward, source inspection still finds the existing [MRI Workbench](../../tools/mri_prototype/README.md): `prototype.py` offers slice-label loading and a `MeshView` tab, while `model.py:load_model` requires an existing SimNIBS MRI/label/mesh folder. `volume.py:load_labels` resamples discrete NIfTI labels for slice overlays; it does not extract 3D surfaces. The desktop source contains no E1/nnU-Net inference connection. The separate [E1 demo](../../tools/e1_training/DEMO.md) already contains prediction/report and display-surface code. Reusing the desktop renderer with an explicit E1 label map is proposed, not implemented. MRI import still requires explicit spatial units and a coded affine; new team preparation metadata must not be confused with the original training handoff. This was source inspection, not a new native graphics test.
 
+### Follow-up implementation
+
+The user subsequently requested pushing the three existing commits and continuing the desktop 3D integration. The push succeeded through `ab89d23`. The [Workbench](../../tools/mri_prototype/README.md) now has paired MRI/E1 prediction import with source-specific names/presets and explicit provisional-unit opt-in. Native GU011 display checks and source-hash preservation passed; see [EXP-003](../experiments/e1-preparation.md). Desktop inference is still not implemented. The change was initially left local for review; the user then reported a successful manual 3D trial and requested commit/push. This supersedes the missing-display connection observed at the earlier sync inspection, not its historical evidence.
+
 ## Source revision observation
 
 During creation, the proposal file changed from the fingerprinted four-page snapshot to a five-page snapshot. The current source note summarizes the captured five-page revision and retains the earlier observed fingerprint. A source document describing an approval process is not proof that approval or data access was obtained.
