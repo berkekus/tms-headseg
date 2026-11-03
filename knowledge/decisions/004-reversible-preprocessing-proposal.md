@@ -53,12 +53,18 @@ Choose **C**. It is implemented in `headmodel.reversible` and tested on all 48 a
 
 - We add no resampling step of our own. This narrows SRC-007's "resample to 1 mm" to nnU-Net's internal behavior.
 - Intensity correction stays outside this decision; it is not a geometry step.
-- K1 applies `canonicalize` to IXI before E2. K2 runs inference through the carrier.
+- K1 applies `canonicalize` to IXI before E2. K2 runs inference through the carrier. Both steps have a command line, `tools/headmodel/model_io.py prepare` and `restore`, from 2026-11-03.
+
+## Evidence so far
+
+- 2026-11-03: the public Ernie T1 (PSR) and its EXP-001 charm labels went through `prepare` and `restore` with exact label equality and 0.0 mm corner disagreement; SimpleITK read the prepared file. No model ran, so the first item below is still open.
+- 2026-11-03: E1 inference in the Workbench and `demo.py predict` does not use the carrier yet. A PSR scan reaches the RAS-trained model in a different axis order. Its effect is unmeasured.
 
 ## Evidence needed before acceptance
 
 - A nnU-Net 2.8.1 smoke prediction that returns on the input grid and passes `read_model_output`.
 - One real non-RAS scan through the full path, checked against the source MRI.
+- Proposed comparison for the gap above: run E1 on one PSR scan with charm labels (Ernie from EXP-001, or a pilot IXI subject) twice, as stored and through `prepare`/`restore`, and compare each with the mapped charm labels per class. Only a measured difference would justify changing the inference path.
 - Team review, including K2 on the inference path.
 
 ## Related notes

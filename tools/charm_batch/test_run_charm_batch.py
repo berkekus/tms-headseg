@@ -1,6 +1,9 @@
 import csv
 import json
 import tempfile
+import subprocess
+import sys
+import time
 import unittest
 from pathlib import Path
 
@@ -55,6 +58,44 @@ class FlagTests(unittest.TestCase):
 
 
 class RunTests(unittest.TestCase):
+    def test_only_one_real_batch_can_own_an_output_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertFalse(batch.batch_is_running(root))
+            with batch.batch_lock(root):
+                self.assertTrue(batch.batch_is_running(root))
+                with self.assertRaises(RuntimeError):
+                    with batch.batch_lock(root):
+                        self.fail("Second batch acquired the same output folder")
+            self.assertFalse(batch.batch_is_running(root))
+
+    def test_running_record_is_visible_before_charm_finishes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_inputs(root, "IXI100")
+            assignment = self.write_assignment(root, ["IXI100"])
+            charm = self.fake_charm(root)
+            script = root / "fake_charm.py"
+            script.write_text("import time\ntime.sleep(1.5)\n" + script.read_text())
+            out = root / "out"
+            process = subprocess.Popen([sys.executable, str(HERE / "run_charm_batch.py"), "--owner", "K2",
+                "--data", str(root / "data"), "--out", str(out), "--assignment", str(assignment), "--charm", charm],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                record = out / "runs/IXI100.json"
+                deadline = time.monotonic() + 5
+                while not record.exists() and process.poll() is None and time.monotonic() < deadline:
+                    time.sleep(.02)
+                self.assertTrue(record.is_file(), "Active batch must publish a running record")
+                self.assertEqual(json.loads(record.read_text())["state"], "running")
+                self.assertIsNone(process.poll())
+                self.assertEqual(process.wait(timeout=8), 0)
+                self.assertEqual(json.loads(record.read_text())["state"], "completed")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+
     def make_inputs(self, root, subject, shift=0.0):
         import nibabel as nib
         folder = root / "data" / subject
@@ -87,7 +128,7 @@ class RunTests(unittest.TestCase):
             "    (m / n).write_text(' '.join(sys.argv[2:]))\n")
         launcher = root / ("fake_charm.cmd" if batch.sys.platform == "win32" else "fake_charm.sh")
         if batch.sys.platform == "win32":
-            launcher.write_text(f'@"{batch.sys.executable}" "{script}" %*\n')
+            launcher.write_text(f'@echo off\n"{batch.sys.executable}" -E -u "{script}" %*\n')
         else:
             launcher.write_text(f'#!/bin/sh\n"{batch.sys.executable}" "{script}" "$@"\n')
             launcher.chmod(0o755)
@@ -132,6 +173,65 @@ class RunTests(unittest.TestCase):
                                "--assignment", str(assignment), "--charm", self.fake_charm(root)])
             self.assertEqual(code, 1)
             self.assertFalse((root / "out" / "m2m_IXI100").exists())
+
+    def test_dry_run_rejects_large_qform_mismatch_without_writing_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_inputs(root, "IXI100", shift=2.0)
+            assignment = self.write_assignment(root, ["IXI100"])
+            code = batch.main(["--owner", "K2", "--data", str(root / "data"), "--out", str(root / "out"),
+                               "--assignment", str(assignment), "--charm", self.fake_charm(root), "--dry-run"])
+            self.assertEqual(code, 1)
+            self.assertFalse((root / "out" / "runs" / "IXI100.json").exists())
+            self.assertFalse((root / "out" / "m2m_IXI100").exists())
+
+    def test_resume_refuses_missing_or_changed_outputs_without_overwriting(self):
+        for damage in ("missing", "changed"):
+            with self.subTest(damage=damage), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                self.make_inputs(root, "IXI100")
+                assignment = self.write_assignment(root, ["IXI100"])
+                args = ["--owner", "K2", "--data", str(root / "data"), "--out", str(root / "out"),
+                        "--assignment", str(assignment), "--charm", self.fake_charm(root)]
+                self.assertEqual(batch.main(args), 0)
+                record = root / "out" / "runs" / "IXI100.json"
+                original_record = record.read_bytes()
+                labels = root / "out" / "m2m_IXI100" / "final_tissues.nii.gz"
+                if damage == "missing":
+                    labels.unlink()
+                else:
+                    labels.write_text("damaged output")
+                self.assertEqual(batch.main(args), 1)
+                self.assertEqual(record.read_bytes(), original_record)
+                self.assertFalse(any((root / "out").glob("m2m_IXI100_attempt_*")))
+
+    def test_resume_refuses_changed_input(self):
+        import nibabel as nib
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_inputs(root, "IXI100")
+            assignment = self.write_assignment(root, ["IXI100"])
+            args = ["--owner", "K2", "--data", str(root / "data"), "--out", str(root / "out"),
+                    "--assignment", str(assignment), "--charm", self.fake_charm(root)]
+            self.assertEqual(batch.main(args), 0)
+            t1 = next((root / "data" / "IXI100").glob("*-T1.nii.gz"))
+            nib.save(nib.Nifti1Image(np.ones((4, 4, 4), np.float32), np.eye(4)), str(t1))
+            self.assertEqual(batch.main(args), 1)
+            self.assertFalse(any((root / "out").glob("m2m_IXI100_attempt_*")))
+
+    def test_resume_restores_delivery_from_verified_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_inputs(root, "IXI100")
+            assignment = self.write_assignment(root, ["IXI100"])
+            args = ["--owner", "K2", "--data", str(root / "data"), "--out", str(root / "out"),
+                    "--assignment", str(assignment), "--charm", self.fake_charm(root)]
+            self.assertEqual(batch.main(args), 0)
+            target = root / "out" / "deliver_K2" / "IXI100" / "final_tissues.nii.gz"
+            target.unlink()
+            self.assertEqual(batch.main(args), 0)
+            self.assertTrue(target.is_file())
+            self.assertEqual(target.read_bytes(), (root / "out" / "m2m_IXI100" / target.name).read_bytes())
 
 
 if __name__ == "__main__":

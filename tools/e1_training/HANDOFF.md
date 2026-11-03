@@ -2,6 +2,8 @@
 
 This folder contains the code used to prepare, train and demonstrate the preliminary E1 model. It is separate from `tools/mri_prototype` and `tools/charm_gui`. Reusing the model does not require another training run.
 
+The Workbench's **04 E1 segmentation** tab now calls this same prediction CLI in a separate inference environment and automatically opens successful new output. See the [desktop inference guide](../mri_prototype/INFERENCE.md). The header action **Open E1 segmentation…** continues to open a saved prediction.
+
 ## Files in Git
 
 | Task | Files |

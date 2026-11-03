@@ -24,6 +24,8 @@ SimNIBS must be installed separately to create a model. MRI and existing-model i
 
 ## Workflow
 
+**Batch mode:** **02 CHARM processing** now contains **Single MRI** and **IXI batch**. The batch page runs the shared training-only assignment, shows per-case records and live logs, and can monitor an existing CLI run without owning or cancelling it. Read the [batch guide](BATCH.md) before starting a long job. `--batch` opens monitoring mode without launching CHARM.
+
 1. **Open T1 MRI** or choose **Use Ernie example**. Ernie selection fills the public T1/T2 paths and subject ID; it never starts processing. `--ernie` performs the same preload on startup.
 2. Scroll the three slice controls. Adjust window level/width or use **Auto contrast**. Source dimensions, spacing, and axis codes are displayed. The views use neurological convention: left is screen left in axial/coronal views. Sagittal anterior is screen right. Positions are RAS world millimeters, and image proportions account for voxel spacing.
 3. Optionally **Load tissue labels** from a discrete NIfTI segmentation of the same subject. Standalone overlays identify numeric IDs. Adjust opacity or clear the overlay.
@@ -36,7 +38,7 @@ Choose **Open head model folder…** in the inspection tab and select an `m2m_SU
 
 The same button opens a folder exported by [`tools/headmodel`](../headmodel/README.md), recognized by its `model.json`. Such a folder must pass `verify_model` first; a failed check refuses the model and clears the view. Its face-coverage status and warnings stay visible beside the 3D view. SimNIBS and project label numbers mean different tissues, so the viewer finds head and brain surfaces by role rather than by number.
 
-**Export head model…** turns the open SimNIBS folder, or a T1 with loaded project labels, into a new exported folder and opens it. Name a new folder outside any Git checkout. SimNIBS labels use the mapping proposed in EXP-002, which is not accepted.
+**Export head model…** turns the open SimNIBS folder, a T1 with loaded project labels, or an E1 prediction whose MRI and prediction headers state their units, into a new exported folder and opens it. An E1 import that relies on **E1: assume mm** is not exported, because the export reads both files under the coordinate contract; the status line says so. Name a new folder outside any Git checkout. SimNIBS labels use the mapping proposed in EXP-002, which is not accepted.
 
 MRI, segmentation, and tagged mesh surfaces are read in the background. The lookup table supplies tissue names and colors for both the slice overlays and 3D controls; absent names stay numeric. **Open model report** opens the selected folder's report without needing a processing job in this session.
 
@@ -63,7 +65,7 @@ E1 IDs are **1 skin / 2 skull / 3 CSF / 4 gray matter / 5 white matter**. These 
 
 The shared marching-cubes extractor uses the prediction's original affine for surface placement and bounded, approximate geometry (at most 360,000 triangles). The summary states the display sampling step. Source labels and scores are unchanged. These surfaces need no `.msh` conversion and are **not** a simulation-ready tetrahedral FEM mesh. Loading a new input that fails clears the previous scene; canceling a file picker leaves it unchanged.
 
-Weights, model training and new inference remain in the separate [E1 tools](../e1_training/HANDOFF.md). The desktop action currently displays a completed prediction; there is no desktop inference button.
+The header import action displays a completed prediction. To generate a new one, open **04 E1 segmentation**: select the inference Python, trusted model folder, MRI and output parent, then click **Generate E1 segmentation**. Successful new output opens automatically in 2D/3D. See the [desktop inference guide](INFERENCE.md) for setup, cancellation, provenance and checks. The existing K3 import/export workflow is preserved; training and model weights remain outside the desktop environment in the [E1 handoff](../e1_training/HANDOFF.md).
 
 ## Geometry and validation
 
@@ -115,6 +117,8 @@ Windows observations on 2026-11-02 on an NVIDIA RTX 4070 SUPER, with Python 3.13
 - Opening an exported Ernie model includes verification, which took about 10 seconds. This demonstrates viewing on Windows, not anatomical accuracy. Packaged installers and other graphics hardware remain unverified.
 - After merging the E1 display on 2026-11-03, all 38 prototype checks passed on Windows, and `check_3d.py` passed natively for a SimNIBS folder, a project export, and the E1 path. The E1 run used fresh Ernie labels mapped to the project schema as a stand-in prediction, with stated millimetre units; no real E1 prediction was available on this machine.
 
+- On 2026-11-03 (K3), E1 predictions with stated units became exportable; all 64 prototype checks passed on Windows, including two new export checks on a synthetic prediction. No real E1 prediction was exported on this machine.
+
 E1 desktop extension observations on 2026-11-03:
 
 - All 29 prototype checks passed, including ten new E1 checks and a SimNIBS/E1 switching regression. The E1 tool suite passed 37 checks; CHARM passed 19 with one native Windows check skipped.
@@ -132,6 +136,6 @@ tools/mri_prototype/.venv/bin/python tools/mri_prototype/check_3d.py \
 
 ## Prototype boundaries
 
-No DICOM conversion, editing, measurements, model training, desktop nnU-Net inference, automatic QC, electric-field display, coil placement, or installer is included. The embedded viewer displays existing SimNIBS surfaces or display surfaces extracted from E1 predictions; it does not reproduce the full SimNIBS simulation interface. Windows execution and a new full CHARM reconstruction through this prototype require separate checks; supplied Ernie segmentation files are example data, not new reconstruction evidence.
+No DICOM conversion, editing, measurements, model training, automatic QC, electric-field display, coil placement, or installer is included. The embedded viewer displays existing SimNIBS surfaces or display surfaces extracted from E1 predictions; it does not reproduce the full SimNIBS simulation interface. Windows execution and a new full CHARM reconstruction through this prototype require separate checks; supplied Ernie segmentation files are example data, not new reconstruction evidence.
 
 Dependencies and interfaces: [NiBabel processing](https://nipy.org/nibabel/reference/nibabel.processing.html), [Qt for Python](https://doc.qt.io/qtforpython-6/), [PyVistaQt framebuffer adapter](https://github.com/pyvista/pyvistaqt/blob/main/pyvistaqt/rwi.py), [SimNIBS coordinates](https://simnibs.github.io/simnibs/build/html/documentation/coordinates.html), [surface numbering](https://simnibs.github.io/simnibs/build/html/tutorial/visualization.html), and [existing CHARM launcher](../charm_gui/README.md).

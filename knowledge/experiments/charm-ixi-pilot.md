@@ -57,7 +57,8 @@ Outputs stay outside Git (`C:\Users\Berke\tms-data\charm_pilot\m2m_IXI045`).
 | 2 GM | 4 gray matter |
 | 3 CSF | 3 CSF |
 | 4, 7, 8 bone | 2 skull |
-| 5 scalp, 10 muscle, 11 cartilage, 12 fat, 9 blood | 1 skin/soft tissue |
+| 5 scalp, 10 muscle, 11 cartilage, 12 fat | 1 skin/soft tissue |
+| 9 blood | 3 CSF (changed from skin on 2026-11-03; see the evidence below) |
 | 6 eyeballs | 3 CSF (the MultiAxial paper relabels eye contents as CSF; confirm) |
 
 Open points: where blood vessels and dural sinuses should go, whether air cavities exist in charm's output (no separate label), and whether the sites' T1 contrasts change quality. Decide with the label-mapping review (Q-05).
@@ -71,7 +72,7 @@ Open points: where blood vessels and dural sinuses should go, whether air caviti
 | 7 compact bone | CSF | 8% | 13% |
 | 6 eyeballs | CSF | 93% | 46% (53% soft tissue) |
 
-Reading: (1) MultiAxial convention treats intracranial blood as CSF, so the proposed `9 blood → skin` is inconsistent with the training labels; **proposed change: 9 → CSF** for E2 pseudo-labels. The same row lives in K3's `tools/headmodel/labels.py` (`CHARM_TO_PROJECT`) and needs the same change once agreed. (2) E1 places the GM/CSF boundary into sulcal CSF and the CSF/skull boundary into the inner table, which matches the lost folding and thin skull seen in its surfaces. Whether this is MultiAxial's labeling convention or model error is not yet separable: charm is being run on the MultiAxial training case NC033 (smallest CSF volume among GU/NC training cases) so that charm and the semi-manual reference can be compared on the same scan. E1 is not ground truth, and E1 errors and convention differences are mixed in this table.
+Reading: (1) MultiAxial convention treats intracranial blood as CSF, so the proposed `9 blood → skin` is inconsistent with the training labels; **proposed change: 9 → CSF** for E2 pseudo-labels. The same row lives in K3's `tools/headmodel/labels.py` (`CHARM_TO_PROJECT`); at the user's direction it now maps `9 → 3 (CSF)` there too (K3, 2026-11-03), so surfaces and E2 pseudo-labels share one table. The rest of the mapping stays proposed. (2) E1 places the GM/CSF boundary into sulcal CSF and the CSF/skull boundary into the inner table, which matches the lost folding and thin skull seen in its surfaces. Whether this is MultiAxial's labeling convention or model error is not yet separable: charm is being run on the MultiAxial training case NC033 (smallest CSF volume among GU/NC training cases) so that charm and the semi-manual reference can be compared on the same scan. E1 is not ground truth, and E1 errors and convention differences are mixed in this table.
 
 **Same-scan comparison, NC033 (2026-11-03).** charm 4.6.0 ran T1-only on the MultiAxial training case NC033 (38.8 min, exit 0) and was compared voxel-wise with the semi-manual reference on the same grid, within 25 mm of the reference brain/CSF:
 

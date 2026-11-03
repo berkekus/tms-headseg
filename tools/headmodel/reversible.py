@@ -54,6 +54,13 @@ def canonicalize(data, affine):
     return canonical, record
 
 
+def reorient(data, record):
+    """Move another array on the same source grid (labels, a second channel) onto the canonical grid."""
+    if tuple(data.shape) != record.source_shape:
+        raise ValueError(f"Array shape {tuple(data.shape)} is not the source grid {record.source_shape}.")
+    return orientations.apply_orientation(data, record.to_canonical).copy()
+
+
 def restore(data, record):
     """Return an array on the canonical grid to the source grid, voxel for voxel."""
     if tuple(data.shape) != record.canonical_shape:

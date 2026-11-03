@@ -84,7 +84,7 @@ Model-to-mesh means on this one subject for 0, 5, 10, 20, 40, and 80 iterations 
 
 ## Rerun after the envelope change
 
-Commit `24703c5` seals narrow openings into the head envelope, after [EXP-006](ernie-fresh-charm-surfaces.md) found open airways in fresh SimNIBS 4.6 labels. The results above stay as attempt 1. Rerunning the same commands on these supplied labels gave:
+Commit `83897df` seals narrow openings into the head envelope, after [EXP-006](ernie-fresh-charm-surfaces.md) found open airways in fresh SimNIBS 4.6 labels. The results above stay as attempt 1. Rerunning the same commands on these supplied labels gave:
 
 | Measure | Head | Brain |
 | --- | --- | --- |

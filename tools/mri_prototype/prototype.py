@@ -7,7 +7,7 @@ import sys
 from PySide6.QtCore import QThread, QTimer, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel,
-    QPushButton, QScrollArea, QSlider, QTabWidget, QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QScrollArea, QSlider, QTabWidget, QVBoxLayout, QWidget,
 )
 
 # Reuse launcher behavior, including process ownership and packaged-runtime handling.
@@ -18,6 +18,8 @@ from viewer import SlicePanel, label_color
 from volume import load_labels, load_volume
 from model import load_e1_model, load_model
 from mesh_viewer import MeshView, configure_surface_format
+from inference_panel import InferencePanel
+from batch_panel import BatchPanel
 
 from headmodel.build_model import build_model
 
@@ -51,6 +53,8 @@ class Window(LauncherWindow):
         self.head_model = None
         self.tissues = {}
         self.export_source = None
+        self.inference = None
+        self.batch = None
         self.setWindowTitle("MRI Workbench · TMS HeadSeg prototype")
         self.resize(1440, 900)
         self.setMinimumSize(1100, 740)
@@ -159,9 +163,21 @@ class Window(LauncherWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(processing)
-        self.tabs.addTab(scroll, "02   CHARM processing")
+        self.processing_tabs = QTabWidget()
+        self.processing_tabs.addTab(scroll, "Single MRI")
+        self.batch = BatchPanel()
+        batch_scroll = QScrollArea()
+        batch_scroll.setWidgetResizable(True)
+        batch_scroll.setWidget(self.batch)
+        self.processing_tabs.addTab(batch_scroll, "IXI batch")
+        self.batch.busy_changed.connect(self.update_controls)
+        self.tabs.addTab(self.processing_tabs, "02   CHARM processing")
         self.mesh_view = MeshView()
         self.tabs.addTab(self.mesh_view, "03   3D model")
+        self.inference = InferencePanel()
+        self.tabs.addTab(self.inference, "04   E1 segmentation")
+        self.inference.busy_changed.connect(self.update_controls)
+        self.inference.completed.connect(self.inference_completed)
         self.tabs.currentChanged.connect(self.tab_changed)
         self.model_button.setText("Open 3D mesh in Gmsh")
         self.feedback = QLabel("Ready · neurological convention: L on screen left in axial/coronal views.")
@@ -185,6 +201,7 @@ class Window(LauncherWindow):
             QPushButton:hover { background: #d5e4da; }
             QPushButton:disabled { color: #91a09b; background: #e9eeeb; }
             QPushButton#primary { background: #286b56; color: #f5faf6; border: 0; }
+            QPushButton#primary:disabled { background: #e9eeeb; color: #91a09b; }
             QPushButton:focus, QDoubleSpinBox:focus { border: 2px solid #328469; }
             QDoubleSpinBox, QLineEdit { padding: 6px; background: #fafcf9; border: 1px solid #b9cac0; border-radius: 4px; }
             QFrame#slicePanel { background: #101c21; border-radius: 5px; }
@@ -200,12 +217,19 @@ class Window(LauncherWindow):
             QGroupBox::title { subcontrol-origin: margin; padding: 0 6px; }
         """)
 
+    @property
+    def busy(self):
+        return (self.task is not None or self.timer.isActive()
+                or (self.inference is not None and self.inference.busy)
+                or (self.batch is not None and self.batch.busy))
+
     def update_controls(self):
-        busy = self.task is not None or self.timer.isActive()
+        busy = self.busy
         for control in (self.open_button, self.open_model_button, self.example_button, self.selected_button,
                         self.open_e1_button, self.e1_assume_mm):
             control.setEnabled(not busy)
-        self.start_button.setEnabled(not busy)
+        batch_external = self.batch is not None and self.batch.external_active
+        self.start_button.setEnabled(not busy and not batch_external)
         self.labels_button.setEnabled(self.volume is not None and not busy)
         for control in (self.level, self.width, self.auto_button):
             control.setEnabled(self.volume is not None)
@@ -213,6 +237,14 @@ class Window(LauncherWindow):
         self.opacity.setEnabled(self.overlay is not None)
         self.existing_report_button.setEnabled(self.head_model is not None and self.head_model.report is not None and not busy)
         self.export_button.setEnabled(self.export_source is not None and not busy)
+        if self.inference is not None:
+            self.inference.set_available(self.task is None and not self.timer.isActive()
+                                         and not self.batch.busy and not batch_external)
+        if self.batch is not None:
+            self.batch.set_available(self.task is None and not self.timer.isActive()
+                                     and not (self.inference is not None and self.inference.busy))
+        if self.closing and not busy:
+            QTimer.singleShot(0, self.close)
 
     def choose_mri(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open T1 MRI", str(Path.home()), "NIfTI images (*.nii *.nii.gz)")
@@ -233,8 +265,8 @@ class Window(LauncherWindow):
         if prediction:
             self.load_e1_prediction(mri, prediction, assume_mm=self.e1_assume_mm.isChecked())
 
-    def load_e1_prediction(self, mri_path, prediction_path, assume_mm=False):
-        if self.task is not None or self.timer.isActive():
+    def load_e1_prediction(self, mri_path, prediction_path, assume_mm=False, show_3d=False):
+        if self.busy:
             return
         self.clear_model()
         self.volume = None
@@ -245,7 +277,18 @@ class Window(LauncherWindow):
         self.source.setText(Path(prediction_path).name)
         self.feedback.setText("Opening E1 MRI and prediction; extracting display surfaces…")
         self.tabs.setCurrentIndex(0)
-        self.run_task(lambda: load_e1_model(mri_path, prediction_path, assume_mm=assume_mm), self.model_loaded)
+        def loaded(model):
+            self.model_loaded(model)
+            if show_3d:
+                self.tabs.setCurrentIndex(2)
+                self.inference.status.setText("Inference complete. New prediction opened in 2D/3D.")
+                self.feedback.setText("New E1 prediction generated locally · " + self.feedback.text())
+        on_error = (lambda error: self.inference.status.setText("Inference complete; could not open the new result in 3D: " + error)) if show_3d else None
+        self.run_task(lambda: load_e1_model(mri_path, prediction_path, assume_mm=assume_mm), loaded, on_error=on_error)
+
+    def inference_completed(self, job):
+        self.e1_assume_mm.setChecked(job.assume_mm)
+        self.load_e1_prediction(job.mri, job.prediction, assume_mm=job.assume_mm, show_3d=True)
 
     def clear_model(self):
         self.head_model = None
@@ -254,7 +297,7 @@ class Window(LauncherWindow):
         self.update_controls()
 
     def load_head_model(self, directory):
-        if self.task is not None or self.timer.isActive():
+        if self.busy:
             return
         self.clear_model()
         self.volume = None
@@ -279,7 +322,8 @@ class Window(LauncherWindow):
         if model.kind == "e1":
             if model.units_assumed:
                 self.metadata.setText(self.metadata.text() + "\nMRI/prediction units assumed mm · physical scale unverified")
-            self.feedback.setText("E1 ready · inspect slices or select 03 3D model. " + model.geometry_note)
+            export = "" if model.export_source else "Export needs MRI and prediction units stated in their headers. "
+            self.feedback.setText("E1 ready · inspect slices or select 03 3D model. " + export + model.geometry_note)
         else:
             self.feedback.setText(" ".join(("Model ready · inspect slices or select 03 3D model. Mesh and MRI use subject-world millimeters; review alignment.", *model.notes)))
 
@@ -289,7 +333,7 @@ class Window(LauncherWindow):
             self.export_model(path)
 
     def export_model(self, out):
-        if self.export_source is None:
+        if self.busy or self.export_source is None:
             return
         t1, labels, scheme = self.export_source
         self.feedback.setText("Cleaning labels, building head and brain surfaces, and verifying the export…")
@@ -318,12 +362,16 @@ class Window(LauncherWindow):
         if self.t1.text():
             self.load_mri(self.t1.text())
 
-    def run_task(self, function, callback, failure="Could not load: "):
-        if self.task is not None or self.timer.isActive():
+    def run_task(self, function, callback, failure="Could not load: ", on_error=None):
+        if self.busy:
             return
         self.task = LoadTask(function, self)
         self.task.loaded.connect(callback)
-        self.task.failed.connect(lambda error: self.feedback.setText(failure + error))
+        def failed(error):
+            self.feedback.setText(failure + error)
+            if on_error is not None:
+                on_error(error)
+        self.task.failed.connect(failed)
         self.task.finished.connect(self.task_finished)
         self.update_controls()
         self.task.start()
@@ -334,7 +382,7 @@ class Window(LauncherWindow):
         self.update_controls()
 
     def load_mri(self, path):
-        if not path or self.task is not None or self.timer.isActive():
+        if not path or self.busy:
             return
         self.t1.setText(str(Path(path).expanduser().resolve()))
         self.clear_model()
@@ -350,6 +398,7 @@ class Window(LauncherWindow):
 
     def mri_loaded(self, volume):
         self.volume = volume
+        self.inference.mri.setText(str(volume.path))
         self.source.setText(volume.path.name)
         self.source.setToolTip(str(volume.path))
         spacing = " × ".join(f"{value:.2f}" for value in volume.source_spacing)
@@ -383,7 +432,7 @@ class Window(LauncherWindow):
             self.load_overlay(path)
 
     def load_overlay(self, path):
-        if self.volume is None or self.task is not None or self.timer.isActive():
+        if self.volume is None or self.busy:
             return
         self.clear_model()
         self.clear_overlay()
@@ -415,7 +464,7 @@ class Window(LauncherWindow):
         self.update_controls()
 
     def start_job(self):
-        if self.task is not None:
+        if self.busy or (self.batch is not None and self.batch.external_active):
             return
         if self.volume is None or self.volume.path != Path(self.t1.text()).expanduser().resolve():
             self.feedback.setText("Load and inspect the selected T1 MRI before starting CHARM.")
@@ -437,8 +486,36 @@ class Window(LauncherWindow):
             self.feedback.setText("Image loading is finishing. Close again once it completes.")
             event.ignore()
             return
+        if self.batch is not None and self.batch.busy:
+            answer = QMessageBox.question(self, "Stop this CHARM batch?",
+                "Closing will stop this window's batch and its child processes. Partial outputs and logs remain.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer == QMessageBox.StandardButton.Yes:
+                self.closing = True
+                if self.batch.busy:
+                    self.batch.cancel()
+                elif not self.busy:
+                    QTimer.singleShot(0, self.close)
+            event.ignore()
+            return
+        if self.inference.busy:
+            answer = QMessageBox.question(self, "Stop E1 inference?",
+                "Closing will stop inference and its child workers. Partial files and logs will remain.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer == QMessageBox.StandardButton.Yes:
+                self.closing = True
+                if self.inference.busy:
+                    self.inference.cancel()
+                elif not self.busy:
+                    QTimer.singleShot(0, self.close)
+            event.ignore()
+            return
         super().closeEvent(event)
         if event.isAccepted():
+            if self.batch is not None:
+                self.batch.shutdown()
+            if self.inference.runner is not None:
+                self.inference.runner.close()
             self.mesh_view.shutdown()
 
 
@@ -454,6 +531,10 @@ def main():
         window.load_head_model(sys.argv[index + 1])
     elif "--ernie" in sys.argv:
         window.load_ernie()
+    if "--batch" in sys.argv:
+        window.tabs.setCurrentIndex(1)
+        window.processing_tabs.setCurrentIndex(1)
+        window.batch.monitor()
     if "--smoke-test" in sys.argv:
         timer = QTimer()
         timer.timeout.connect(lambda: app.quit() if window.task is None else None)
