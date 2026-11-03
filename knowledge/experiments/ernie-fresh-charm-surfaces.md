@@ -29,7 +29,9 @@ Does the K3 pipeline give correct head and brain surfaces from labels made by cu
 
 `m2m_exp001_ernie_t1/T1.nii.gz` and `final_tissues.nii.gz` from [EXP-001](ernie-baseline.md), mapped with the charm mapping proposed in EXP-002 (not accepted). Reference surfaces are the same run's mesh: tag 1005 for skin, tags 1001 and 1002 for the brain. Same machine and software as EXP-005.
 
-## Attempt 1: commit `783430d`
+## Attempt 1: commit `bf7b3a7`
+
+Commit IDs in this note follow the published history. Before the 2026-11-03 history rewrite they were `783430d` (attempt 1) and `24703c5` (attempt 2); each pair has an identical file tree.
 
 `build_model.py`, then `verify_model.py` and `compare_to_mesh.py`, as in EXP-005.
 
@@ -68,7 +70,7 @@ Four envelope strategies were measured once on these labels in a throwaway scrip
 
 The 8 mm seal removed most airway surface and left the outer skin exactly as before. Axial filling changed the skin, so it was not used. The seal is a closing that closes openings narrower than about 16 mm; air more than 8 mm inside the sealed head is filled, and air nearer the outside is kept. The labels themselves are not changed.
 
-## Attempt 2: commit `24703c5`
+## Attempt 2: commit `83897df`
 
 Same inputs and commands.
 
