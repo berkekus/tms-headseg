@@ -5,10 +5,11 @@ import numpy as np
 BACKGROUND, SKIN, SKULL, CSF, GRAY_MATTER, WHITE_MATTER = range(6)
 TISSUES = {SKIN: "skin", SKULL: "skull", CSF: "csf", GRAY_MATTER: "gray_matter", WHITE_MATTER: "white_matter"}
 
-# Proposed in EXP-002 and not accepted; see Q-05.
+# Proposed in EXP-002 and not accepted; see Q-05. Blood (9) is CSF because MultiAxial labels
+# intracranial blood, mostly dural sinuses, as CSF (EXP-002 evidence, 2026-11-03).
 CHARM_TO_PROJECT = {
     0: BACKGROUND, 1: WHITE_MATTER, 2: GRAY_MATTER, 3: CSF, 4: SKULL, 5: SKIN, 6: CSF,
-    7: SKULL, 8: SKULL, 9: SKIN, 10: SKIN, 11: SKIN, 12: SKIN,
+    7: SKULL, 8: SKULL, 9: CSF, 10: SKIN, 11: SKIN, 12: SKIN,
 }
 
 
