@@ -114,23 +114,32 @@ def orthonormalize(affine: np.ndarray) -> tuple[np.ndarray, float]:
     return fixed, error
 
 
-def write_case(t1_path: Path, label_path: Path, image_out: Path, label_out: Path) -> float:
-    """Convert one case; return the original affine shear error (0 if orthonormal)."""
+def save_nifti(path: Path, data: np.ndarray, affine: np.ndarray) -> None:
+    """Write with stated millimetre units and one coded geometry (qform = sform, code 1).
+
+    The K3 coordinate contract rejects files whose spatial units are unknown, which
+    nibabel leaves by default. `affine` must already be orthonormal.
+    """
+    image = nib.Nifti1Image(data, affine)
+    image.set_data_dtype(data.dtype)
+    image.set_sform(affine, code=1)
+    image.set_qform(affine, code=1)
+    image.header.set_xyzt_units("mm")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    nib.save(image, str(path))
+
+
+def write_case(t1_path: Path, label_path: Path, image_out: Path,
+               label_out: Path) -> tuple[float, np.ndarray]:
+    """Convert one case; return the source affine's shear error and the source affine."""
     t1 = nib.load(str(t1_path))
     lab = nib.load(str(label_path))
     if t1.ndim != 3 or t1.shape != lab.shape or not np.allclose(t1.affine, lab.affine, atol=1e-3):
         raise ValueError(f"Geometry mismatch: {t1_path.name}")
     affine, shear_error = orthonormalize(t1.affine)
-    image = nib.Nifti1Image(np.asanyarray(t1.dataobj).astype(np.float32), affine)
-    image.set_data_dtype(np.float32)
-    mapped = remap_labels(np.asanyarray(lab.dataobj))
-    label = nib.Nifti1Image(mapped, affine)
-    label.set_data_dtype(np.uint8)
-    for path in (image_out, label_out):
-        path.parent.mkdir(parents=True, exist_ok=True)
-    nib.save(image, str(image_out))
-    nib.save(label, str(label_out))
-    return shear_error
+    save_nifti(image_out, np.asanyarray(t1.dataobj).astype(np.float32), affine)
+    save_nifti(label_out, remap_labels(np.asanyarray(lab.dataobj)), affine)
+    return shear_error, np.array(t1.affine, dtype=float)
 
 
 def source_paths(root: Path, case_id: str, variant: str) -> tuple[Path, Path]:
@@ -150,6 +159,14 @@ def build(root: Path, out: Path, seed: int) -> dict[str, str]:
     print("Split:", counts)
 
     shear: dict[str, float] = {}
+    original_affines: dict[str, list] = {}
+
+    def record(case_id: str, result: tuple[float, np.ndarray]) -> None:
+        error, source_affine = result
+        shear.setdefault(case_id, error)
+        if error > SHEAR_TOLERANCE:
+            original_affines.setdefault(case_id, source_affine.tolist())
+
     raw = out / "nnUNet_raw" / DATASET_NAME
     train_ids = sorted(c for c, s in split.items() if s == "train")
     val_ids = sorted(c for c, s in split.items() if s == "val")
@@ -159,7 +176,7 @@ def build(root: Path, out: Path, seed: int) -> dict[str, str]:
             continue
         print("train/val", case_id, flush=True)
         t1, lab = source_paths(root, case_id, "defaced")
-        shear[case_id] = write_case(t1, lab, image_out, raw / "labelsTr" / f"{case_id}.nii.gz")
+        record(case_id, write_case(t1, lab, image_out, raw / "labelsTr" / f"{case_id}.nii.gz"))
 
     holdout = out / "test_holdout"
     for case_id in sorted(c for c, s in split.items() if s == "test"):
@@ -170,8 +187,8 @@ def build(root: Path, out: Path, seed: int) -> dict[str, str]:
                 continue
             print("test", variant, case_id, flush=True)
             t1, lab = source_paths(root, case_id, variant)
-            err = write_case(t1, lab, image_out, holdout / variant / "labels" / f"{case_id}.nii.gz")
-            shear.setdefault(case_id, err)
+            record(case_id, write_case(t1, lab, image_out,
+                                       holdout / variant / "labels" / f"{case_id}.nii.gz"))
 
     raw.mkdir(parents=True, exist_ok=True)
     (raw / "dataset.json").write_text(json.dumps({
@@ -185,6 +202,11 @@ def build(root: Path, out: Path, seed: int) -> dict[str, str]:
     preprocessed.mkdir(parents=True, exist_ok=True)
     (preprocessed / "splits_final.json").write_text(
         json.dumps([{"train": train_ids, "val": val_ids}], indent=2), encoding="utf-8")
+
+    # Source affines of orthonormalized cases: use these, not the converted files,
+    # for any millimetre measurement on those cases (K3 coordinate contract).
+    (out / "original_affines.json").write_text(
+        json.dumps(dict(sorted(original_affines.items())), indent=2), encoding="utf-8")
 
     with (out / "split_manifest.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)

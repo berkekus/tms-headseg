@@ -13,6 +13,8 @@
 | Plan | `3d_fullres`, 1 mm spacing, patch 128×160×112, batch 2 (nnU-Net 2.8.1). `3d_lowres` dropped by nnU-Net (image sizes too similar). |
 | Preprocessed | 54 cases, 1.1 GB. |
 
+Header update (2026-11-03): output files now state `mm` units with qform = sform (code 1), as the K3 coordinate contract requires; the first build left units unknown and K3's `read_source` rejected it. A rebuild into `C:\Users\Berke\tms-data\nnunet_mm` was checked against the first build: all 136 files have identical voxels and affines, so the model K2 trained on the first build (`handoff_k2.zip`) is unaffected. `original_affines.json` stores the source affines of the five sheared NYU cases; **NYU009 is in the test hold-out**, so its millimetre metrics must use that source affine.
+
 Known caveats:
 - Label mapping from the release labels is inferred (intensity + overlay check); the paper lists the seven classes but not their numeric values and does not contradict the mapping. Air cavities (release label 1) are merged into background. No `ignore` label for the removed face yet (Q-16).
 - Five NYU cases (NYU003/006/007/008/009) have a sheared sform that ITK-based readers reject. Their affine was replaced by the nearest rotation in the nnU-Net copies; `split_manifest.csv` flags them (`affine_orthonormalized`). Do not use these cases' converted affines for physical-space (mm) checks.

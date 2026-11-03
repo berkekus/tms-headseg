@@ -2,6 +2,7 @@
 
 ## 2026-11-03
 
+- **K3 requests to K1 (3 of 4 done)**: `tools/nnunet_prep` now writes `mm` units and coded qform/sform; a rebuild (`nnunet_mm`) has identical voxels and affines in all 136 files and passes K3's `read_source` without warnings, so EXP-003 is unaffected. Source affines of the five sheared NYU cases are saved in `original_affines.json`; NYU009 is in the test hold-out. Left-right orientation supported by lesion CSF asymmetry (51/54 left-dominant, 0 right) in train/validation only. Pending: canonicalize IXI to RAS before E2, after K3's code is merged. See [datasets](references/datasets.md) and the [tool README](../tools/nnunet_prep/README.md).
 - **First trained model (K2, reviewed by K1)**: K2 trained nnU-Net `3d_fullres` for 100 epochs on the handoff package (L4, about 4.5 h). Its `summary.json` confirms the fixed validation split (10 IDs match) and gives validation mean Dice 0.872 (skin 0.955, skull 0.848, CSF 0.795, GM 0.863, WM 0.897). Recorded as [EXP-003](experiments/e1-multiaxial-100ep.md); preliminary, validation only, training log not yet reviewed.
 
 ## 2026-11-02
