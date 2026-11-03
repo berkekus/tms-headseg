@@ -1,5 +1,7 @@
 # charm toplu çalıştırma (E2 etiketleri)
 
+Masaüstünden kullanım ve mevcut koşuyu yalnız izleme: [MRI Workbench batch kılavuzu](../mri_prototype/BATCH.md), **02 CHARM processing → IXI batch**. Aynı CLI ve aynı eğitim ataması kullanılır.
+
 E2 eğitimi için IXI kişilerinin charm etiketleri iki makinede üretilir: K1 ve K2. İki makinede de **aynı araç, aynı komut ve aynı ayarlar** kullanılır. Böylece etiketler kimin makinesinde üretildiğine göre değişmez.
 
 ## Kim hangi kişileri çalıştırıyor
@@ -56,6 +58,8 @@ SimNIBS başka bir klasöre kurulduysa yolları ona göre değiştir.
 4. **Durursa:** Aynı komutu tekrar çalıştır. Biten kişiler atlanır, yarım kalan kişi baştan başlar. Yarım kalanın eski klasörü `m2m_<ID>_attempt_<zaman>` adıyla saklanır.
 5. **Tek kişi denemek için:** komutun sonuna `--only IXI037` ekle.
 
+Kuru çalıştırma da büyük qform/sform farklarını başarısız sayar; CHARM başlatmaz ve vaka koşu kaydı yazmaz. Biten vakalar atlanmadan önce girdi checksum'ları, kayıtlı ayarlar ve çıktı checksum'ları yeniden kontrol edilir. Kontrol geçerse teslim paketi yeniden hazırlanır. Eksik/değişmiş dosya veya checksum içermeyen eski bir tamamlanma kaydı varsa araç mevcut sonucu korur ve yeni bir `--out` klasörü ister; vakayı kendiliğinden yeniden çalıştırmaz. Bu kontroller anatomik kalite kontrolünün yerine geçmez.
+
 ## Aracın senin yerine yaptıkları
 
 Bunları elle yapma ya da değiştirme. K1'in makinesinde de birebir aynı adımlar uygulanıyor.
@@ -66,6 +70,7 @@ Bunları elle yapma ya da değiştirme. K1'in makinesinde de birebir aynı adım
   - Fark 0,001 mm'den büyükse vakayı **atlar** ve K1'e sor der.
 - **İş parçacığı sınırları.** Matematik kütüphanelerinin iş parçacığı sayısını 1'e sabitler (`OPENBLAS_NUM_THREADS`, `OPENBLAS_DEFAULT_NUM_THREADS`, `OMP_NUM_THREADS`). Bu, Windows'ta görülen OpenBLAS çökmesini önleyen ayar (EXP-002); MRI Workbench'teki charm başlatıcısı da aynısını yapıyor.
 - **Kayıt.** Her kişi için `runs/<ID>.json` yazar: başlangıç ve bitiş zamanı, süre, çıkış kodu, SimNIBS sürümü, `--forceqform` kullanılıp kullanılmadığı, işletim sistemi. charm'ın tüm çıktısı `logs/<ID>.log` dosyasına gider.
+- **Canlı durum ve kilit.** Yeni koşular atomik `running` / `completed` / `failed` vaka kayıtları yazar. Gerçek batch boyunca aynı çıktı klasöründe ikinci batch'i engelleyen kilit tutulur; kuru deneme CHARM başlatmaz. Bu kilit farklı çıktı klasörlerindeki başka CHARM işlerini engellemez.
 - **Doğrulama.** `final_tissues.nii.gz`, `final_tissues_LUT.txt` ve `charm_report.html` yoksa ya da sürüm 4.6.0 değilse vakayı başarısız sayar.
 - **Teslim paketi.** Başarılı her kişi için `deliver_K2/<ID>/` klasörünü hazırlar. İçinde etiketler, LUT, rapor, log, ayarlar, `run.json` ve `SHA256SUMS.txt` bulunur.
 

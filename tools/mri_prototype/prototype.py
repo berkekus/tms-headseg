@@ -19,6 +19,7 @@ from volume import load_labels, load_volume
 from model import load_e1_model, load_model
 from mesh_viewer import MeshView, configure_surface_format
 from inference_panel import InferencePanel
+from batch_panel import BatchPanel
 
 from headmodel.build_model import build_model
 
@@ -53,6 +54,7 @@ class Window(LauncherWindow):
         self.tissues = {}
         self.export_source = None
         self.inference = None
+        self.batch = None
         self.setWindowTitle("MRI Workbench · TMS HeadSeg prototype")
         self.resize(1440, 900)
         self.setMinimumSize(1100, 740)
@@ -161,7 +163,15 @@ class Window(LauncherWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(processing)
-        self.tabs.addTab(scroll, "02   CHARM processing")
+        self.processing_tabs = QTabWidget()
+        self.processing_tabs.addTab(scroll, "Single MRI")
+        self.batch = BatchPanel()
+        batch_scroll = QScrollArea()
+        batch_scroll.setWidgetResizable(True)
+        batch_scroll.setWidget(self.batch)
+        self.processing_tabs.addTab(batch_scroll, "IXI batch")
+        self.batch.busy_changed.connect(self.update_controls)
+        self.tabs.addTab(self.processing_tabs, "02   CHARM processing")
         self.mesh_view = MeshView()
         self.tabs.addTab(self.mesh_view, "03   3D model")
         self.inference = InferencePanel()
@@ -209,14 +219,17 @@ class Window(LauncherWindow):
 
     @property
     def busy(self):
-        return self.task is not None or self.timer.isActive() or (self.inference is not None and self.inference.busy)
+        return (self.task is not None or self.timer.isActive()
+                or (self.inference is not None and self.inference.busy)
+                or (self.batch is not None and self.batch.busy))
 
     def update_controls(self):
         busy = self.busy
         for control in (self.open_button, self.open_model_button, self.example_button, self.selected_button,
                         self.open_e1_button, self.e1_assume_mm):
             control.setEnabled(not busy)
-        self.start_button.setEnabled(not busy)
+        batch_external = self.batch is not None and self.batch.external_active
+        self.start_button.setEnabled(not busy and not batch_external)
         self.labels_button.setEnabled(self.volume is not None and not busy)
         for control in (self.level, self.width, self.auto_button):
             control.setEnabled(self.volume is not None)
@@ -225,7 +238,11 @@ class Window(LauncherWindow):
         self.existing_report_button.setEnabled(self.head_model is not None and self.head_model.report is not None and not busy)
         self.export_button.setEnabled(self.export_source is not None and not busy)
         if self.inference is not None:
-            self.inference.set_available(self.task is None and not self.timer.isActive())
+            self.inference.set_available(self.task is None and not self.timer.isActive()
+                                         and not self.batch.busy and not batch_external)
+        if self.batch is not None:
+            self.batch.set_available(self.task is None and not self.timer.isActive()
+                                     and not (self.inference is not None and self.inference.busy))
         if self.closing and not busy:
             QTimer.singleShot(0, self.close)
 
@@ -446,7 +463,7 @@ class Window(LauncherWindow):
         self.update_controls()
 
     def start_job(self):
-        if self.busy:
+        if self.busy or (self.batch is not None and self.batch.external_active):
             return
         if self.volume is None or self.volume.path != Path(self.t1.text()).expanduser().resolve():
             self.feedback.setText("Load and inspect the selected T1 MRI before starting CHARM.")
@@ -468,6 +485,18 @@ class Window(LauncherWindow):
             self.feedback.setText("Image loading is finishing. Close again once it completes.")
             event.ignore()
             return
+        if self.batch is not None and self.batch.busy:
+            answer = QMessageBox.question(self, "Stop this CHARM batch?",
+                "Closing will stop this window's batch and its child processes. Partial outputs and logs remain.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer == QMessageBox.StandardButton.Yes:
+                self.closing = True
+                if self.batch.busy:
+                    self.batch.cancel()
+                elif not self.busy:
+                    QTimer.singleShot(0, self.close)
+            event.ignore()
+            return
         if self.inference.busy:
             answer = QMessageBox.question(self, "Stop E1 inference?",
                 "Closing will stop inference and its child workers. Partial files and logs will remain.",
@@ -482,6 +511,8 @@ class Window(LauncherWindow):
             return
         super().closeEvent(event)
         if event.isAccepted():
+            if self.batch is not None:
+                self.batch.shutdown()
             if self.inference.runner is not None:
                 self.inference.runner.close()
             self.mesh_view.shutdown()
@@ -499,6 +530,10 @@ def main():
         window.load_head_model(sys.argv[index + 1])
     elif "--ernie" in sys.argv:
         window.load_ernie()
+    if "--batch" in sys.argv:
+        window.tabs.setCurrentIndex(1)
+        window.processing_tabs.setCurrentIndex(1)
+        window.batch.monitor()
     if "--smoke-test" in sys.argv:
         timer = QTimer()
         timer.timeout.connect(lambda: app.quit() if window.task is None else None)

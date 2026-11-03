@@ -24,6 +24,8 @@ SimNIBS must be installed separately to create a model. MRI and existing-model i
 
 ## Workflow
 
+**Batch mode:** **02 CHARM processing** now contains **Single MRI** and **IXI batch**. The batch page runs the shared training-only assignment, shows per-case records and live logs, and can monitor an existing CLI run without owning or cancelling it. Read the [batch guide](BATCH.md) before starting a long job. `--batch` opens monitoring mode without launching CHARM.
+
 1. **Open T1 MRI** or choose **Use Ernie example**. Ernie selection fills the public T1/T2 paths and subject ID; it never starts processing. `--ernie` performs the same preload on startup.
 2. Scroll the three slice controls. Adjust window level/width or use **Auto contrast**. Source dimensions, spacing, and axis codes are displayed. The views use neurological convention: left is screen left in axial/coronal views. Sagittal anterior is screen right. Positions are RAS world millimeters, and image proportions account for voxel spacing.
 3. Optionally **Load tissue labels** from a discrete NIfTI segmentation of the same subject. Standalone overlays identify numeric IDs. Adjust opacity or clear the overlay.
