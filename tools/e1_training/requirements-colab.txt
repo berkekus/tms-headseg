@@ -1,0 +1,5 @@
+# Linux CUDA environment from K2_BASLA.md; install torch from the cu124 index first.
+torch==2.6.0
+nnunetv2==2.8.1
+numpy==1.26.4
+nibabel==5.4.2

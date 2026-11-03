@@ -85,6 +85,21 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse((self.root / "nope").exists())
         self.assertFalse(runner.complete)
 
+    def test_math_thread_limits_reach_child_without_changing_parent(self):
+        import os
+        import json
+        keys = ("OPENBLAS_NUM_THREADS", "OPENBLAS_DEFAULT_NUM_THREADS", "OMP_NUM_THREADS")
+        self.write_charm("import os,json\n" + f"print(json.dumps({{k:os.environ.get(k) for k in {keys!r}}}), flush=True)\n")
+        with patch.dict(os.environ, {key: "256" for key in keys}):
+            runner = Runner(self.job())
+            runner.start()
+            self.addCleanup(runner.close)
+            text = self.wait_done(runner)
+            child = json.loads(next(line for line in text.splitlines() if line.startswith("{")))
+            self.assertEqual(child, {key: "1" for key in keys})
+            self.assertEqual({key: os.environ[key] for key in keys}, {key: "256" for key in keys})
+            self.assertIn("OPENBLAS_NUM_THREADS=1", runner.log_path.read_text())
+
     def test_success_requires_mesh_and_labels(self):
         self.write_charm("from pathlib import Path\np = Path('m2m_trial_01')\np.mkdir()\n"
                          "(p / 'trial_01.msh').touch()\n(p / 'final_tissues.nii.gz').touch()\n")

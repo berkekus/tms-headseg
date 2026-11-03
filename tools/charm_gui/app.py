@@ -213,7 +213,7 @@ class Window(QMainWindow):
         for button in (self.report_button, self.model_button, self.folder_button):
             button.setEnabled(False)
         self.progress.setRange(0, 0)
-        self.status.setText("Running CHARM. Live output below; no reliable completion percentage is available.")
+        self.status.setText("Running CHARM with math-library threads limited to 1. Live output below; no reliable completion percentage is available.")
         self.timer.start()
 
     def cancel_job(self):

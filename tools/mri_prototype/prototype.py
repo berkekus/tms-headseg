@@ -6,7 +6,7 @@ import sys
 
 from PySide6.QtCore import QThread, QTimer, Qt, Signal
 from PySide6.QtWidgets import (
-    QApplication, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel,
+    QApplication, QCheckBox, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel,
     QPushButton, QScrollArea, QSlider, QTabWidget, QVBoxLayout, QWidget,
 )
 
@@ -16,7 +16,7 @@ from app import Window as LauncherWindow
 
 from viewer import SlicePanel, label_color
 from volume import load_labels, load_volume
-from model import load_model
+from model import load_e1_model, load_model
 from mesh_viewer import MeshView, configure_surface_format
 
 from headmodel.build_model import build_model
@@ -62,6 +62,13 @@ class Window(LauncherWindow):
         name.setObjectName("workbenchTitle")
         header.addWidget(name)
         header.addStretch()
+        self.open_e1_button = QPushButton("Open E1 segmentation…")
+        self.open_e1_button.clicked.connect(self.choose_e1_prediction)
+        header.addWidget(self.open_e1_button)
+        self.e1_assume_mm = QCheckBox("E1: assume mm")
+        self.e1_assume_mm.setToolTip("Explicitly treat unknown MRI/prediction units as millimetres for this E1 display only. Original files stay unchanged; physical scale remains unverified.")
+        header.addWidget(self.e1_assume_mm)
+        header.addSpacing(12)
         badge = QLabel("LOCAL  /  PROTOTYPE")
         badge.setObjectName("badge")
         header.addWidget(badge)
@@ -195,7 +202,8 @@ class Window(LauncherWindow):
 
     def update_controls(self):
         busy = self.task is not None or self.timer.isActive()
-        for control in (self.open_button, self.open_model_button, self.example_button, self.selected_button):
+        for control in (self.open_button, self.open_model_button, self.example_button, self.selected_button,
+                        self.open_e1_button, self.e1_assume_mm):
             control.setEnabled(not busy)
         self.start_button.setEnabled(not busy)
         self.labels_button.setEnabled(self.volume is not None and not busy)
@@ -215,6 +223,29 @@ class Window(LauncherWindow):
         path = QFileDialog.getExistingDirectory(self, "Open SimNIBS m2m model folder", str(Path.home()))
         if path:
             self.load_head_model(path)
+
+    def choose_e1_prediction(self):
+        directory = str(self.volume.path.parent) if self.volume is not None else str(Path.home())
+        mri, _ = QFileDialog.getOpenFileName(self, "Choose E1 source T1 MRI", directory, "NIfTI images (*.nii *.nii.gz)")
+        if not mri:
+            return
+        prediction, _ = QFileDialog.getOpenFileName(self, "Choose E1 prediction (labels 0–5)", str(Path(mri).parent), "NIfTI labels (*.nii *.nii.gz)")
+        if prediction:
+            self.load_e1_prediction(mri, prediction, assume_mm=self.e1_assume_mm.isChecked())
+
+    def load_e1_prediction(self, mri_path, prediction_path, assume_mm=False):
+        if self.task is not None or self.timer.isActive():
+            return
+        self.clear_model()
+        self.volume = None
+        self.clear_overlay()
+        for panel in self.panels:
+            panel.set_volume(None)
+        self.metadata.clear()
+        self.source.setText(Path(prediction_path).name)
+        self.feedback.setText("Opening E1 MRI and prediction; extracting display surfaces…")
+        self.tabs.setCurrentIndex(0)
+        self.run_task(lambda: load_e1_model(mri_path, prediction_path, assume_mm=assume_mm), self.model_loaded)
 
     def clear_model(self):
         self.head_model = None
@@ -245,7 +276,12 @@ class Window(LauncherWindow):
         self.labels_loaded(model.labels)
         self.mesh_view.set_model(model)
         self.export_source = model.export_source
-        self.feedback.setText(" ".join(("Model ready · inspect slices or select 03 3D model. Mesh and MRI use subject-world millimeters; review alignment.", *model.notes)))
+        if model.kind == "e1":
+            if model.units_assumed:
+                self.metadata.setText(self.metadata.text() + "\nMRI/prediction units assumed mm · physical scale unverified")
+            self.feedback.setText("E1 ready · inspect slices or select 03 3D model. " + model.geometry_note)
+        else:
+            self.feedback.setText(" ".join(("Model ready · inspect slices or select 03 3D model. Mesh and MRI use subject-world millimeters; review alignment.", *model.notes)))
 
     def choose_export(self):
         path, _ = QFileDialog.getSaveFileName(self, "Name a new folder for the exported model", str(Path.home() / "head_model"))
@@ -319,6 +355,8 @@ class Window(LauncherWindow):
         spacing = " × ".join(f"{value:.2f}" for value in volume.source_spacing)
         self.metadata.setText(f"Source: {' × '.join(map(str, volume.source_shape))} voxels\n"
                               f"Spacing: {spacing} mm\nSource axes: {volume.source_orientation}\nDisplay: RAS, world-aligned")
+        if volume.units_assumed:
+            self.metadata.setText(self.metadata.text() + "\nMRI units assumed mm")
         for panel in self.panels:
             panel.set_volume(volume)
         self.auto_contrast()

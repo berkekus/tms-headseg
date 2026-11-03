@@ -1,7 +1,7 @@
 """Read existing head models without altering their subject-world geometry.
 
-Two kinds of folder open here: a SimNIBS m2m folder and an exported project model. Their
-label numbers mean different tissues, so surfaces are found by role, never by number.
+Three sources open here: a SimNIBS m2m folder, an exported project model, and an E1 prediction.
+Their label numbers mean different tissues, so head and brain surfaces are found by role.
 """
 
 from dataclasses import dataclass
@@ -13,11 +13,16 @@ import meshio
 from meshio.gmsh import read as read_gmsh
 import numpy as np
 
-from volume import Volume, bounds, load_labels, load_volume
+from volume import Volume, bounds, load_labels, load_volume, read_image
 
+# Reuse the bounded E1 display geometry; no inference/training dependencies are imported.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
+from e1_training.surface_view import COLORS, extract_surfaces
 from headmodel.verify_model import verify_model
+
+E1_TISSUES = {label: (name, tuple(bytes.fromhex(COLORS[label][1:])))
+              for label, name in enumerate(("Background", "Skin", "Skull", "CSF", "Gray matter", "White matter"))
+              if label}
 
 SIMNIBS_WHITE_MATTER, SIMNIBS_GRAY_MATTER, SIMNIBS_SKIN = 1001, 1002, 1005
 _PROJECT_TISSUES = {"skin": ("Skin", (255, 166, 133)), "skull": ("Skull", (255, 239, 179)),
@@ -41,10 +46,13 @@ class HeadModel:
     directory: Path
     volume: Volume
     labels: tuple
-    mesh_path: Path
+    mesh_path: Path | None
     surfaces: list
     tissues: dict
     report: Path | None
+    kind: str = "simnibs"
+    geometry_note: str = "Subject space · original mesh geometry"
+    units_assumed: bool = False
     notes: tuple = ()
     export_source: tuple | None = None
 
@@ -113,14 +121,14 @@ def read_surfaces(path, volume):
     return surfaces
 
 
-def name_simnibs_surfaces(surfaces, tissues):
+def describe_surfaces(surfaces, tissues, head, brains, tissue_of):
+    """Name each surface and mark head and brain by role; the first available brain tag wins."""
     tags = {surface.tag for surface in surfaces}
-    brain = SIMNIBS_GRAY_MATTER if SIMNIBS_GRAY_MATTER in tags else SIMNIBS_WHITE_MATTER
-    roles = {SIMNIBS_SKIN: "head", brain: "brain"}
+    roles = {head: "head", next((tag for tag in brains if tag in tags), None): "brain"}
     for surface in surfaces:
         surface.role = roles.get(surface.tag)
-        if tissue_for_surface(surface.tag) in tissues:
-            surface.name, surface.color = tissues[tissue_for_surface(surface.tag)]
+        if tissue_of(surface.tag) in tissues:
+            surface.name, surface.color = tissues[tissue_of(surface.tag)]
 
 
 def load_project_model(directory):
@@ -141,7 +149,8 @@ def load_project_model(directory):
                                 name, color, role))
     face = record["coverage"]["face"].replace("_", " ")
     return HeadModel(directory, volume, aligned, directory / "model.json", surfaces, tissues, None,
-                     (f"Face coverage: {face}.", *record["warnings"]))
+                     kind="project", geometry_note="Subject space · exported surfaces",
+                     notes=(f"Face coverage: {face}.", *record["warnings"]))
 
 
 def load_model(directory):
@@ -162,13 +171,34 @@ def load_model(directory):
     aligned = load_labels(labels, volume)
     tissues = read_lut(directory / "final_tissues_LUT.txt")
     surfaces = read_surfaces(candidates[0], volume)
-    name_simnibs_surfaces(surfaces, tissues)
+    describe_surfaces(surfaces, tissues, SIMNIBS_SKIN, (SIMNIBS_GRAY_MATTER, SIMNIBS_WHITE_MATTER), tissue_for_surface)
     report = next((directory / name for name in ("charm_report.html", "results.html")
                    if (directory / name).is_file()), None)
     return HeadModel(directory, volume, aligned, candidates[0], surfaces, tissues, report,
                      export_source=(t1, labels, "charm"))
 
 
-def tissue_for_surface(tag):
+def load_e1_model(mri_path, prediction_path, assume_mm=False):
+    """Read paired E1 volumes; extract display surfaces without changing originals."""
+    volume = load_volume(mri_path, assume_mm=assume_mm)
+    path, source, prediction_assumed = read_image(prediction_path, assume_mm=assume_mm)
+    if source.shape != volume.source_shape or not np.allclose(source.affine, volume.source_affine, rtol=0, atol=1e-4):
+        raise ValueError("E1 prediction must match the MRI source grid; no registration is applied.")
+    values = np.asarray(source.dataobj)
+    if not np.isin(values, range(6)).all() or not np.any(values):
+        raise ValueError("E1 prediction needs nonempty integer labels 0–5 (skin/skull/CSF/GM/WM).")
+    labels = load_labels(path, volume, assume_mm=assume_mm)
+    meshes = extract_surfaces(values, source.affine)
+    surfaces = [Surface(mesh["label"], mesh["vertices"], mesh["faces"]) for mesh in meshes]
+    describe_surfaces(surfaces, E1_TISSUES, 1, (4, 5), lambda tag: tag)
+    step = max(mesh["step_size"] for mesh in meshes)
+    note = f"E1 display surfaces · sampling up to {step} voxels · not a FEM mesh"
+    assumed = volume.units_assumed or prediction_assumed
+    if assumed:
+        note += "\nUnknown units assumed mm · physical scale unverified"
+    return HeadModel(path.parent, volume, labels, None, surfaces, E1_TISSUES.copy(), None, "e1", note, assumed)
+
+
+def tissue_for_surface(tag, kind="simnibs"):
     """SimNIBS tissue surfaces use 1000 + volume ID; other tags stay explicit."""
-    return tag - 1000 if 1000 < tag < 2000 else None
+    return tag if kind == "e1" else (tag - 1000 if 1000 < tag < 2000 else None)

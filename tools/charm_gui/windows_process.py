@@ -11,7 +11,7 @@ import win32event
 import win32job
 import win32process
 
-from installation import external_environment, external_runtime
+from installation import external_runtime
 
 
 def _api(function, *args):
@@ -22,7 +22,7 @@ def _api(function, *args):
 
 
 class WindowsProcess:
-    def __init__(self, command, cwd, log):
+    def __init__(self, command, cwd, log, environment):
         self.job = None
         self.handle = None
         self.returncode = None
@@ -49,7 +49,7 @@ class WindowsProcess:
                     self.handle, thread, self.pid, _ = win32process.CreateProcess(
                         command[0], subprocess.list2cmdline(command), None, None, True,
                         win32process.CREATE_SUSPENDED | win32process.CREATE_NO_WINDOW,
-                        external_environment(), str(cwd), startup)
+                        environment, str(cwd), startup)
                 # Assign before resuming: even immediate children belong to our job.
                 win32job.AssignProcessToJobObject(self.job, self.handle)
                 win32process.ResumeThread(thread)

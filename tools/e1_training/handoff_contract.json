@@ -1,0 +1,17 @@
+{
+  "dataset": "Dataset001_MultiAxial",
+  "dataset_sha256": "a3d7801021287c538ee8f3af55947b3795fe3ccf5d628f01d34942e0b4f93ae0",
+  "split_sha256": "9e2b37ffccff8196f9457963e3e603eabfeae6e89d8baec91ab5f989845d78b8",
+  "train_count": 44,
+  "validation_count": 10,
+  "labels": {
+    "background": 0,
+    "skin": 1,
+    "skull": 2,
+    "csf": 3,
+    "gray_matter": 4,
+    "white_matter": 5
+  },
+  "anatomical_or_semantic_approval": false,
+  "source": "User-provided handoff_k2, inspected 2026-11-02"
+}
