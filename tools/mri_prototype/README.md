@@ -113,6 +113,7 @@ Windows observations on 2026-11-02 on an NVIDIA RTX 4070 SUPER, with Python 3.13
 
 - All 26 prototype checks passed. `check_3d.py` passed natively on the supplied Ernie folder and on a project export built from its labels. Screenshots of the export were reviewed by the agent running the check, not by a clinician.
 - Opening an exported Ernie model includes verification, which took about 10 seconds. This demonstrates viewing on Windows, not anatomical accuracy. Packaged installers and other graphics hardware remain unverified.
+- After merging the E1 display on 2026-11-03, all 38 prototype checks passed on Windows, and `check_3d.py` passed natively for a SimNIBS folder, a project export, and the E1 path. The E1 run used fresh Ernie labels mapped to the project schema as a stand-in prediction, with stated millimetre units; no real E1 prediction was available on this machine.
 
 E1 desktop extension observations on 2026-11-03:
 

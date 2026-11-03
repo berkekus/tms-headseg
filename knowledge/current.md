@@ -66,7 +66,7 @@ The separate L4 100-epoch preliminary E1 model (`E1_L4_001`) completed after che
 
 Review the report, MRI tissue boundaries, and new mesh from [EXP-002](experiments/ernie-thread-limits.md); record geometry and anatomical findings separately from execution success. The [T1-only baseline](experiments/ernie-baseline.md) completed on Windows on 2026-11-03.
 
-For K3: run the surface pipeline on model predictions once K2's checkpoint is available, check the 8 mm envelope seal on more subjects, open an export in 3D Slicer, and get team review of the [coordinate contract](concepts/coordinates.md), whose handoffs ask K1 to state units and share one axis order, and K2 to confirm the model path.
+For K3: run the surface pipeline on E1 predictions that state their units (the Workbench now displays E1 predictions, but exports only sources with known units), check the 8 mm envelope seal on more subjects, open an export in 3D Slicer, and get team review of the [coordinate contract](concepts/coordinates.md), whose handoffs ask K1 to state units and share one axis order, and K2 to confirm the model path.
 
 ## Decisions and unresolved work
 

@@ -96,9 +96,21 @@ Dice between the new labels and the supplied `m2m_ernie` labels, after the propo
 
 The supplied model's log reports 2 h 29 min on its author's machine with that older pipeline. K1's charm run on IXI045 took about 66 minutes with T1 and T2 on another machine ([EXP-002](charm-ixi-pilot.md)). Different subjects, inputs, versions, and machines make neither a benchmark for this run.
 
-## Still open
+## The November 2 Mac run
 
-The run author for the November 2 Mac reconstruction mentioned in `tools/mri_prototype/README.md` has not supplied its log or timing. A repeat on an otherwise idle machine would give a cleaner runtime.
+The Mac reconstruction mentioned in `tools/mri_prototype/README.md` is recorded in Mert's [EXP-002 thread-limit note](ernie-thread-limits.md). Its launcher log (SHA-256 `9a6a6455892cba09180a033cec8210f5be176fdf72ccf8c19fb1063b230ee7ec`) was read on 2026-11-03.
+
+| | Mac run, 2026-11-02 | This run |
+| --- | --- | --- |
+| Machine | M4 Pro, macOS | i7-14700KF, Windows 11 |
+| Inputs | T1 and T2 | T1 only |
+| OpenBLAS and OpenMP threads | Limited to 1 by the launcher | Not limited |
+| Other load | Not recorded | Another CPU-heavy application |
+| Surface creation | 6 min 42 s | 11 min 45 s |
+| Mesh preparation, meshing, post-processing | 1 min 49 s, 1 min 0 s, 10 min 44 s | 4 min 47 s, 1 min 6 s, 21 min 42 s |
+| Total | 40 min 17 s | 1 h 16 min 29 s |
+
+The Mac run was faster despite also processing T2. Machine, thread limits, and concurrent load all differ, so this comparison does not identify the cause. Both logs show the same NumPy `matmul` runtime warnings. The launcher now applies the thread limits on Windows too, since the K3 branch merged them, so a repeat on an otherwise idle machine would separate load from the thread setting.
 
 ## Related notes
 
