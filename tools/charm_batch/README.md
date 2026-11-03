@@ -24,7 +24,7 @@ IXI045 ve IXI294 pilotları bu araçtan önce, aynı charm sürümüyle ama iş 
 
 1. **SimNIBS 4.6.0.** Sürüm birebir aynı olmalı. Araç sürümü log'dan okur ve başka bir sürümde vakayı başarısız sayar.
 2. **D06 IXI verisi.** Ekip Drive'ındaki D06 klasöründen indirilip açılır (yaklaşık 0,75 GB). Araç dosyaları `DATA/IXI037/IXI037-Guys-0704-T1.nii.gz` düzeninde de, hepsi tek klasörde olacak şekilde de bulur.
-3. **Disk alanı.** Kişi başına yaklaşık 0,25 GB, 15 kişi için yaklaşık 4 GB.
+3. **Disk alanı.** Kişi başına yaklaşık 0,75 GB (tam `m2m` klasörü), 15 kişi için yaklaşık 12 GB. Başlamadan önce en az 15 GB boş yer olsun.
 4. **Hafıza.** En az 16 GB RAM. **Aynı anda tek charm** çalıştır; araç vakaları zaten sırayla işler.
 5. **Bu repo.** `git pull` ile güncel olmalı.
 
