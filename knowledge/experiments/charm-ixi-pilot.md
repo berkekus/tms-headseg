@@ -73,6 +73,15 @@ Open points: where blood vessels and dural sinuses should go, whether air caviti
 
 Reading: (1) MultiAxial convention treats intracranial blood as CSF, so the proposed `9 blood → skin` is inconsistent with the training labels; **proposed change: 9 → CSF** for E2 pseudo-labels. The same row lives in K3's `tools/headmodel/labels.py` (`CHARM_TO_PROJECT`) and needs the same change once agreed. (2) E1 places the GM/CSF boundary into sulcal CSF and the CSF/skull boundary into the inner table, which matches the lost folding and thin skull seen in its surfaces. Whether this is MultiAxial's labeling convention or model error is not yet separable: charm is being run on the MultiAxial training case NC033 (smallest CSF volume among GU/NC training cases) so that charm and the semi-manual reference can be compared on the same scan. E1 is not ground truth, and E1 errors and convention differences are mixed in this table.
 
+**Same-scan comparison, NC033 (2026-11-03).** charm 4.6.0 ran T1-only on the MultiAxial training case NC033 (38.8 min, exit 0) and was compared voxel-wise with the semi-manual reference on the same grid, within 25 mm of the reference brain/CSF:
+
+- Folding ratio of the brain surface (same K3 surface code): reference **1.76** (1233 cm²), charm **2.38** (1640 cm²). 24% of charm CSF is reference GM, and reference GM is larger (549 vs 481 mL). The MultiAxial reference fills sulcal CSF with GM, so the smooth E1 cortex is inherited from the training labels, not mainly a model error.
+- Skull: the reference has more skull than charm (443 vs 403 mL); 15% of charm CSF is reference skull. E1's thin skull on IXI045 and Ernie therefore does not come from this convention; it is more likely a generalization error. Caveat: charm ran T1-only here (no T2), which weakens its skull.
+- Blood (26 mL): reference CSF 39%, skull 33%, skin 23%. `9 → CSF` is the plurality and raises mean Dice only from 0.794 to 0.796; low impact either way.
+- Mean Dice charm vs reference, five tissues: 0.794 (skin 0.853, skull 0.779, CSF 0.672, GM 0.794, WM 0.872).
+
+Consequence for E2: MultiAxial and charm labels follow different GM/CSF conventions. Training on both mixes conflicting targets at the sulcal boundary. The team must choose a target convention (charm is closest to what SimNIBS meshing expects), for example by relabeling the MultiAxial training cases with charm as well. One subject, a stroke patient, and a T1-only charm run: this is direction, not a measured population effect.
+
 ## Next
 
 Run IXI095 and IXI294, optionally the T1-only variant of IXI045, then compare runtimes across sites and review the reports before any batch run. Per-subject output is about 0.25 GB, and runtime of roughly 1.1 h per subject puts 50 subjects at about 55 hours.
