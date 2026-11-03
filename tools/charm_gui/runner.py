@@ -50,6 +50,9 @@ class Job:
 
 
 class Runner:
+    log_prefix = "charm"
+    math_threads = 1
+
     def __init__(self, job):
         self.job = job
         self.process = None
@@ -70,9 +73,9 @@ class Runner:
         stamp = time.time_ns()
         self.environment = external_environment()
         # Avoid nested OpenBLAS/OpenMP pools exhausting the library's thread metadata.
-        limits = {key: "1" for key in ("OPENBLAS_NUM_THREADS", "OPENBLAS_DEFAULT_NUM_THREADS", "OMP_NUM_THREADS")}
+        limits = {key: str(self.math_threads) for key in ("OPENBLAS_NUM_THREADS", "OPENBLAS_DEFAULT_NUM_THREADS", "OMP_NUM_THREADS")}
         self.environment.update(limits)
-        self.log_path = self.job.output / f"charm.{self.job.subject}.{stamp}.launcher.log"
+        self.log_path = self.job.output / f"{self.log_prefix}.{self.job.subject}.{stamp}.launcher.log"
         self.log = self.log_path.open("xb", buffering=0)
         try:
             header = "Launcher thread limits: " + ", ".join(f"{key}={value}" for key, value in limits.items()) + "\n\n"

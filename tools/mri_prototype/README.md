@@ -63,7 +63,7 @@ E1 IDs are **1 skin / 2 skull / 3 CSF / 4 gray matter / 5 white matter**. These 
 
 The shared marching-cubes extractor uses the prediction's original affine for surface placement and bounded, approximate geometry (at most 360,000 triangles). The summary states the display sampling step. Source labels and scores are unchanged. These surfaces need no `.msh` conversion and are **not** a simulation-ready tetrahedral FEM mesh. Loading a new input that fails clears the previous scene; canceling a file picker leaves it unchanged.
 
-Weights, model training and new inference remain in the separate [E1 tools](../e1_training/HANDOFF.md). The desktop action currently displays a completed prediction; there is no desktop inference button.
+The header import action displays a completed prediction. To generate a new one, open **04 E1 segmentation**: select the inference Python, trusted model folder, MRI and output parent, then click **Generate E1 segmentation**. Successful new output opens automatically in 2D/3D. See the [desktop inference guide](INFERENCE.md) for setup, cancellation, provenance and checks. The existing K3 import/export workflow is preserved; training and model weights remain outside the desktop environment in the [E1 handoff](../e1_training/HANDOFF.md).
 
 ## Geometry and validation
 
@@ -132,6 +132,6 @@ tools/mri_prototype/.venv/bin/python tools/mri_prototype/check_3d.py \
 
 ## Prototype boundaries
 
-No DICOM conversion, editing, measurements, model training, desktop nnU-Net inference, automatic QC, electric-field display, coil placement, or installer is included. The embedded viewer displays existing SimNIBS surfaces or display surfaces extracted from E1 predictions; it does not reproduce the full SimNIBS simulation interface. Windows execution and a new full CHARM reconstruction through this prototype require separate checks; supplied Ernie segmentation files are example data, not new reconstruction evidence.
+No DICOM conversion, editing, measurements, model training, automatic QC, electric-field display, coil placement, or installer is included. The embedded viewer displays existing SimNIBS surfaces or display surfaces extracted from E1 predictions; it does not reproduce the full SimNIBS simulation interface. Windows execution and a new full CHARM reconstruction through this prototype require separate checks; supplied Ernie segmentation files are example data, not new reconstruction evidence.
 
 Dependencies and interfaces: [NiBabel processing](https://nipy.org/nibabel/reference/nibabel.processing.html), [Qt for Python](https://doc.qt.io/qtforpython-6/), [PyVistaQt framebuffer adapter](https://github.com/pyvista/pyvistaqt/blob/main/pyvistaqt/rwi.py), [SimNIBS coordinates](https://simnibs.github.io/simnibs/build/html/documentation/coordinates.html), [surface numbering](https://simnibs.github.io/simnibs/build/html/tutorial/visualization.html), and [existing CHARM launcher](../charm_gui/README.md).
