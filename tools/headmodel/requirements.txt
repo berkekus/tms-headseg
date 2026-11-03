@@ -1,0 +1,7 @@
+nibabel>=5.3,<6
+numpy>=2.2,<3
+scipy>=1.15,<2
+scikit-image>=0.25,<1
+# Used by the tests to check agreement with ITK-based tools.
+SimpleITK>=2.5,<3
+meshio>=5.3,<6

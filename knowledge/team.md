@@ -34,7 +34,7 @@ This section is the **recommended working version**. It was proposed in a planni
 | --- | --- | --- | --- |
 | K1 — Data | F1/F2: Drive intake and audit, IXI deduplication, source-label mappings, subject splits, **nnU-Net raw dataset conversion**, charm pseudo-labels and screening, removed-face masks, intact-face references, CT-skull data preparation. **Test custodian.** Co-runs E2 (pseudo-label experiment) with K2. | Careful data handling and long-running Linux jobs. | Berke (user-confirmed 2026-11-02) |
 | K2 — Model | F4: GPU environment, nnU-Net training, E1–E3 experiments, model records. After the model freeze (≈ week 8): **local inference API** (model loading, packaging, error/progress behavior) and the model card. | Strongest PyTorch/ML experience. | Unassigned |
-| K3 — Geometry and interface | Coordinate-contract stewardship, **F3 geometry part** (reorientation, resampling, and their exact inversion), Ernie baseline, F5 surfaces/cleanup, F7 generic export, **application viewer/UI** for guided inspection. | 3D geometry experience. | Unassigned |
+| K3 — Geometry and interface | Coordinate-contract stewardship, **F3 geometry part** (reorientation, resampling, and their exact inversion), Ernie baseline, F5 surfaces/cleanup, F7 generic export, **application viewer/UI** for guided inspection. | 3D geometry experience. | Ahmet (user-confirmed 2026-11-02) |
 | K4 — Quality and evaluation | Repository/test infrastructure, metrics interface, F6 QC, **stage and inference timing measurements**, comparators (charm 4.6, GRACE, SPM12, SIAM if released), F8 frozen evaluation and CT-skull subgroup. | Software engineering, reproducibility, test discipline. | Unassigned |
 
 Shared: F0 preparation (all), F9 packaging (K3 + K4), final report coordination (rotating; each role writes its own section).
@@ -47,7 +47,7 @@ Shared: F0 preparation (all), F9 packaging (K3 + K4), final report coordination 
 | Reversible preprocessing (geometry) | K2 | K3 | Coordinate steward owns orientation/inversion. |
 | Inference timing | K2 | K4 | One owner for all timing measurements. |
 | Local inference API | none | K2 (after week 8) | Uses K2's free capacity after model freeze; needs model knowledge. |
-| Application viewer/UI | none | K3 | Displays surfaces and coordinates; a CHARM launcher prototype exists. |
+| Application viewer/UI | none | K3 | Displays surfaces and coordinates; the [MRI Workbench prototype](../tools/mri_prototype/README.md) is its starting point, not a late-phase build. |
 | Test custodian | none | K1 | Must not be the person tuning the model or QC. |
 | Packaging, report coordination | K4 | K3 + K4; rotating | K4 overload. |
 
@@ -91,7 +91,7 @@ SRC-006 section 9.2 proposed: K1 F1/F2 data work; K2 F3/F4 including reversible 
 | Coordinates | K3 → all | Shared coordinate contract; K3 reviews code that changes geometry. |
 | Metrics | K4 → all | Evaluation-function inputs, outputs, units, and failure representation. |
 
-These are **proposed handoffs**, not contracts already written or accepted. The [coordinate](concepts/coordinates.md) and [measurement](acceptance.md) notes supply the current draft definitions.
+These are **proposed handoffs**, not accepted contracts. K3 has written [coordinate contract v1](concepts/coordinates.md), which lists what it asks of K1, K2, and K4; the [measurement](acceptance.md) note supplies the current draft of the metrics interface.
 
 ## Proposed collaboration rules
 

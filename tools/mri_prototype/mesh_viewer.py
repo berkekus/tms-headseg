@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from model import tissue_for_surface
 from viewer import label_color
 
 
@@ -28,13 +27,41 @@ def configure_surface_format():
 
 
 def plane_geometry(volume, axis, index):
-    """Three corners at voxel centers, transformed exactly once into world space."""
+    """Three corners at voxel edges, since a texture fills whole voxels; world space applied once."""
     other = [value for value in range(3) if value != axis]
-    points = np.zeros((3, 3))
+    points = np.full((3, 3), -.5)
     points[:, axis] = index
-    points[1, other[0]] = volume.data.shape[other[0]] - 1
-    points[2, other[1]] = volume.data.shape[other[1]] - 1
+    points[1, other[0]] = volume.data.shape[other[0]] - .5
+    points[2, other[1]] = volume.data.shape[other[1]] - .5
     return points @ volume.image.affine[:3, :3].T + volume.image.affine[:3, 3]
+
+
+def plane_actor(volume, axis, index, level, width):
+    """One MRI slice as a textured quad in world coordinates."""
+    from vtkmodules.util.numpy_support import numpy_to_vtk
+    from vtkmodules.vtkCommonDataModel import vtkImageData
+    from vtkmodules.vtkFiltersSources import vtkPlaneSource
+    from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper, vtkTexture
+    plane = np.take(volume.data, index, axis=axis)
+    gray = (np.clip((plane - (level - width / 2)) / max(width, .001), 0, 1) * 255).astype(np.uint8)
+    image = vtkImageData()
+    image.SetDimensions(*gray.shape, 1)
+    image.GetPointData().SetScalars(numpy_to_vtk(gray.ravel(order="F"), deep=True))
+    texture = vtkTexture()
+    texture.SetInputData(image)
+    texture.InterpolateOn()
+    corners = plane_geometry(volume, axis, index)
+    source = vtkPlaneSource()
+    source.SetOrigin(*corners[0])
+    source.SetPoint1(*corners[1])
+    source.SetPoint2(*corners[2])
+    mapper = vtkPolyDataMapper()
+    mapper.SetInputConnection(source.GetOutputPort())
+    actor = vtkActor()
+    actor.SetMapper(mapper)
+    actor.SetTexture(texture)
+    actor.GetProperty().LightingOff()
+    return actor
 
 
 class MeshView(QWidget):
@@ -93,6 +120,7 @@ class MeshView(QWidget):
         layout.addLayout(self.viewport, 1)
         self.checks = {}
         self.sliders = {}
+        self.presets = {}
 
     def clear(self):
         self.model = None
@@ -108,6 +136,7 @@ class MeshView(QWidget):
             item.widget().deleteLater()
         self.checks.clear()
         self.sliders.clear()
+        self.presets.clear()
         for button in self.preset_buttons.values():
             button.setEnabled(False)
         self.summary.setText("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
@@ -115,23 +144,23 @@ class MeshView(QWidget):
     def set_model(self, model):
         self.clear()
         self.model = model
-        self.brain_tags, self.head_tag = ((4, 5), 1) if model.kind == "e1" else ((1002, 1001), 1005)
         count = sum(len(surface.triangles) for surface in model.surfaces)
         title = model.labels[0].name if model.kind == "e1" else model.directory.name
-        self.summary.setText(f"{title}\n{len(model.surfaces)} surfaces · {count:,} triangles\n{model.geometry_note}")
+        self.summary.setText("\n".join((title, f"{len(model.surfaces)} surfaces · {count:,} triangles",
+                                         model.geometry_note, *model.notes)))
         self.summary.setToolTip(str(model.mesh_path or model.labels[0]))
         units = "assumed mm · physical scale unverified" if model.units_assumed else "mm"
         self.coordinate_note.setText(f"RAS coordinates · {units}\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
+        self.presets = {surface.role: surface.tag for surface in model.surfaces if surface.role}
         for surface in model.surfaces:
-            label = tissue_for_surface(surface.tag, model.kind)
-            name, color = model.tissues.get(label, (f"Surface {surface.tag}", label_color(surface.tag)))
+            name = surface.name or f"Surface {surface.tag}"
             check = QCheckBox(f"{name} · {surface.tag}")
             check.setToolTip(f"{len(surface.triangles):,} triangles")
-            check.setChecked(surface.tag in (self.brain_tags[0], self.head_tag))
+            check.setChecked(surface.role is not None)
             check.toggled.connect(lambda checked, tag=surface.tag: self.set_visibility(tag, checked))
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setRange(0, 100)
-            slider.setValue(20 if surface.tag == self.head_tag else 100)
+            slider.setValue(20 if surface.role == "head" else 100)
             slider.setAccessibleName(f"{name} opacity")
             slider.valueChanged.connect(lambda value, tag=surface.tag: self.set_opacity(tag, value))
             self.checks[surface.tag], self.sliders[surface.tag] = check, slider
@@ -139,8 +168,8 @@ class MeshView(QWidget):
             self.tissue_layout.addWidget(slider)
         if not any(check.isChecked() for check in self.checks.values()):
             next(iter(self.checks.values())).setChecked(True)
-        self.preset_buttons[True].setEnabled(bool(set(self.brain_tags) & self.checks.keys()))
-        self.preset_buttons[False].setEnabled(self.head_tag in self.checks)
+        self.preset_buttons[True].setEnabled("brain" in self.presets)
+        self.preset_buttons[False].setEnabled("head" in self.presets)
         if self.renderer is not None:
             self.build_scene()
 
@@ -199,8 +228,7 @@ class MeshView(QWidget):
             mapper.ScalarVisibilityOff()
             actor = vtkActor()
             actor.SetMapper(mapper)
-            label = tissue_for_surface(surface.tag, self.model.kind)
-            color = self.model.tissues.get(label, ("", label_color(surface.tag)))[1]
+            color = surface.color or label_color(surface.tag)
             actor.GetProperty().SetColor(*(channel / 255 for channel in color))
             actor.GetProperty().SetOpacity(self.sliders[surface.tag].value() / 100)
             actor.SetVisibility(self.checks[surface.tag].isChecked())
@@ -238,13 +266,13 @@ class MeshView(QWidget):
             self.render()
 
     def preset(self, brain):
-        if self.model is None:
+        selected = self.presets.get("brain" if brain else "head")
+        if selected is None:
             return
-        selected = next((tag for tag in self.brain_tags if tag in self.checks), None) if brain else self.head_tag
         for tag, check in self.checks.items():
             check.setChecked(tag == selected)
-        if self.head_tag in self.sliders and not brain:
-            self.sliders[self.head_tag].setValue(100)
+        if not brain:
+            self.sliders[selected].setValue(100)
         self.reset_camera()
 
     def reset_camera(self):
@@ -261,35 +289,12 @@ class MeshView(QWidget):
     def update_planes(self, *args):
         if self.renderer is None or self.model is None:
             return
-        from vtkmodules.util.numpy_support import numpy_to_vtk
-        from vtkmodules.vtkCommonDataModel import vtkImageData
-        from vtkmodules.vtkFiltersSources import vtkPlaneSource
-        from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper, vtkTexture
         for actor in self.planes:
             self.renderer.RemoveActor(actor)
         self.planes.clear()
         if self.show_planes.isChecked():
-            volume = self.model.volume
             for axis, index in enumerate(self.indices):
-                plane = np.take(volume.data, index, axis=axis)
-                gray = (np.clip((plane - (self.level - self.width / 2)) / max(self.width, .001), 0, 1) * 255).astype(np.uint8)
-                image = vtkImageData()
-                image.SetDimensions(*gray.shape, 1)
-                image.GetPointData().SetScalars(numpy_to_vtk(gray.ravel(order="F"), deep=True))
-                texture = vtkTexture()
-                texture.SetInputData(image)
-                texture.InterpolateOn()
-                corners = plane_geometry(volume, axis, index)
-                source = vtkPlaneSource()
-                source.SetOrigin(*corners[0])
-                source.SetPoint1(*corners[1])
-                source.SetPoint2(*corners[2])
-                mapper = vtkPolyDataMapper()
-                mapper.SetInputConnection(source.GetOutputPort())
-                actor = vtkActor()
-                actor.SetMapper(mapper)
-                actor.SetTexture(texture)
-                actor.GetProperty().LightingOff()
+                actor = plane_actor(self.model.volume, axis, index, self.level, self.width)
                 self.renderer.AddActor(actor)
                 self.planes.append(actor)
         self.render()

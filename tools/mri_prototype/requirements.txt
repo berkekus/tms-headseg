@@ -1,4 +1,5 @@
 -r ../charm_gui/requirements.txt
+-r ../headmodel/requirements.txt
 nibabel>=5.3,<6
 numpy>=2.2,<3
 scipy>=1.15,<2

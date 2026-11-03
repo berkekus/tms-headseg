@@ -1,9 +1,15 @@
-"""Read existing SimNIBS models without altering their subject-world geometry."""
+"""Read existing head models without altering their subject-world geometry.
+
+Three sources open here: a SimNIBS m2m folder, an exported project model, and an E1 prediction.
+Their label numbers mean different tissues, so head and brain surfaces are found by role.
+"""
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import sys
 
+import meshio
 from meshio.gmsh import read as read_gmsh
 import numpy as np
 
@@ -12,10 +18,17 @@ from volume import Volume, bounds, load_labels, load_volume, read_image
 # Reuse the bounded E1 display geometry; no inference/training dependencies are imported.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from e1_training.surface_view import COLORS, extract_surfaces
+from headmodel.verify_model import verify_model
 
 E1_TISSUES = {label: (name, tuple(bytes.fromhex(COLORS[label][1:])))
               for label, name in enumerate(("Background", "Skin", "Skull", "CSF", "Gray matter", "White matter"))
               if label}
+
+SIMNIBS_WHITE_MATTER, SIMNIBS_GRAY_MATTER, SIMNIBS_SKIN = 1001, 1002, 1005
+_PROJECT_TISSUES = {"skin": ("Skin", (255, 166, 133)), "skull": ("Skull", (255, 239, 179)),
+                    "csf": ("CSF", (104, 163, 255)), "gray_matter": ("Gray matter", (129, 129, 129)),
+                    "white_matter": ("White matter", (230, 230, 230))}
+_PROJECT_SURFACES = {"head": (1, "Head", (255, 166, 133)), "brain": (2, "Brain", (129, 129, 129))}
 
 
 @dataclass
@@ -23,6 +36,9 @@ class Surface:
     tag: int
     points: np.ndarray
     triangles: np.ndarray
+    name: str = ""
+    color: tuple | None = None
+    role: str | None = None
 
 
 @dataclass
@@ -37,6 +53,8 @@ class HeadModel:
     kind: str = "simnibs"
     geometry_note: str = "Subject space · original mesh geometry"
     units_assumed: bool = False
+    notes: tuple = ()
+    export_source: tuple | None = None
 
 
 def read_lut(path):
@@ -103,10 +121,44 @@ def read_surfaces(path, volume):
     return surfaces
 
 
+def describe_surfaces(surfaces, tissues, head, brains, tissue_of):
+    """Name each surface and mark head and brain by role; the first available brain tag wins."""
+    tags = {surface.tag for surface in surfaces}
+    roles = {head: "head", next((tag for tag in brains if tag in tags), None): "brain"}
+    for surface in surfaces:
+        surface.role = roles.get(surface.tag)
+        if tissue_of(surface.tag) in tissues:
+            surface.name, surface.color = tissues[tissue_of(surface.tag)]
+
+
+def load_project_model(directory):
+    """Open an exported model only if it passes the independent check."""
+    failures = verify_model(directory)
+    if failures:
+        raise ValueError(f"Model failed verification: {failures[0]}")
+    record = json.loads((directory / "model.json").read_text(encoding="utf-8"))
+    volume = load_volume(directory / record["reference_image"]["copy"])
+    aligned = load_labels(directory / record["labels"]["file"], volume)
+    tissues = {int(value): _PROJECT_TISSUES[name] for value, name in record["labels"]["values"].items()
+               if name in _PROJECT_TISSUES}
+    surfaces = []
+    for role, description in record["surfaces"].items():
+        mesh = meshio.read(directory / description["file"])
+        tag, name, color = _PROJECT_SURFACES[role]
+        surfaces.append(Surface(tag, np.asarray(mesh.points, dtype=np.float64), mesh.cells_dict["triangle"],
+                                name, color, role))
+    face = record["coverage"]["face"].replace("_", " ")
+    return HeadModel(directory, volume, aligned, directory / "model.json", surfaces, tissues, None,
+                     kind="project", geometry_note="Subject space · exported surfaces",
+                     notes=(f"Face coverage: {face}.", *record["warnings"]))
+
+
 def load_model(directory):
     directory = Path(directory).expanduser().resolve()
     if not directory.is_dir():
         raise ValueError("Choose an existing SimNIBS m2m model folder.")
+    if (directory / "model.json").is_file():
+        return load_project_model(directory)
     t1 = next((directory / name for name in ("T1.nii.gz", "T1.nii") if (directory / name).is_file()), None)
     labels = directory / "final_tissues.nii.gz"
     if t1 is None or not labels.is_file():
@@ -119,9 +171,11 @@ def load_model(directory):
     aligned = load_labels(labels, volume)
     tissues = read_lut(directory / "final_tissues_LUT.txt")
     surfaces = read_surfaces(candidates[0], volume)
+    describe_surfaces(surfaces, tissues, SIMNIBS_SKIN, (SIMNIBS_GRAY_MATTER, SIMNIBS_WHITE_MATTER), tissue_for_surface)
     report = next((directory / name for name in ("charm_report.html", "results.html")
                    if (directory / name).is_file()), None)
-    return HeadModel(directory, volume, aligned, candidates[0], surfaces, tissues, report)
+    return HeadModel(directory, volume, aligned, candidates[0], surfaces, tissues, report,
+                     export_source=(t1, labels, "charm"))
 
 
 def load_e1_model(mri_path, prediction_path, assume_mm=False):
@@ -136,6 +190,7 @@ def load_e1_model(mri_path, prediction_path, assume_mm=False):
     labels = load_labels(path, volume, assume_mm=assume_mm)
     meshes = extract_surfaces(values, source.affine)
     surfaces = [Surface(mesh["label"], mesh["vertices"], mesh["faces"]) for mesh in meshes]
+    describe_surfaces(surfaces, E1_TISSUES, 1, (4, 5), lambda tag: tag)
     step = max(mesh["step_size"] for mesh in meshes)
     note = f"E1 display surfaces · sampling up to {step} voxels · not a FEM mesh"
     assumed = volume.units_assumed or prediction_assumed
