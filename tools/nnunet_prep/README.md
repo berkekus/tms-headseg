@@ -45,6 +45,29 @@ python tools/nnunet_prep/prepare_multiaxial.py <D01 acilmis_dosyalar> --out <dir
 nnUNetv2_plan_and_preprocess -d 1 -c 3d_fullres --verify_dataset_integrity -np 1
 ```
 
+## E2: charm labels (`prepare_e2.py`, decided 2026-11-04)
+
+E2 trains on charm 4.6.0 labels only, so the sulcal GM/CSF boundary follows one convention (EXP-002, NC033).
+
+| Source | Cases | charm input | Split |
+| --- | --- | --- | --- |
+| IXI (D06), cohort `train` | 29 (K1 14 + K2 15) | T1+T2 | 2 val per site (seed 42), rest train |
+| MultiAxial (D01), E1 train/val | 54 | T1 only, the Dataset001 image | E1 split kept (44 / 10) |
+
+Never included: IXI `test_face`, `calibration`, `excluded_d05`, and the MultiAxial test hold-out. A case enters only if its delivery checksums match, `run.json` reports a completed SimNIBS 4.6.0 run, and its QC row says `pass` (`fail`/`check` never enter; `--allow-unchecked` admits only rows with no QC yet). Labels use `headmodel.labels.CHARM_TO_PROJECT` (blood → CSF). Labels on exactly-zero voxels connected to the volume border (padding, defacing) become background, because charm extrapolates tissue there (IXI426: 414 mL); `e2_manifest.csv` records `padding_cleared_ml` per case. Later `--qc` sheets override earlier ones, so a K1 review can turn K2's `check` into `pass`. Output: `Dataset002_E2Charm` plus `e2_manifest.csv`.
+
+```powershell
+python tools/nnunet_prep/prepare_e2.py `
+    --deliver <tms-data>\charm_K1\deliver_K1 <K2 deliver_K2> <MultiAxial deliver folders> `
+    --qc <qc_K1.csv> <qc_K2.csv> <MultiAxial qc sheets> `
+    --ixi-images <tms-data>\D06\acilmis_dosyalar `
+    --ma-images <tms-data>\nnunet_mm\nnUNet_raw\Dataset001_MultiAxial\imagesTr `
+    --out <new folder> --require-all
+nnUNetv2_plan_and_preprocess -d 2 -c 3d_fullres --verify_dataset_integrity -np 1
+```
+
+Preview (2026-11-04): all 29 IXI cases (23 train, 6 val) built with image/label affine difference 0; the 14-case preview passed `nnUNetv2_extract_fingerprint --verify_dataset_integrity`. The full build waits for the 54 MultiAxial charm runs.
+
 ## Tests
 
 ```bash

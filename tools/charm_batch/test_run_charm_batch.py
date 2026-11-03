@@ -154,6 +154,53 @@ class RunTests(unittest.TestCase):
             self.assertEqual(batch.main(args), 0)  # second pass skips both
             self.assertFalse(any(out.glob("m2m_IXI100_attempt_*")))
 
+    def test_t1_only_multiaxial_layout(self):
+        import nibabel as nib
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data").mkdir()
+            nib.save(nib.Nifti1Image(np.zeros((4, 4, 4), np.float32), np.eye(4)), str(root / "data" / "NC001_0000.nii.gz"))
+            path = root / "assignment.csv"
+            path.write_text("subject,site,cohort,owner,note\nNC001,NC,val,K1,\nNC002,NC,test,K1,\n")
+            args = ["--owner", "K1", "--data", str(root / "data"), "--out", str(root / "out"), "--assignment", str(path),
+                    "--charm", self.fake_charm(root), "--t1-only", "--cohort", "train,val"]
+            self.assertEqual(batch.main(args), 0)
+            rec = json.loads((root / "out" / "runs" / "NC001.json").read_text())
+            self.assertTrue(rec["t1_only"] and rec["outputs_ok"])
+            self.assertIsNone(rec["t2"])
+            self.assertEqual(set(rec["input_sha256"]), {"t1"})
+            self.assertFalse((root / "out" / "m2m_NC002").exists())
+            self.assertEqual(batch.main(args), 0)  # resume verifies and skips
+
+    def test_parts_cover_all_rows_without_overlap(self):
+        rows = [{"subject": f"GU{i:03d}"} for i in range(11)]
+        parts = [batch.select_part(rows, f"{k}/3") for k in (1, 2, 3)]
+        names = [r["subject"] for p in parts for r in p]
+        self.assertEqual(sorted(names), sorted(r["subject"] for r in rows))
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_multiaxial_rows_exclude_test(self):
+        manifest = [{"case_id": "GU001", "center": "GU", "split": "train"},
+                    {"case_id": "GU002", "center": "GU", "split": "val"},
+                    {"case_id": "GU003", "center": "GU", "split": "test"},
+                    {"case_id": "subj1", "center": "healthy", "split": "test"}]
+        rows = make_assignment.multiaxial_rows(manifest)
+        self.assertEqual([r["subject"] for r in rows], ["GU001", "GU002"])
+        with open(HERE / "multiaxial_assignment.csv", newline="") as f:
+            committed = list(csv.DictReader(f))
+        self.assertEqual(len(committed), 54)
+        self.assertTrue(all(r["cohort"] in ("train", "val") for r in committed))
+
+    def test_qc_sheet_keeps_rows_from_other_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            (out / "qc_K1.csv").write_text("subject,qc,notes\nIXI028,pass,ok\n")
+            batch.ensure_qc_sheet(out, "K1", ["IXI111"])
+            with open(out / "qc_K1.csv", newline="") as f:
+                rows = {r["subject"]: r for r in csv.DictReader(f)}
+            self.assertEqual(rows["IXI028"]["notes"], "ok")
+            self.assertIn("IXI111", rows)
+
     def test_large_qform_mismatch_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -58,7 +58,32 @@ def assign(audit_rows, d05_ids, seed=SEED):
     return sorted(rows, key=lambda r: r["subject"])
 
 
+def multiaxial_rows(manifest_rows):
+    """MultiAxial (D01) cases for charm relabeling (E2, decided 2026-11-04): E1 train and val only.
+
+    The E1 test hold-out never gets charm here; it stays closed until the model is frozen."""
+    rows = []
+    for r in sorted(manifest_rows, key=lambda r: r["case_id"]):
+        if r["split"] in ("train", "val"):
+            rows.append({"subject": r["case_id"], "site": r["center"], "cohort": r["split"], "owner": "K1",
+                         "note": "T1 only; input is the Dataset001 nnU-Net image"})
+    return rows
+
+
+def write_rows(out, rows):
+    with open(out, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["subject", "site", "cohort", "owner", "note"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def main():
+    if sys.argv[1] == "--multiaxial":  # make_assignment.py --multiaxial SPLIT_MANIFEST_CSV OUT_CSV
+        with open(sys.argv[2], newline="") as f:
+            rows = multiaxial_rows(list(csv.DictReader(f)))
+        write_rows(sys.argv[3], rows)
+        print({c: sum(r["cohort"] == c for r in rows) for c in ("train", "val")})
+        return
     audit, d05, out = sys.argv[1:4]
     with open(audit, newline="") as f:
         audit_rows = list(csv.DictReader(f))

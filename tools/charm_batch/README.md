@@ -24,7 +24,7 @@ IXI045 ve IXI294 pilotları bu araçtan önce, aynı charm sürümüyle ama iş 
 
 1. **SimNIBS 4.6.0.** Sürüm birebir aynı olmalı. Araç sürümü log'dan okur ve başka bir sürümde vakayı başarısız sayar.
 2. **D06 IXI verisi.** Ekip Drive'ındaki D06 klasöründen indirilip açılır (yaklaşık 0,75 GB). Araç dosyaları `DATA/IXI037/IXI037-Guys-0704-T1.nii.gz` düzeninde de, hepsi tek klasörde olacak şekilde de bulur.
-3. **Disk alanı.** Kişi başına yaklaşık 0,25 GB, 15 kişi için yaklaşık 4 GB.
+3. **Disk alanı.** Kişi başına yaklaşık 0,75 GB (tam `m2m` klasörü), 15 kişi için yaklaşık 12 GB. Başlamadan önce en az 15 GB boş yer olsun.
 4. **Hafıza.** En az 16 GB RAM. **Aynı anda tek charm** çalıştır; araç vakaları zaten sırayla işler.
 5. **Bu repo.** `git pull` ile güncel olmalı.
 
@@ -97,6 +97,17 @@ Araç `qc_K2.csv` dosyasını oluşturur. Biten her kişi için `m2m_<ID>/charm_
 - Test (`test_face`) ve kalibrasyon kişilerini çalıştırma, eğitimde de kullanma. Araç zaten yalnızca `train` grubunu çalıştırır.
 - Ayar, bayrak veya sürüm değiştirme. Bir sorun çıkarsa K1'e sor. Farklı ayarla üretilen etiketler iki makinenin sonuçlarını karşılaştırılamaz hale getirir.
 - IXI verisi CC BY-SA 3.0 lisanslı. Çıktılar yalnızca ekip Drive'ında tutulur, Git'e girmez.
+
+## MultiAxial (E2, K1)
+
+E2'de MultiAxial'ın E1 eğitim ve doğrulama vakaları da charm ile etiketlenir (54 vaka, karar 2026-11-04). Atama [multiaxial_assignment.csv](multiaxial_assignment.csv) içinde; `make_assignment.py --multiaxial <split_manifest.csv> <çıktı>` ile üretilir. MultiAxial test vakaları listede yoktur.
+
+MultiAxial'da T2 yok. Girdi, Dataset001'deki nnU-Net görüntüsüdür (`<ID>_0000.nii.gz`), böylece etiketler E2'ye girecek görüntüyle aynı ızgarada olur. Makineler `--part K/N` ile çakışmadan bölünür; N'i başta seç ve değiştirme.
+
+```powershell
+& $py tools/charm_batch/run_charm_batch.py --owner K1 --assignment tools/charm_batch/multiaxial_assignment.csv `
+    --cohort train,val --t1-only --part 3/3 --data <Dataset001 imagesTr> --out <çıktı> --charm $charm
+```
 
 ## Testler
 
