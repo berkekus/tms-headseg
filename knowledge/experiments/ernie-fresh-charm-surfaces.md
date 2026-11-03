@@ -1,13 +1,13 @@
 ---
 type: Experiment
 title: 'EXP-006: Surfaces from Fresh charm 4.6 Labels'
-description: The K3 surface pipeline on the labels from EXP-001; finds that open airways enter the head surface.
+description: The K3 surface pipeline on the labels from EXP-001; found open airways in the head surface, and measured the fix.
 status: draft
 generated:
   by: claude/opus-5.5
   at: '2026-11-03T12:30:00+03:00'
 experiment_id: EXP-006
-experiment_state: running
+experiment_state: completed
 sources:
 - id: exp001
   resource: ernie-baseline.md
@@ -19,7 +19,7 @@ sources:
 
 # EXP-006: Surfaces from Fresh charm 4.6 Labels
 
-Experiment state: **running**. Attempt 1 is complete and found a defect; a fix and attempt 2 follow.
+Experiment state: **completed**, two attempts on 2026-11-03. Attempt 1 found a defect; attempt 2 measured the fix.
 
 ## Question
 
@@ -53,6 +53,40 @@ Every point of charm's skin lies close to our head surface, but 20.9% of our hea
 Reading: in these labels the airways connect to outside air through the nose or mouth. Hole filling only closes fully enclosed cavities, so the "external" head surface also traced the airway walls. In the supplied older labels those cavities were enclosed, which is why EXP-005 did not show this. The brain surface is unaffected.
 
 The location argument identifies the region, not each structure; no person has inspected these surfaces yet.
+
+## Choosing a fix
+
+Four envelope strategies were measured once on these labels in a throwaway script. "Far" means more than 2 mm from charm's skin; the right-hand column checks that the outer skin is unchanged.
+
+| Strategy | Model to mesh: mean, share far | Mesh to model: mean / p95 / max |
+| --- | --- | --- |
+| Hole filling only (attempt 1) | 6.394 mm, 20.90% | 0.199 / 0.332 / 1.16 mm |
+| Seal openings, 5 mm | 0.626 mm, 2.47% | 0.200 / 0.333 / 2.67 mm |
+| Seal openings, 8 mm | 0.294 mm, 1.42% | 0.199 / 0.332 / 1.16 mm |
+| Fill each axial slice | 0.354 mm, 1.53% | 0.211 / 0.350 / 4.96 mm |
+| 5 mm seal plus axial filling | 0.263 mm, 0.86% | 0.211 / 0.351 / 4.96 mm |
+
+The 8 mm seal removed most airway surface and left the outer skin exactly as before. Axial filling changed the skin, so it was not used. The seal is a closing that closes openings narrower than about 16 mm; air more than 8 mm inside the sealed head is filled, and air nearer the outside is kept. The labels themselves are not changed.
+
+## Attempt 2: commit `24703c5`
+
+Same inputs and commands.
+
+| Measure | Head | Brain |
+| --- | --- | --- |
+| Triangles | 439,384 (was 547,618) | 594,018, unchanged |
+| Closed surface; verification | Yes; passed | Yes; passed |
+| Distance to exported label boundary: mean / p95 / max | 0.191 / 0.459 / 0.949 mm | 0.238 / 0.557 / 1.000 mm |
+| Model to SimNIBS mesh: mean / p95 / max | **0.293 / 0.380 / 11.599 mm** | 0.189 / 0.356 / 1.840 mm |
+| SimNIBS mesh to model: mean / p95 / max | 0.130 / 0.272 / 1.124 mm | 1.738 / 6.783 / 17.712 mm |
+
+The surfaces stage took 4.24 s, up from 1.76 s, because of the seal; the four stages totalled about 6.9 s. No point of charm's skin lies more than 2 mm from the sealed surface.
+
+The remaining 1.42% of head points farther than 2 mm (median 4.1 mm, maximum 11.6 mm) fall in four clusters: both ear canals, the front of the mouth and nose, and the airway opening at the bottom of the neck. These are the mouths of openings kept on purpose. The cluster labels come from coordinates, not from inspection.
+
+## Conclusion
+
+On one subject, the sealed envelope gives an external head surface that matches SimNIBS 4.6's skin within about 0.3 mm on average, with the brain unchanged. The 8 mm value is provisional and was chosen on this subject. It still needs checking on more subjects, on model predictions, and on scans with open mouths.
 
 ## Related notes
 

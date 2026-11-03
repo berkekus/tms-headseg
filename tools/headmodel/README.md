@@ -53,7 +53,7 @@ brain = extract_surface(brain_mask(result.labels), source.affine)
 # head.vertices are world coordinates in RAS+ millimetres.
 ```
 
-Cleanup follows the class-specific table in [labels and facial coverage](../../knowledge/concepts/labels-and-face.md). The head surface is the outer envelope, so enclosed air cavities stay background in the labels but do not appear in the surface. Brain cavities are kept. The island threshold, smoothing count, and warning limits are provisional values, not validated settings.
+Cleanup follows the class-specific table in [labels and facial coverage](../../knowledge/concepts/labels-and-face.md). The head surface is the outer envelope: enclosed cavities, and air reached only through openings narrower than about 16 mm such as the airways behind the nostrils, are filled for the surface but stay background in the labels. Air within 8 mm of the outside is kept, so the skin does not change ([EXP-006](../../knowledge/experiments/ernie-fresh-charm-surfaces.md)). Brain cavities are kept. The island threshold, smoothing count, and warning limits are provisional values, not validated settings.
 
 ## Building and checking a model
 
