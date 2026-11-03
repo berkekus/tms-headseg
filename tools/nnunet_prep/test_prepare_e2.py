@@ -144,6 +144,31 @@ class PrepareE2Tests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 e2.build(fx.args("--require-all"))
 
+    def test_labels_on_border_padding_become_background_but_enclosed_zeros_stay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image = np.ones((6, 6, 6), np.float32)
+            image[:, :, 0] = 0          # padding slab on one face
+            image[3, 3, 3] = 0          # enclosed zero voxel inside signal
+            labels = np.full((6, 6, 6), 5, np.int16)  # scalp everywhere
+            nib.save(nib.Nifti1Image(image, np.eye(4)), str(root / "t1.nii.gz"))
+            nib.save(nib.Nifti1Image(labels[..., None], np.eye(4)), str(root / "lab.nii.gz"))
+            facts = e2.convert_case(root / "t1.nii.gz", root / "lab.nii.gz", root / "img_out.nii.gz", root / "lab_out.nii.gz")
+            out = np.asanyarray(nib.load(str(root / "lab_out.nii.gz")).dataobj)
+            self.assertTrue((out[:, :, 0] == 0).all())
+            self.assertEqual(int(out[3, 3, 3]), 1)
+            self.assertAlmostEqual(facts["padding_cleared_ml"], 36 / 1000)
+
+    def test_later_qc_sheet_overrides_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = E2Fixture(Path(tmp))
+            fx.write_qc({"IXI001": "check"})
+            review = fx.root / "review.csv"
+            write_csv(review, [{"subject": "IXI001", "qc": "pass", "notes": "K1 review"}])
+            args = fx.args()
+            args.qc.append(review)
+            self.assertIn("IXI001", {m["case_id"] for m in e2.build(args)["manifest"]})
+
     def test_geometry_mismatch_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             fx = E2Fixture(Path(tmp))

@@ -93,6 +93,8 @@ QC by K1 (six T1 overlay slices per subject plus volume and connectivity checks;
 
 Held-out subjects (10 `test_face`, 5 `calibration`) run on the K1 desktop from 2026-11-03 23:13. K2 runs its 15 training subjects with the same tool.
 
+**K2 delivery (2026-11-04):** 15/15 subjects, zip hash and every per-subject checksum verified by K1; SimNIBS 4.6.0 on macOS with thread limits, 28–35 min each. K2 QC: 13 pass, IXI426 and IXI442 `check` because charm puts tissue on the T1's zero padding. K1 measured this on all 29 IXI subjects: IXI426 has 414 mL of extrapolated neck and scalp on inferior padding (338 mL more than 5 mm from any signal); every other subject has at most 21 mL, with at most 3.7 mL beyond 5 mm and no brain or CSF. **Rule adopted for E2:** labels on exactly-zero voxels connected to the volume border become background in `prepare_e2.py` (recorded per case as `padding_cleared_ml`). With that rule K1 accepted both `check` cases (`qc_K1_review_of_K2.csv`, outside Git). The same rule turns the defaced region of MultiAxial images into background, matching the Dataset001 labels.
+
 **Decision (2026-11-04, team):** E2 uses charm labels only. The 54 MultiAxial E1 train/val cases are relabeled with charm (T1 only, on the Dataset001 images) so that IXI and MultiAxial share one GM/CSF convention; the MultiAxial test hold-out is not relabeled. Runs: K1 laptop parts 1/3 and 2/3, K1 desktop part 3/3 after the held-out runs. Dataset assembly: `tools/nnunet_prep/prepare_e2.py` (`Dataset002_E2Charm`). Caveat: MultiAxial charm runs are T1-only, which NC033 suggests gives a weaker skull than T1+T2.
 
 ## Related notes

@@ -11,8 +11,10 @@ Split: MultiAxial keeps its E1 train/val split. IXI training subjects get IXI_VA
 cases per site (fixed seed); the rest train.
 
 Each case must have a charm delivery whose SHA256SUMS.txt matches, whose run.json reports SimNIBS 4.6.0
-and outputs_ok, and (unless --allow-unchecked) a QC row marked `pass`. Labels are mapped with
-headmodel.labels.CHARM_TO_PROJECT (blood 9 -> CSF, PR #5) and written on the T1 grid.
+and outputs_ok, and (unless --allow-unchecked) a QC row marked `pass`; later --qc sheets override earlier
+ones (K1 review after K2's `check`). Labels are mapped with headmodel.labels.CHARM_TO_PROJECT (blood 9 -> CSF,
+PR #5) and written on the T1 grid. Labels on exactly-zero voxels connected to the volume border (padding,
+defacing) become background, because charm extrapolates tissue there.
 
 Output under --out (outside the repository):
     nnUNet_raw/Dataset002_E2Charm/{dataset.json,imagesTr,labelsTr}
@@ -36,6 +38,7 @@ from pathlib import Path
 
 import nibabel as nib
 import numpy as np
+from scipy import ndimage
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
@@ -136,11 +139,29 @@ def convert_case(t1_path: Path, label_path: Path, image_out: Path, label_out: Pa
     if affine_diff > GEOMETRY_ATOL:
         raise ValueError(f"{t1_path.name}: image and label affines differ by {affine_diff:.3g}")
     mapped = validate_project_labels(map_labels(labels, CHARM_TO_PROJECT))
+    image = np.asanyarray(t1.dataobj).astype(np.float32)
+    padding = outside_acquisition(image)
+    cleared = int(np.count_nonzero(mapped[padding]))
+    mapped[padding] = 0
     affine, shear_error = orthonormalize(t1.affine)
-    save_nifti(image_out, np.asanyarray(t1.dataobj).astype(np.float32), affine)
+    save_nifti(image_out, image, affine)
     save_nifti(label_out, mapped, affine)
-    return {"affine_diff": affine_diff, "shear_error": shear_error,
+    voxel_ml = float(np.prod(t1.header.get_zooms()[:3])) / 1000.0
+    return {"affine_diff": affine_diff, "shear_error": shear_error, "padding_cleared_ml": cleared * voxel_ml,
             "voxels_per_label": np.bincount(mapped.ravel(), minlength=6).tolist()}
+
+
+def outside_acquisition(image: np.ndarray) -> np.ndarray:
+    """Exactly-zero voxels connected to the volume border: padding or defacing, not acquired anatomy.
+
+    charm extrapolates tissue into such voxels (IXI426: 414 mL of neck, K2 QC 2026-11-04). The image holds
+    no signal there, so E2 labels them background (as the Dataset001 defaced labels do). Zero voxels
+    enclosed by signal are left alone."""
+    zero = image == 0
+    components, _ = ndimage.label(zero)
+    faces = [components[0], components[-1], components[:, 0], components[:, -1], components[:, :, 0], components[:, :, -1]]
+    border = np.unique(np.concatenate([f.ravel() for f in faces]))
+    return np.isin(components, border[border > 0])
 
 
 def build(args) -> dict:
@@ -176,6 +197,7 @@ def build(args) -> dict:
                          "forceqform": bool(run.get("forceqform")), "qc": status or "unchecked",
                          "t1_source": t1.name, "affine_diff": f"{facts['affine_diff']:.2e}",
                          "affine_orthonormalized": facts["shear_error"] > SHEAR_TOLERANCE,
+                         "padding_cleared_ml": f"{facts['padding_cleared_ml']:.1f}",
                          "voxels_per_label": " ".join(map(str, facts["voxels_per_label"]))})
 
     if missing:
