@@ -88,7 +88,7 @@ The remaining 1.42% of head points farther than 2 mm (median 4.1 mm, maximum 11.
 
 ## Conclusion
 
-On one subject, the sealed envelope gives an external head surface that matches SimNIBS 4.6's skin within about 0.3 mm on average, with the brain unchanged. The 8 mm value is provisional and was chosen on this subject. It still needs checking on more subjects, on model predictions, and on scans with open mouths.
+On one subject, the sealed envelope gives an external head surface that matches SimNIBS 4.6's skin within about 0.3 mm on average, with the brain unchanged. The 8 mm value is provisional and was chosen on this subject. It still needs checking on more subjects, on model predictions, and on scans with open mouths. [EXP-007](mni152-envelope-seal.md) repeated the check on the SimNIBS MNI152 example with the same outcome.
 
 ## Related notes
 
