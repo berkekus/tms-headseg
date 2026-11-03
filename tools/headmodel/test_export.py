@@ -11,6 +11,7 @@ import meshio
 import numpy as np
 
 from headmodel.build_model import build_model
+from headmodel.cleanup import ENVELOPE_SEAL_MM
 from headmodel.export import read_stl_header, write_ply, write_stl
 from headmodel.frames import voxel_to_world
 from headmodel.images import write_nifti
@@ -134,6 +135,20 @@ class BuildModelTests(unittest.TestCase):
         model = self.metadata()
         self.assertIn("L", model["coverage"]["head_touches_image_edge"])
         self.assertTrue(any("image edge" in warning for warning in model["warnings"]))
+
+    def test_airway_sealing_is_recorded_and_verified(self):
+        """A 12 mm channel into an air pocket: sealed at 8 mm, its plug sits 6 mm from the walls."""
+        points = voxel_to_world(self.affine, np.indices(self.shape).reshape(3, -1).T)
+        pocket = np.linalg.norm(points - (0, 70, -10), axis=1) < 12
+        channel = ((points[:, 0] > -4.5) & (points[:, 0] < 7.5) & (points[:, 2] > -16.5)
+                   & (points[:, 2] < -4.5) & (points[:, 1] > 70))
+        airway = self.labels.copy()
+        airway[(pocket | channel).reshape(self.shape)] = 0
+        write_nifti(self.segmentation, airway, self.affine)
+        write_nifti(self.t1, airway.astype(np.float32), self.affine)
+        self.build()
+        self.assertEqual(self.metadata()["cleanup"]["settings"]["envelope_seal_mm"], ENVELOPE_SEAL_MM)
+        self.assertEqual(verify_model(self.out), [])
 
     def test_ply_format_is_available(self):
         self.build(surface_format="ply")

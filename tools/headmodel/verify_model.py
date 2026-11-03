@@ -25,7 +25,6 @@ from headmodel.labels import validate_project_labels
 from headmodel.surfaces import Mesh, is_closed
 
 BOUNDARY_TOLERANCE_VOXELS = 1.5
-_MASKS = {"head": head_envelope, "brain": brain_mask}
 
 
 def boundary_distance(points, mask, affine):
@@ -58,6 +57,9 @@ def verify_model(folder, measurements=None):
             or world_disagreement(labels.affine, np.array(reference["affine"]), labels.data.shape) > WORLD_TOLERANCE_MM):
         failures.append(f"{labels_path.name}: not on the reference image grid.")
     project = validate_project_labels(labels.data)
+    # Models exported before the envelope seal existed were built without one.
+    seal = model["cleanup"]["settings"].get("envelope_seal_mm", 0.)
+    masks = {"head": lambda: head_envelope(project, labels.affine, seal), "brain": lambda: brain_mask(project)}
     tolerance = BOUNDARY_TOLERANCE_VOXELS * float(np.linalg.norm(labels.affine[:3, :3], axis=0).max())
     for name, record in model["surfaces"].items():
         path = folder / record["file"]
@@ -72,7 +74,7 @@ def verify_model(folder, measurements=None):
             failures.append(f"{path.name}: holds {len(faces)} triangles, model.json says {record['triangles']}.")
         if not is_closed(Mesh(loaded.points, faces)):
             failures.append(f"{path.name}: the surface is not closed.")
-        distance = boundary_distance(loaded.points, _MASKS[name](project), labels.affine)
+        distance = boundary_distance(loaded.points, masks[name](), labels.affine)
         if measurements is not None:
             measurements[name] = {"mean_mm": float(distance.mean()), "p95_mm": float(np.percentile(distance, 95)),
                                   "max_mm": float(distance.max())}

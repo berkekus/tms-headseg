@@ -16,7 +16,7 @@ import nibabel as nib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from headmodel.cleanup import brain_mask, clean_labels, head_envelope
+from headmodel.cleanup import ENVELOPE_SEAL_MM, brain_mask, clean_labels, head_envelope
 from headmodel.export import FRAME_TAG, SCHEMA, WRITERS, describe_surface, sha256
 from headmodel.images import WORLD_TOLERANCE_MM, read_source, world_disagreement, write_nifti
 from headmodel.labels import BACKGROUND, CHARM_TO_PROJECT, TISSUES, map_labels
@@ -51,7 +51,7 @@ def build_model(t1, segmentation, out, label_scheme="project", surface_format="s
     moments.append(time.perf_counter())
     cleaned = clean_labels(project, reference.affine)
     moments.append(time.perf_counter())
-    masks = {"head": head_envelope(cleaned.labels), "brain": brain_mask(cleaned.labels)}
+    masks = {"head": head_envelope(cleaned.labels, reference.affine), "brain": brain_mask(cleaned.labels)}
     meshes = {name: extract_surface(mask, reference.affine) for name, mask in masks.items()}
     moments.append(time.perf_counter())
     contact = boundary_contact(masks["head"], reference.affine)
@@ -80,7 +80,8 @@ def build_model(t1, segmentation, out, label_scheme="project", surface_format="s
                    "values": {str(BACKGROUND): "background", **{str(k): v for k, v in TISSUES.items()}},
                    "source_scheme": label_scheme, "mapping_state": mapping_state},
         "surfaces": surfaces,
-        "cleanup": {"settings": cleaned.settings, "volumes": cleaned.volumes},
+        "cleanup": {"settings": {**cleaned.settings, "envelope_seal_mm": ENVELOPE_SEAL_MM},
+                    "volumes": cleaned.volumes},
         "coverage": {"head_touches_image_edge": contact, "face": "not_assessed"},
         "warnings": warnings,
         "timing_seconds": dict(zip(stages, (b - a for a, b in zip(moments, moments[1:])))),

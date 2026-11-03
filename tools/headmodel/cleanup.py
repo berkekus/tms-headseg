@@ -16,6 +16,8 @@ from .labels import BACKGROUND, CSF, GRAY_MATTER, SKULL, TISSUES, WHITE_MATTER, 
 MIN_ISLAND_MM3 = 100.
 LARGE_COMPONENT_ML = 1.
 VOLUME_WARNING_PERCENT = 2.
+# Provisional, chosen on one subject in EXP-006: seals openings up to about 16 mm wide.
+ENVELOPE_SEAL_MM = 8.
 
 _ANY_TOUCH = np.ones((3, 3, 3), bool)
 
@@ -47,9 +49,28 @@ def _islands(mask, min_voxels):
     return small[components]
 
 
-def head_envelope(labels):
-    """Solid outer head: the largest tissue component with enclosed cavities filled."""
-    return ndimage.binary_fill_holes(_largest(labels > BACKGROUND)[0])
+def head_envelope(labels, affine, seal_mm=ENVELOPE_SEAL_MM):
+    """Solid outer head: the largest tissue component, its cavities, and air sealed inside it.
+
+    Air that reaches the outside only through openings narrower than about twice seal_mm, such
+    as airways behind the nostrils, is filled. Air within seal_mm of the sealed outside is not,
+    so the skin and the mouth of each opening keep their shape.
+    """
+    head = _largest(labels > BACKGROUND)[0]
+    if seal_mm <= 0 or not head.any():
+        return ndimage.binary_fill_holes(head)
+    spacing = np.linalg.norm(affine[:3, :3], axis=0)
+    margin = (np.ceil(seal_mm / spacing) + 2).astype(int)
+    found = np.argwhere(head)
+    box = tuple(slice(low, high + 1) for low, high in zip(found.min(axis=0), found.max(axis=0)))
+    local = np.pad(head[box], [(m, m) for m in margin])
+    # A closing of the head seals the narrow openings; air deep inside the sealed head is trapped.
+    grown = ndimage.distance_transform_edt(~local, sampling=spacing) <= seal_mm
+    sealed = ndimage.binary_fill_holes((ndimage.distance_transform_edt(grown, sampling=spacing) > seal_mm) | local)
+    trapped = ~local & (ndimage.distance_transform_edt(sealed, sampling=spacing) > seal_mm)
+    envelope = np.zeros_like(head)
+    envelope[box] = ndimage.binary_fill_holes(local | trapped)[tuple(slice(m, -m) for m in margin)]
+    return envelope
 
 
 def brain_mask(labels):

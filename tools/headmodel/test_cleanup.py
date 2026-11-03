@@ -3,9 +3,10 @@
 import unittest
 
 import numpy as np
+from scipy import ndimage
 
 from headmodel.cleanup import clean_labels, head_envelope
-from headmodel.frames import world_to_voxel
+from headmodel.frames import voxel_to_world, world_to_voxel
 from headmodel.labels import CSF, GRAY_MATTER, SKIN, SKULL, WHITE_MATTER
 from headmodel.phantom import RIGHT_VENTRICLE, phantom_labels
 
@@ -70,7 +71,35 @@ class CleanupTests(unittest.TestCase):
         with_cavity[slices] = 0
         result = self.clean(with_cavity)
         self.assertTrue((result.labels[slices] == 0).all())
-        self.assertTrue(head_envelope(result.labels)[slices].all())
+        self.assertTrue(head_envelope(result.labels, self.affine)[slices].all())
+
+    def with_airway(self):
+        """An air pocket behind the nose, reached from outside only by a channel 4 voxels (8 mm) wide."""
+        labels = self.labels.copy()
+        points = voxel_to_world(self.affine, np.indices(labels.shape).reshape(3, -1).T)
+        pocket = np.linalg.norm(points - (0, 70, -10), axis=1) < 9
+        channel = (np.abs(points[:, 0]) < 4) & (np.abs(points[:, 2] + 10) < 4) & (points[:, 1] > 70)
+        labels[(pocket | channel).reshape(labels.shape)] = 0
+        return labels, pocket.reshape(labels.shape), channel.reshape(labels.shape)
+
+    def test_air_behind_a_narrow_opening_is_inside_the_envelope(self):
+        labels, pocket, _ = self.with_airway()
+        envelope = head_envelope(labels, self.affine)
+        self.assertTrue(envelope[pocket].all())
+
+    def test_sealing_leaves_the_outer_surface_and_the_opening_mouth_unchanged(self):
+        labels, pocket, channel = self.with_airway()
+        envelope = head_envelope(labels, self.affine)
+        unsealed = ndimage.binary_fill_holes(labels > 0)
+        outside_airway = ~(pocket | channel)
+        np.testing.assert_array_equal(envelope[outside_airway], unsealed[outside_airway])
+        mouth = tuple(np.round(world_to_voxel(self.affine, (0, 99, -10))).astype(int))
+        self.assertTrue(channel[mouth])
+        self.assertFalse(envelope[mouth])
+
+    def test_openings_wider_than_the_seal_stay_open(self):
+        labels, pocket, _ = self.with_airway()
+        self.assertFalse(head_envelope(labels, self.affine, seal_mm=2).any(where=pocket))
 
     def test_removed_large_brain_component_is_reported(self):
         split = self.labels.copy()
