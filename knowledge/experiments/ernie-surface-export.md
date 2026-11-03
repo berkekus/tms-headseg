@@ -82,6 +82,19 @@ These explanations are measured for the head and reasoned for the brain.
 
 Model-to-mesh means on this one subject for 0, 5, 10, 20, 40, and 80 iterations were 0.269, 0.240, 0.232, 0.225, 0.221, 0.220 mm for the head, and 0.216, 0.191, 0.187, 0.187, 0.191, 0.203 mm for the brain. The default of 20 sits at the brain minimum. One subject does not validate this setting.
 
+## Rerun after the envelope change
+
+Commit `24703c5` seals narrow openings into the head envelope, after [EXP-006](ernie-fresh-charm-surfaces.md) found open airways in fresh SimNIBS 4.6 labels. The results above stay as attempt 1. Rerunning the same commands on these supplied labels gave:
+
+| Measure | Head | Brain |
+| --- | --- | --- |
+| Triangles | 450,954 (was 532,336) | 579,908, unchanged |
+| Distance to exported label boundary: mean / p95 / max | 0.193 / 0.460 / 0.957 mm | 0.236 / 0.552 / 1.045 mm |
+| Model to SimNIBS mesh: mean / p95 / max | 0.235 / 0.375 / 6.132 mm | 0.187 / 0.353 / 4.009 mm |
+| SimNIBS mesh to model: mean / p95 / max | 8.436 / 46.669 / 73.053 mm | 1.743 / 5.865 / 17.187 mm |
+
+Verification passed. The reverse head distance rose because this older mesh's skin tag also covers airway and sinus walls: 29.5% of its skin points are more than 2 mm from the sealed surface, and every one of them lies at least 2 voxels inside the sealed envelope. The other points average 0.209 mm. In the fresh SimNIBS 4.6 mesh the same share is 0%, so the sealed envelope matches the current tool's outer-skin definition.
+
 ## Limits
 
 One healthy subject. Face coverage was not assessed. No opening in an independent viewer has been recorded yet, and no human has reviewed these surfaces.
