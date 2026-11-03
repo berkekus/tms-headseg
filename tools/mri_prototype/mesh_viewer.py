@@ -80,7 +80,7 @@ class MeshView(QWidget):
         sidebar.setFixedWidth(265)
         controls = QVBoxLayout(sidebar)
         controls.setContentsMargins(0, 0, 18, 0)
-        self.summary = QLabel("Open an existing head model to inspect its 3D surfaces.")
+        self.summary = QLabel("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
         self.summary.setTextFormat(Qt.TextFormat.PlainText)
         self.summary.setWordWrap(True)
         controls.addWidget(self.summary)
@@ -108,12 +108,12 @@ class MeshView(QWidget):
         self.tissue_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         scroll.setWidget(self.tissue_controls)
         controls.addWidget(scroll, 1)
-        note = QLabel("RAS world coordinates · mm\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
-        note.setWordWrap(True)
-        controls.addWidget(note)
+        self.coordinate_note = QLabel("RAS world coordinates · mm\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
+        self.coordinate_note.setWordWrap(True)
+        controls.addWidget(self.coordinate_note)
         layout.addWidget(sidebar)
         self.viewport = QVBoxLayout()
-        self.empty = QLabel("3D model appears here after opening a model folder.")
+        self.empty = QLabel("3D surfaces appear here after opening a head model folder or E1 segmentation.")
         self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty.setStyleSheet("background: #101c21; color: #c6d9d8; border-radius: 5px;")
         self.viewport.addWidget(self.empty)
@@ -139,15 +139,18 @@ class MeshView(QWidget):
         self.presets.clear()
         for button in self.preset_buttons.values():
             button.setEnabled(False)
-        self.summary.setText("Open an existing head model to inspect its 3D surfaces.")
+        self.summary.setText("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
 
     def set_model(self, model):
         self.clear()
         self.model = model
         count = sum(len(surface.triangles) for surface in model.surfaces)
-        self.summary.setText("\n".join((model.directory.name, f"{len(model.surfaces)} surfaces · {count:,} triangles",
-                                         "Subject space · original mesh geometry", *model.notes)))
-        self.summary.setToolTip(str(model.mesh_path))
+        title = model.labels[0].name if model.kind == "e1" else model.directory.name
+        self.summary.setText("\n".join((title, f"{len(model.surfaces)} surfaces · {count:,} triangles",
+                                         model.geometry_note, *model.notes)))
+        self.summary.setToolTip(str(model.mesh_path or model.labels[0]))
+        units = "assumed mm · physical scale unverified" if model.units_assumed else "mm"
+        self.coordinate_note.setText(f"RAS coordinates · {units}\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
         self.presets = {surface.role: surface.tag for surface in model.surfaces if surface.role}
         for surface in model.surfaces:
             name = surface.name or f"Surface {surface.tag}"
@@ -263,7 +266,9 @@ class MeshView(QWidget):
             self.render()
 
     def preset(self, brain):
-        selected = self.presets["brain" if brain else "head"]
+        selected = self.presets.get("brain" if brain else "head")
+        if selected is None:
+            return
         for tag, check in self.checks.items():
             check.setChecked(tag == selected)
         if not brain:

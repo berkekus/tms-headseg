@@ -136,9 +136,11 @@ See [acceptance and measurement definitions](knowledge/acceptance.md) for source
 
 ## Development setup
 
-For the Qt desktop CHARM preparation tool, follow [launcher setup and usage](tools/charm_gui/README.md). One codebase targets macOS and Windows, with separate desktop packages; the macOS package has passed startup checks, and the Windows process path has passed stand-in tests, but no Windows package has been built. It calls a separately installed SimNIBS and has its own isolated runtime. No complete reconstruction through the launcher or project-model inference/training workflow is established yet. The planned stack above does not imply that dependencies are installed.
+For the Qt desktop CHARM preparation tool, follow [launcher setup and usage](tools/charm_gui/README.md). One codebase targets macOS and Windows, with separate desktop packages. The macOS package passed startup checks, and one public Ernie T1-plus-T2 run completed there in 40:17 using child-scoped thread limits. On Windows the process path passed its stand-in tests and the launcher's runner completed a public Ernie T1-only run; no Windows package has been built. Anatomy and geometry acceptance remain open. It calls a separately installed SimNIBS and has its own isolated runtime. The planned stack above does not imply that dependencies are installed.
 
 For inspection, follow the [MRI Workbench guide](tools/mri_prototype/README.md). For labels to documented surfaces, follow the [head model guide](tools/headmodel/README.md), which also explains how a model's input and output pass through the [coordinate contract](knowledge/concepts/coordinates.md).
+
+The separate [E1 training and demonstration tools](tools/e1_training/README.md) contain the Colab training notebook, custom trainer, pinned dependencies and an inference-only demo with 3D display surfaces. Teammates reusing the completed model should start with [the model handoff](tools/e1_training/HANDOFF.md). MRI data, checkpoints and generated reports remain outside Git. The preliminary model completed fixed-split validation; it is not accepted held-out test performance or an integrated final application.
 
 Clone the repository:
 
