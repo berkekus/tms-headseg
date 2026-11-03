@@ -27,7 +27,7 @@ Experiment state: **trained; validation results only.** This is a short (100-epo
 | --- | --- |
 | Data | `Dataset001_MultiAxial` from `handoff_k2.zip` (SHA-256 `388dec44…c18de`), built by `tools/nnunet_prep/prepare_multiaxial.py` at commit `24b7304` |
 | Split | Fixed `splits_final.json`, fold 0: 44 train / 10 validation. Verified: the 10 validation IDs in `summary.json` exactly match the fixed split. |
-| Configuration | `3d_fullres`, custom trainer `nnUNetTrainer_E1Preliminary` (trainer SHA-256 `311aace0…48cc8` in K2's `experiment_contract.json`). `debug.json` shows standard nnU-Net settings: 100 epochs, initial LR 0.01 with polynomial decay, weight decay 3e-5, 250 train / 50 val iterations per epoch, batch 2, Dice+CE with deep supervision, mirroring on all axes. The trainer source file was not included in the delivery. |
+| Configuration | `3d_fullres`, custom trainer `nnUNetTrainer_E1Preliminary` (trainer SHA-256 `311aace0…48cc8` in K2's `experiment_contract.json`). `debug.json` shows standard nnU-Net settings: 100 epochs, initial LR 0.01 with polynomial decay, weight decay 3e-5, 250 train / 50 val iterations per epoch, batch 2, Dice+CE with deep supervision, mirroring on all axes. The trainer source arrived separately on 2026-11-03 and is in Git as `tools/e1_training/trainers.py`; with LF line endings its SHA-256 matches the recorded value (the Windows CRLF checkout hashes differently). It only sets seed 42 and saves every epoch on top of nnU-Net's standard 100-epoch trainer. |
 | Hardware / time | NVIDIA L4 (22 GB), Colab; epochs took 141–181 s (training log 02:00–05:58, about 4 h of epochs plus validation). |
 | Versions | nnU-Net 2.8.1, torch 2.6.0+cu124, CUDA 12.4, seed 42 (K2 run records). |
 | Split check | K2's `splits_final.json` has the same SHA-256 as K1's (`9e2b37ff…d78b8`); K2's contract also records `test_accessed: false`. |
@@ -68,7 +68,7 @@ Per subject (skin, skull, CSF, GM, WM):
 
 ## Next
 
-Inspect GU011 and NYU005 predictions. For local inference the custom trainer class must be importable by nnU-Net: obtain K2's trainer file (preferred, matches the recorded hash) before running the checkpoint on the K1 machine, then time inference and build the surface demo.
+Inspect GU011 and NYU005 predictions. Local readiness on the K1 machine (2026-11-03): the final checkpoint SHA-256 matches K2's handoff value (`67886742…a531b`); after registering the trainer as the handoff guide describes, nnU-Net loaded the checkpoint on CPU in 1.3 s (patch 128×160×112, 1 mm spacing). Next: time inference on a clinical-style scan and build the surface demo.
 
 ## Related notes
 

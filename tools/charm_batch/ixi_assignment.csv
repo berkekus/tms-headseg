@@ -1,0 +1,51 @@
+subject,site,cohort,owner,note
+IXI002,Guys,excluded_d05,-,shared with D05; do not use
+IXI020,Guys,excluded_d05,-,shared with D05; do not use
+IXI028,Guys,train,K1,
+IXI037,Guys,train,K2,
+IXI045,Guys,train,K1,charm pilot
+IXI054,Guys,train,K2,
+IXI062,Guys,train,K2,
+IXI070,Guys,train,K2,
+IXI078,Guys,train,K2,
+IXI087,Guys,train,K1,
+IXI095,HH,train,K1,charm pilot
+IXI103,Guys,train,K1,
+IXI111,Guys,test_face,K1,held out; never train on it
+IXI120,Guys,calibration,K1,held out; never train on it
+IXI130,HH,calibration,K1,held out; never train on it
+IXI139,Guys,excluded_d05,-,shared with D05; do not use
+IXI148,HH,train,K2,
+IXI159,HH,test_face,K1,held out; never train on it
+IXI167,HH,train,K2,
+IXI176,HH,test_face,K1,held out; never train on it
+IXI185,Guys,train,K2,
+IXI195,HH,train,K1,
+IXI204,HH,test_face,K1,held out; never train on it
+IXI212,HH,train,K1,
+IXI222,Guys,train,K1,
+IXI230,IOP,excluded_d05,-,shared with D05; do not use
+IXI239,HH,train,K2,
+IXI249,Guys,train,K1,
+IXI257,HH,calibration,K1,held out; never train on it
+IXI265,Guys,test_face,K1,held out; never train on it
+IXI276,HH,excluded_d05,-,shared with D05; do not use
+IXI286,Guys,test_face,K1,held out; never train on it
+IXI294,IOP,train,K1,charm pilot
+IXI303,IOP,calibration,K1,held out; never train on it
+IXI312,Guys,test_face,K1,held out; never train on it
+IXI320,Guys,train,K1,
+IXI329,HH,train,K2,
+IXI337,IOP,test_face,K1,held out; never train on it
+IXI348,Guys,calibration,K1,held out; never train on it
+IXI359,Guys,test_face,K1,held out; never train on it
+IXI368,Guys,train,K2,
+IXI377,Guys,train,K2,
+IXI385,HH,train,K1,
+IXI393,Guys,train,K2,
+IXI401,Guys,excluded_d05,-,shared with D05; do not use
+IXI409,Guys,train,K1,
+IXI417,Guys,train,K1,
+IXI426,IOP,train,K2,
+IXI434,IOP,test_face,K1,held out; never train on it
+IXI442,IOP,train,K2,
