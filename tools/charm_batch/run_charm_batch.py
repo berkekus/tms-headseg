@@ -28,6 +28,7 @@ sys.path.insert(0, str(HERE.parent / "charm_gui"))
 from installation import command_prefix
 SIMNIBS_VERSION = "4.6.0"
 ROUNDING_MM = 1e-3          # qform/sform differences below this are float rounding
+ACCEPT_MAX = 1e-2           # --accept-qform-diff never forces past this (IXI130 T2: 1.2e-3, 0.28 mm at a corner)
 THREAD_LIMITS = {k: "1" for k in ("OPENBLAS_NUM_THREADS", "OPENBLAS_DEFAULT_NUM_THREADS", "OMP_NUM_THREADS")}
 DELIVER = ("final_tissues.nii.gz", "final_tissues_LUT.txt", "charm_report.html", "charm_log.html", "settings.ini")
 
@@ -80,11 +81,12 @@ def qform_sform_check(paths):
     return worst, charm_ok
 
 
-def charm_flags(diff, charm_ok):
-    """Flags for charm, or None to skip: --forceqform only where charm would stop on rounding noise."""
+def charm_flags(diff, charm_ok, accepted=False):
+    """Flags for charm, or None to skip: --forceqform only where charm would stop on rounding noise,
+    or on a small difference that K1 checked and accepted for this subject (--accept-qform-diff)."""
     if charm_ok:
         return []
-    if diff < ROUNDING_MM:
+    if diff < ROUNDING_MM or (accepted and diff < ACCEPT_MAX):
         return ["--forceqform"]
     return None
 
@@ -155,7 +157,8 @@ def run_subject(row, args, out):
     t1, t2 = find_inputs(args.data, subject, args.t1_only)
     inputs = [p for p in (t1, t2) if p is not None]
     diff, charm_ok = qform_sform_check(inputs)
-    flags = charm_flags(diff, charm_ok)
+    accepted = subject in set(args.accept_qform_diff or ())
+    flags = charm_flags(diff, charm_ok, accepted)
     command = command_prefix(args.charm) + [subject, *(str(p.resolve()) for p in inputs), *(flags or [])]
     print(f"{subject}: {' '.join(command)}  (qform/sform max diff {diff:.1e})")
     record = {"subject": subject, "owner": args.owner, "cohort": row["cohort"], "t1": t1.name,
@@ -163,6 +166,8 @@ def run_subject(row, args, out):
               "qform_sform_max_diff": diff, "forceqform": bool(flags), "thread_limits": THREAD_LIMITS,
               "host_os": sys.platform,
               "input_sha256": {name: sha256(p) for name, p in (("t1", t1), ("t2", t2)) if p is not None}}
+    if flags and diff >= ROUNDING_MM:
+        record["qform_diff_accepted"] = "K1 checked: below a third of a voxel; charm registers T2 to T1"
     if flags is None:
         record.update(outputs_ok=False, skipped_reason="qform/sform differ by more than rounding; ask K1")
         if not args.dry_run and not record_path.exists():
@@ -225,6 +230,8 @@ def main(argv=None):
     parser.add_argument("--only", nargs="*", help="Run only these subject IDs")
     parser.add_argument("--t1-only", action="store_true", help="No T2 (MultiAxial); T1 may be SUBJECT_0000.nii.gz")
     parser.add_argument("--part", help="Run share K of N, e.g. 1/2 on one machine and 2/2 on another")
+    parser.add_argument("--accept-qform-diff", nargs="*", metavar="SUBJECT",
+                        help=f"Subjects whose qform/sform difference K1 checked; run with --forceqform below {ACCEPT_MAX}")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
