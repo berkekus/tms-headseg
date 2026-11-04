@@ -1,0 +1,5 @@
+# Core synthetic/geometry/demo checks; no PyTorch, nnU-Net or real processing.
+-r ../headmodel/requirements.txt
+matplotlib>=3.9,<4
+scikit-image==0.26.0
+plotly==7.1.0
