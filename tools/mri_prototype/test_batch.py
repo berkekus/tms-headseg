@@ -127,6 +127,23 @@ print('batch complete',flush=True)
         after = {p.relative_to(self.out): p.read_bytes() for p in self.out.rglob('*') if p.is_file()}
         self.assertEqual(before, after)
 
+    def test_multiaxial_folder_shows_train_and_validation_and_cannot_launch(self):
+        (self.out / desktop.MULTIAXIAL_ASSIGNMENT).write_text(
+            "subject,site,cohort,owner\nGU011,GU,val,K2\nNC024,NC,train,K2\nGU013,GU,test,K2\n"
+        )
+        log = self.out / "logs/GU011.log"
+        log.parent.mkdir()
+        log.write_text("[ simnibs ] INFO: Starting segmentation.\n")
+        _, panel = self.panel()
+        panel.monitor()
+        self.assertEqual([case["subject"] for case in panel.cases], ["GU011", "NC024"])
+        self.assertIn("Starting segmentation", panel.logs.toPlainText())
+        self.assertFalse(panel.check_button.isEnabled())
+        self.assertFalse(panel.run_button.isEnabled())
+        self.assertFalse(panel.cancel_button.isEnabled())
+        with self.assertRaisesRegex(ValueError, "read-only"):
+            self.job().validate()
+
     def test_successful_dry_run_enables_start_then_real_completion(self):
         window, panel = self.panel()
         script = self.standin()

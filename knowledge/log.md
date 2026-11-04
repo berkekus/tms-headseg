@@ -1,5 +1,9 @@
 # Knowledge Update Log
 
+## 2026-11-04
+
+- **MultiAxial monitor and launch**: Verified six archives and nine K2 inputs, then added Workbench monitoring for MultiAxial train/validation rows and live logs. The detached batch started at 15:45:16 +03:00. GU011 was running at launch verification. [Launch evidence](experiments/multiaxial-k2-preflight.md).
+
 ## 2026-11-03
 
 - **EXP-007 envelope seal on a second head (K3)**: Ran the export pipeline on the SimNIBS MNI152 example. Verification passed; the 8 mm seal filled 123.5 mL of internal air, left the outer skin in place except patches spanning openings, and the head surface lay 0.235 mm from charm's skin on average. This example's skin mesh also covers airway and sinus walls, so mesh-to-model distances are not a fair test there. Recorded in [EXP-007](experiments/mni152-envelope-seal.md); updated the roadmap, current state, Q-08, and the label concept note.

@@ -169,7 +169,7 @@ class Window(LauncherWindow):
         batch_scroll = QScrollArea()
         batch_scroll.setWidgetResizable(True)
         batch_scroll.setWidget(self.batch)
-        self.processing_tabs.addTab(batch_scroll, "IXI batch")
+        self.processing_tabs.addTab(batch_scroll, "CHARM batch")
         self.batch.busy_changed.connect(self.update_controls)
         self.tabs.addTab(self.processing_tabs, "02   CHARM processing")
         self.mesh_view = MeshView()
@@ -531,7 +531,12 @@ def main():
         window.load_head_model(sys.argv[index + 1])
     elif "--ernie" in sys.argv:
         window.load_ernie()
-    if "--batch" in sys.argv:
+    if "--batch" in sys.argv or "--batch-output" in sys.argv:
+        if "--batch-output" in sys.argv:
+            index = sys.argv.index("--batch-output")
+            if index + 1 >= len(sys.argv):
+                raise SystemExit("--batch-output needs a batch output folder path")
+            window.batch.output.setText(sys.argv[index + 1])
         window.tabs.setCurrentIndex(1)
         window.processing_tabs.setCurrentIndex(1)
         window.batch.monitor()

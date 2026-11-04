@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QDesktopServices
 
-from batch_runner import BatchJob, BatchRunner, batch, command_prefix, log_snapshot, read_cases, training_rows, untracked_runs
+from batch_runner import MULTIAXIAL_ASSIGNMENT, BatchJob, BatchRunner, batch, command_prefix, log_snapshot, read_cases, untracked_runs
 from installation import find_charm
 
 
@@ -34,7 +34,7 @@ class BatchPanel(QWidget):
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.tick)
         layout = QVBoxLayout(self)
-        title = QLabel("IXI training batch")
+        title = QLabel("CHARM batch")
         title.setStyleSheet("font-size: 23px; font-weight: 600;")
         heading = QHBoxLayout()
         heading.addWidget(title)
@@ -43,7 +43,7 @@ class BatchPanel(QWidget):
         self.setup_button.clicked.connect(lambda: self.show_setup(self.inputs.isHidden()))
         heading.addWidget(self.setup_button)
         layout.addLayout(heading)
-        note = QLabel("Run assigned training cases one at a time using the shared CHARM batch tool. Test and calibration cases are excluded. Completed records still need visual QC. Keep the computer awake and its lid open.")
+        note = QLabel("Run assigned IXI training cases or monitor an existing IXI or MultiAxial run. Completed records still need visual QC. Keep the computer awake and its lid open.")
         note.setWordWrap(True)
         layout.addWidget(note)
         self.inputs = QWidget()
@@ -98,7 +98,7 @@ class BatchPanel(QWidget):
         layout.addWidget(self.summary)
         layout.addWidget(self.progress)
         self.table = QListWidget()
-        self.table.setAccessibleName("Assigned training cases: subject, site, state and runtime")
+        self.table.setAccessibleName("Assigned cases: subject, site, state and runtime")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setMaximumHeight(220)
@@ -165,15 +165,16 @@ class BatchPanel(QWidget):
 
     def set_available(self, available):
         self.available = available
+        multiaxial = (Path(self.output.text()).expanduser() / MULTIAXIAL_ASSIGNMENT).exists()
         self.inputs.setEnabled(available and not self.busy)
-        self.check_button.setEnabled(available and not self.busy)
+        self.check_button.setEnabled(available and not self.busy and not multiaxial)
         self.monitor_button.setEnabled(not self.busy)
         self.cancel_button.setEnabled(self.busy and not self.runner.cancelled)
         try:
             checked = self.preflight_key is not None and self.preflight_key == self.job().key()
         except (ValueError, OSError):
             checked = False
-        self.run_button.setEnabled(available and not self.busy and not self.external_active and checked)
+        self.run_button.setEnabled(available and not self.busy and not self.external_active and checked and not multiaxial)
 
     def configuration_changed(self, *_):
         self.preflight_key = None
