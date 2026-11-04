@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MRI Workbench",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/mri_prototype/prototype.py",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/tools/mri_prototype/.venv/bin/python",
+      "windows": {
+        "python": "${workspaceFolder}/tools/mri_prototype/.venv/Scripts/python.exe"
+      },
+      "console": "internalConsole",
+      "justMyCode": true,
+      "subProcess": false
+    }
+  ]
+}

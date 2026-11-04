@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
@@ -51,6 +52,20 @@ class PrototypeTests(unittest.TestCase):
         window = Window()
         self.addCleanup(window.close)
         return window
+
+    def test_startup_fits_available_screen_and_slice_controls_remain_reachable(self):
+        window = self.window()
+        window.show_fitted()
+        self.app.processEvents()
+        available = window.screen().availableGeometry()
+        self.assertTrue(window.isMaximized())
+        self.assertLessEqual(window.frameGeometry().width(), available.width())
+        self.assertLessEqual(window.frameGeometry().height(), available.height())
+        self.assertGreaterEqual(window.frameGeometry().left(), available.left())
+        self.assertGreaterEqual(window.frameGeometry().top(), available.top())
+        for panel in window.panels:
+            self.assertTrue(panel.rect().contains(panel.slider.geometry()))
+        self.assertGreater(window.inspection_sidebar.verticalScrollBar().maximum(), 0)
 
     def test_left_right_and_slice_orientation(self):
         affine = np.diag([-2., 3., 4., 1.])
@@ -140,6 +155,44 @@ class PrototypeTests(unittest.TestCase):
         self.assertIsNone(window.volume)
         self.assertIsNone(window.panels[0].canvas.image)
         self.assertIn("Could not load", window.feedback.text())
+
+    def test_empty_mri_shows_visible_error_and_valid_retry_recovers(self):
+        window = self.window()
+        window.show()
+        invalid = self.root / "invalid_mri.nii"
+        invalid.touch()
+        with patch("prototype.QFileDialog.getOpenFileName", return_value=(str(invalid), "")):
+            window.choose_mri()
+        self.wait_idle(window)
+        self.assertTrue(window.error_banner.isVisible())
+        self.assertEqual(window.error_title.text(), "MRI could not be opened")
+        self.assertIn("empty", window.error_message.text().lower())
+        self.assertIn("Open T1 MRI", window.error_recovery.text())
+        self.assertIsNone(window.volume)
+        self.assertTrue(window.open_button.isEnabled())
+        self.assertIsNone(window.panels[0].canvas.image)
+        window.tabs.setCurrentIndex(1)
+        window.tabs.setCurrentIndex(0)
+        window.load_mri(self.path)
+        self.wait_idle(window)
+        self.assertTrue(window.error_banner.isHidden())
+        self.assertEqual(window.error_message.text(), "")
+        self.assertEqual(window.volume.path, self.path.resolve())
+
+    def test_cancelled_picker_keeps_error_and_dismiss_does_not_load_a_scan(self):
+        window = self.window()
+        window.show()
+        window.load_mri(self.root / "missing.nii")
+        self.wait_idle(window)
+        message = window.error_message.text()
+        with patch("prototype.QFileDialog.getOpenFileName", return_value=("", "")):
+            window.choose_mri()
+        self.assertTrue(window.error_banner.isVisible())
+        self.assertEqual(window.error_message.text(), message)
+        window.dismiss_error_button.click()
+        self.assertTrue(window.error_banner.isHidden())
+        self.assertIsNone(window.volume)
+        self.assertTrue(window.open_button.isEnabled())
 
     def test_requires_inspection_and_automatically_loads_job_labels(self):
         window = self.window()

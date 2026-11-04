@@ -77,6 +77,30 @@ class Window(LauncherWindow):
         badge.setObjectName("badge")
         header.addWidget(badge)
         layout.addLayout(header)
+        self.error_banner = QWidget()
+        self.error_banner.setObjectName("errorBanner")
+        error_layout = QVBoxLayout(self.error_banner)
+        error_heading = QHBoxLayout()
+        self.error_title = QLabel()
+        self.error_title.setObjectName("errorTitle")
+        self.error_title.setTextFormat(Qt.TextFormat.PlainText)
+        self.error_title.setWordWrap(True)
+        error_heading.addWidget(self.error_title, 1)
+        self.dismiss_error_button = QPushButton("Dismiss")
+        self.dismiss_error_button.clicked.connect(self.clear_task_error)
+        error_heading.addWidget(self.dismiss_error_button)
+        error_layout.addLayout(error_heading)
+        self.error_message = QLabel()
+        self.error_message.setTextFormat(Qt.TextFormat.PlainText)
+        self.error_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.error_message.setWordWrap(True)
+        self.error_recovery = QLabel()
+        self.error_recovery.setTextFormat(Qt.TextFormat.PlainText)
+        self.error_recovery.setWordWrap(True)
+        error_layout.addWidget(self.error_message)
+        error_layout.addWidget(self.error_recovery)
+        layout.addWidget(self.error_banner)
+        self.error_banner.hide()
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
         self.setCentralWidget(root)
@@ -150,7 +174,12 @@ class Window(LauncherWindow):
         legend_scroll.setWidget(self.legend)
         legend_scroll.setMinimumHeight(75)
         controls.addWidget(legend_scroll, 1)
-        row.addWidget(sidebar)
+        self.inspection_sidebar = QScrollArea()
+        self.inspection_sidebar.setWidgetResizable(True)
+        self.inspection_sidebar.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.inspection_sidebar.setFixedWidth(285)
+        self.inspection_sidebar.setWidget(sidebar)
+        row.addWidget(self.inspection_sidebar)
         views = QHBoxLayout()
         views.setSpacing(10)
         self.panels = [SlicePanel("Axial", 2, ("L", "R", "A", "P")),
@@ -159,7 +188,10 @@ class Window(LauncherWindow):
         for panel in self.panels:
             views.addWidget(panel, 1)
         row.addLayout(views, 1)
-        self.tabs.addTab(inspection, "01   Inspect MRI")
+        inspection_scroll = QScrollArea()
+        inspection_scroll.setWidgetResizable(True)
+        inspection_scroll.setWidget(inspection)
+        self.tabs.addTab(inspection_scroll, "01   Inspect MRI")
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(processing)
@@ -194,6 +226,9 @@ class Window(LauncherWindow):
             QMainWindow, QWidget { background: #f1f4f2; color: #213634; font-size: 13px; }
             QLabel#workbenchTitle { font-size: 26px; font-weight: 600; }
             QLabel#badge { color: #466862; font-size: 11px; letter-spacing: 2px; }
+            QWidget#errorBanner { background: #fff0ed; border: 1px solid #bd5547; border-radius: 6px; }
+            QWidget#errorBanner QLabel { background: transparent; border: 0; color: #7b2920; }
+            QLabel#errorTitle { font-weight: 600; font-size: 15px; }
             QTabWidget::pane { border: 0; }
             QTabBar::tab { padding: 12px 20px; margin-right: 8px; color: #52706a; }
             QTabBar::tab:selected { color: #184e45; border-bottom: 3px solid #287c68; }
@@ -216,6 +251,15 @@ class Window(LauncherWindow):
             QGroupBox { border: 1px solid #c8d6ce; border-radius: 5px; margin-top: 14px; padding-top: 14px; }
             QGroupBox::title { subcontrol-origin: margin; padding: 0 6px; }
         """)
+
+    def show_fitted(self):
+        """Use Qt's logical desktop bounds, including display scaling and taskbars."""
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is not None:
+            available = screen.availableGeometry()
+            self.setMinimumSize(min(900, available.width()), min(560, available.height()))
+            self.resize(min(1440, available.width()), min(900, available.height()))
+        self.showMaximized()
 
     @property
     def busy(self):
@@ -342,7 +386,9 @@ class Window(LauncherWindow):
             build_model(t1, labels, out, label_scheme=scheme)
             return load_model(out)
 
-        self.run_task(build, self.export_finished, "Could not export: ")
+        self.run_task(build, self.export_finished, "Could not export: ",
+                      error_title="Model could not be exported",
+                      recovery="Check the error details and choose a new output folder outside Git before retrying.")
 
     def export_finished(self, model):
         self.clear_model()
@@ -362,13 +408,26 @@ class Window(LauncherWindow):
         if self.t1.text():
             self.load_mri(self.t1.text())
 
-    def run_task(self, function, callback, failure="Could not load: ", on_error=None):
+    def clear_task_error(self):
+        self.error_banner.hide()
+        self.error_title.clear()
+        self.error_message.clear()
+        self.error_recovery.clear()
+
+    def run_task(self, function, callback, failure="Could not load: ", on_error=None,
+                 error_title="Unable to open the selected input",
+                 recovery="Check the selected file or folder, then try again."):
         if self.busy:
             return
+        self.clear_task_error()
         self.task = LoadTask(function, self)
         self.task.loaded.connect(callback)
         def failed(error):
             self.feedback.setText(failure + error)
+            self.error_title.setText(error_title)
+            self.error_message.setText(error)
+            self.error_recovery.setText(recovery)
+            self.error_banner.show()
             if on_error is not None:
                 on_error(error)
         self.task.failed.connect(failed)
@@ -394,7 +453,9 @@ class Window(LauncherWindow):
         self.source.setText(Path(path).name)
         self.feedback.setText("Loading MRI and preparing world-aligned slices…")
         self.tabs.setCurrentIndex(0)
-        self.run_task(lambda: load_volume(path), self.mri_loaded)
+        self.run_task(lambda: load_volume(path), self.mri_loaded,
+                      error_title="MRI could not be opened",
+                      recovery="Choose a valid 3D NIfTI file (.nii or .nii.gz) using Open T1 MRI, then try again.")
 
     def mri_loaded(self, volume):
         self.volume = volume
@@ -523,7 +584,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("MRI Workbench")
     window = Window()
-    window.show()
+    window.show_fitted()
     if "--model" in sys.argv:
         index = sys.argv.index("--model")
         if index + 1 >= len(sys.argv):

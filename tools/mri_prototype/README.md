@@ -4,10 +4,24 @@ A local PySide6 desktop tool for inspecting NIfTI MRI, reopening SimNIBS head mo
 
 ## Run
 
+After the initial Windows setup below, double-click **Open MRI Workbench.vbs** in
+the project root. It uses this tool's `.venv` and opens the app without a terminal.
+You can create a normal Windows shortcut to that file; keep the original in the
+project root. No setup or package download runs automatically. Startup failures
+show a message with a local log path under `%LOCALAPPDATA%\TMSHeadSeg\logs`.
+The command-line method below remains available for troubleshooting.
+
+In VS Code, open the repository folder, select **Run and Debug** (`Ctrl+Shift+D`),
+choose **MRI Workbench**, and press **F5** or the green start button. The checked-in
+launch configuration selects this tool's `.venv` on Windows/macOS/Linux and sends
+diagnostics to the Debug Console. **Ctrl+F5** starts without debugging. This needs
+the Microsoft Python Debugger extension and the initial environment setup below.
+
 Use Python 3.11 or newer and install dependencies into this tool's own environment. From the repository root on macOS:
 
 ```bash
 python3 -m venv tools/mri_prototype/.venv
+tools/mri_prototype/.venv/bin/python -m pip install --upgrade pip
 tools/mri_prototype/.venv/bin/python -m pip install -r tools/mri_prototype/requirements.txt
 tools/mri_prototype/.venv/bin/python tools/mri_prototype/prototype.py
 ```
@@ -16,6 +30,7 @@ Windows PowerShell:
 
 ```powershell
 py -3 -m venv tools/mri_prototype/.venv
+& tools/mri_prototype/.venv/Scripts/python.exe -m pip install --upgrade pip
 & tools/mri_prototype/.venv/Scripts/python.exe -m pip install -r tools/mri_prototype/requirements.txt
 & tools/mri_prototype/.venv/Scripts/python.exe tools/mri_prototype/prototype.py
 ```
@@ -23,6 +38,10 @@ py -3 -m venv tools/mri_prototype/.venv
 SimNIBS must be installed separately to create a model. MRI and existing-model inspection do not require an installed SimNIBS runtime. Do not install these dependencies in SimNIBS's bundled Python environment. Embedded 3D uses VTK and PyVistaQt's Qt framebuffer adapter, with a desktop OpenGL context. The framebuffer adapter avoids the native-window repaint loop observed with the stock VTK Qt widget on this Mac.
 
 ## Workflow
+
+The app starts maximized within the available desktop, respecting display scaling
+and the taskbar. Inspection controls scroll on shorter displays; smaller windows
+can scroll the inspection page instead of clipping slice controls.
 
 **Batch mode:** **02 CHARM processing** now contains **Single MRI** and **IXI batch**. The batch page runs the shared training-only assignment, shows per-case records and live logs, and can monitor an existing CLI run without owning or cancelling it. Read the [batch guide](BATCH.md) before starting a long job. `--batch` opens monitoring mode without launching CHARM.
 
@@ -69,6 +88,10 @@ The header import action displays a completed prediction. To generate a new one,
 
 ## Geometry and validation
 
+- Failed image/model loads and exports show a persistent error banner above the
+  tabs, with error details and a recovery action. MRI failures identify the accepted
+  NIfTI input and keep Open T1 MRI available after the worker finishes. Starting a
+  new operation clears the banner; canceling a file picker leaves it unchanged.
 - Supports real numeric, finite 3D `.nii`/`.nii.gz` volumes with coded qform/sform and explicit mm, meter, or micron spatial units. Trailing singleton dimensions are accepted (as used by supplied SimNIBS labels); multi-volume 4D data is rejected. Unsupported or malformed data produces an inline error. A failed MRI replacement clears the old preview.
 - Unit normalization and orientation changes affect the in-memory display only. Source geometry is retained. Axis permutations/flips use NiBabel; oblique/sheared scans are resampled linearly to an axis-aligned RAS display grid.
 - Labels must be non-negative integer IDs up to 65535, with 1–256 foreground classes. They are resampled by affine using nearest-neighbor interpolation, preserving discrete IDs. Nonoverlapping/empty overlays are rejected.
