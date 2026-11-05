@@ -55,6 +55,8 @@ class HeadModel:
     units_assumed: bool = False
     notes: tuple = ()
     export_source: tuple | None = None
+    surface_step: int | None = None
+    surface_smoothing: float = 0.0
 
 
 def read_lut(path):
@@ -178,7 +180,42 @@ def load_model(directory):
                      export_source=(t1, labels, "charm"))
 
 
-def load_e1_model(mri_path, prediction_path, assume_mm=False):
+def smooth_display_surface(surface, affine, factor):
+    """Apply Slicer's closed-surface Windowed Sinc settings in label voxel space."""
+    from vtkmodules.util.numpy_support import numpy_to_vtk, numpy_to_vtkIdTypeArray, vtk_to_numpy
+    from vtkmodules.vtkCommonCore import vtkPoints
+    from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData
+    from vtkmodules.vtkFiltersCore import vtkWindowedSincPolyDataFilter
+
+    points = vtkPoints()
+    points.SetData(numpy_to_vtk((surface.points - affine[:3, 3]) @ np.linalg.inv(affine[:3, :3]).T, deep=True))
+    cells = vtkCellArray()
+    cells.SetData(numpy_to_vtkIdTypeArray(np.arange(0, surface.triangles.size + 1, 3, dtype=np.int64), deep=True),
+                  numpy_to_vtkIdTypeArray(surface.triangles.astype(np.int64).ravel(), deep=True))
+    poly = vtkPolyData()
+    poly.SetPoints(points)
+    poly.SetPolys(cells)
+    # Slicer vtkBinaryLabelmapToClosedSurfaceConversionRule uses this factor mapping.
+    smoother = vtkWindowedSincPolyDataFilter()
+    smoother.SetInputData(poly)
+    smoother.SetNumberOfIterations(int(20 + factor * 40))
+    smoother.SetPassBand(10.0 ** (-4.0 * factor))
+    smoother.BoundarySmoothingOff()
+    smoother.FeatureEdgeSmoothingOff()
+    smoother.NonManifoldSmoothingOn()
+    smoother.NormalizeCoordinatesOn()
+    smoother.Update()
+    output = smoother.GetOutput()
+    if output.GetNumberOfPoints() != len(surface.points) or output.GetNumberOfCells() != len(surface.triangles):
+        raise ValueError("Surface smoothing unexpectedly changed mesh connectivity.")
+    world = vtk_to_numpy(output.GetPoints().GetData()) @ affine[:3, :3].T + affine[:3, 3]
+    if not np.isfinite(world).all():
+        raise ValueError("Surface smoothing produced invalid coordinates.")
+    return Surface(surface.tag, world.astype(np.float32), surface.triangles,
+                   surface.name, surface.color, surface.role)
+
+
+def load_e1_model(mri_path, prediction_path, assume_mm=False, surface_step=None, surface_smoothing=0.0):
     """Read paired E1 volumes; extract display surfaces without changing originals."""
     volume = load_volume(mri_path, assume_mm=assume_mm)
     path, source, prediction_assumed = read_image(prediction_path, assume_mm=assume_mm)
@@ -188,18 +225,27 @@ def load_e1_model(mri_path, prediction_path, assume_mm=False):
     if not np.isin(values, range(6)).all() or not np.any(values):
         raise ValueError("Prediction needs nonempty integer labels 0–5 (skin/skull/CSF/GM/WM).")
     labels = load_labels(path, volume, assume_mm=assume_mm)
-    meshes = extract_surfaces(values, source.affine)
+    if surface_step not in (None, 1, 2, 4):
+        raise ValueError("Choose Auto, 1, 2 or 4 voxels for surface detail.")
+    if not 0 <= surface_smoothing <= 1:
+        raise ValueError("Surface smoothing must be between 0 and 1.")
+    meshes = (extract_surfaces(values, source.affine) if surface_step is None else
+              extract_surfaces(values, source.affine, step_size=surface_step, max_faces=8_000_000, adaptive=False))
     surfaces = [Surface(mesh["label"], mesh["vertices"], mesh["faces"]) for mesh in meshes]
+    if surface_smoothing > 0:
+        surfaces = [smooth_display_surface(surface, source.affine, surface_smoothing) for surface in surfaces]
     describe_surfaces(surfaces, E1_TISSUES, 1, (4, 5), lambda tag: tag)
     step = max(mesh["step_size"] for mesh in meshes)
     note = f"Segmentation display surfaces · sampling up to {step} voxels · not a FEM mesh"
+    if surface_smoothing > 0:
+        note += f"\nSlicer surface smoothing {surface_smoothing:.2f}"
     assumed = volume.units_assumed or prediction_assumed
     if assumed:
         note += "\nUnknown units assumed mm · physical scale unverified"
     # K3 export reads both files under the coordinate contract, which needs units stated in the headers.
     export = None if assumed else (Path(mri_path), Path(prediction_path), "project")
     return HeadModel(path.parent, volume, labels, None, surfaces, E1_TISSUES.copy(), None, "e1", note, assumed,
-                     export_source=export)
+                     export_source=export, surface_step=surface_step, surface_smoothing=surface_smoothing)
 
 
 def tissue_for_surface(tag, kind="simnibs"):

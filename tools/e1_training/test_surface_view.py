@@ -58,6 +58,17 @@ class SurfaceViewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "complex"):
             surface_view.extract_surfaces(self.labels, np.eye(4), max_faces=1)
 
+    def test_explicit_detail_does_not_silently_fall_back_to_a_coarser_step(self):
+        full = surface_view.extract_surfaces(self.labels, np.eye(4), step_size=1, adaptive=False)
+        coarse = surface_view.extract_surfaces(self.labels, np.eye(4), step_size=2, adaptive=False)
+        full_count = sum(len(mesh["faces"]) for mesh in full)
+        coarse_count = sum(len(mesh["faces"]) for mesh in coarse)
+        self.assertGreater(full_count, coarse_count)
+        self.assertEqual(full[0]["step_size"], 1)
+        with self.assertRaisesRegex(ValueError, "coarser"):
+            surface_view.extract_surfaces(self.labels, np.eye(4), step_size=1,
+                                          max_faces=coarse_count, adaptive=False)
+
     def test_viewer_has_offline_library_controls_and_visualization_metadata(self):
         names = {1: "Deri", 2: "Kafatası", 3: "CSF", 4: "Gri cevher", 5: "Beyaz cevher"}
         fragment, metadata = surface_view.make_view(self.labels, np.eye(4), names)

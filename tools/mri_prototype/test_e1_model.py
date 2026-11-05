@@ -85,6 +85,65 @@ class E1ModelTests(unittest.TestCase):
             load_volume(unknown)
         self.assertEqual([p.read_bytes() for p in (unknown, unknown_pred)], before)
 
+    def test_detail_control_rebuilds_surfaces_preserving_labels_and_tissue_state(self):
+        window = Window()
+        self.addCleanup(window.close)
+        before = [p.read_bytes() for p in (self.mri, self.pred)]
+        window.load_e1_prediction(self.mri, self.pred)
+        self.wait_idle(window)
+        view = window.mesh_view
+        view.checks[1].setChecked(False)
+        view.sliders[4].setValue(63)
+        view.detail.setCurrentIndex(view.detail.findData(1))
+        view.smoothing.setValue(0.5)
+        view.detail_button.click()
+        self.assertFalse(view.detail_button.isEnabled())
+        self.wait_idle(window)
+        self.assertEqual(window.head_model.surface_step, 1)
+        self.assertEqual(window.head_model.surface_smoothing, 0.5)
+        self.assertIn("1 voxels", window.head_model.geometry_note)
+        self.assertFalse(view.checks[1].isChecked())
+        self.assertEqual(view.sliders[4].value(), 63)
+        self.assertTrue(view.detail_button.isEnabled())
+        np.testing.assert_array_equal(window.head_model.labels[1], self.labels)
+        self.assertEqual([p.read_bytes() for p in (self.mri, self.pred)], before)
+
+    def test_smoothing_changes_display_vertices_without_changing_labels_or_connectivity(self):
+        before = [p.read_bytes() for p in (self.mri, self.pred)]
+        raw = self.load(surface_step=1)
+        smooth = self.load(surface_step=1, surface_smoothing=0.5)
+        self.assertEqual(smooth.surface_smoothing, 0.5)
+        self.assertIn("Slicer surface smoothing 0.50", smooth.geometry_note)
+        self.assertTrue(any(not np.array_equal(a.points, b.points) for a, b in zip(raw.surfaces, smooth.surfaces)))
+        for a, b in zip(raw.surfaces, smooth.surfaces):
+            np.testing.assert_array_equal(a.triangles, b.triangles)
+            self.assertTrue(np.isfinite(b.points).all())
+        np.testing.assert_array_equal(raw.labels[1], smooth.labels[1])
+        self.assertEqual([p.read_bytes() for p in (self.mri, self.pred)], before)
+        with self.assertRaisesRegex(ValueError, "between 0 and 1"):
+            self.load(surface_smoothing=1.1)
+
+    def test_smoothing_uses_voxel_space_before_anisotropic_world_transform(self):
+        surface = self.load(surface_step=1).surfaces[0]
+        a = model.smooth_display_surface(surface, self.affine, 0.5)
+        voxel_points = (surface.points - self.affine[:3, 3]) @ np.linalg.inv(self.affine[:3, :3]).T
+        voxel_surface = model.Surface(surface.tag, voxel_points, surface.triangles)
+        b = model.smooth_display_surface(voxel_surface, np.eye(4), 0.5)
+        expected = b.points @ self.affine[:3, :3].T + self.affine[:3, 3]
+        np.testing.assert_allclose(a.points, expected, rtol=0, atol=1e-4)
+
+    def test_failed_detail_rebuild_keeps_previous_model(self):
+        window = Window()
+        self.addCleanup(window.close)
+        window.load_e1_prediction(self.mri, self.pred)
+        self.wait_idle(window)
+        previous = window.head_model
+        with patch("prototype.load_e1_model", side_effect=ValueError("geometry exceeds limit")):
+            window.change_surface_detail(1)
+            self.wait_idle(window)
+        self.assertIs(window.head_model, previous)
+        self.assertIn("geometry exceeds limit", window.error_message.text())
+
     def test_known_units_do_not_acquire_an_assumption_when_opt_in_enabled(self):
         loaded = self.load(assume_mm=True)
         self.assertFalse(loaded.volume.units_assumed)

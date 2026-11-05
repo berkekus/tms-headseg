@@ -1,10 +1,10 @@
 """VTK inside Qt. Mesh vertices and MRI planes share RAS millimeter coordinates."""
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QSurfaceFormat
 from PySide6.QtWidgets import (
-    QCheckBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSlider,
+    QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSlider,
     QVBoxLayout, QWidget,
 )
 
@@ -65,6 +65,8 @@ def plane_actor(volume, axis, index, level, width):
 
 
 class MeshView(QWidget):
+    detail_requested = Signal(object, float)
+
     def __init__(self):
         super().__init__()
         self.model = None
@@ -74,6 +76,7 @@ class MeshView(QWidget):
         self.planes = []
         self.indices = [0, 0, 0]
         self.level, self.width = 0., 1.
+        self.detail_available = True
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 16, 0, 0)
         sidebar = QWidget()
@@ -96,6 +99,27 @@ class MeshView(QWidget):
         reset = QPushButton("Reset camera")
         reset.clicked.connect(self.reset_camera)
         controls.addWidget(reset)
+        controls.addWidget(QLabel("Surface detail · voxel step"))
+        self.detail = QComboBox()
+        self.detail.setAccessibleName("Surface voxel step")
+        for title, value in (("Auto · fast preview", None), ("4 voxels · coarse", 4),
+                             ("2 voxels · medium", 2), ("1 voxel · full detail", 1)):
+            self.detail.addItem(title, value)
+        self.detail.setToolTip("Step in source voxels, not millimetres. Smaller steps retain more detail and require more memory. Applies to E1/E2 display surfaces.")
+        controls.addWidget(self.detail)
+        controls.addWidget(QLabel("Surface smoothing · Slicer method"))
+        self.smoothing = QDoubleSpinBox()
+        self.smoothing.setRange(0.0, 1.0)
+        self.smoothing.setSingleStep(0.1)
+        self.smoothing.setDecimals(2)
+        self.smoothing.setAccessibleName("Surface smoothing factor")
+        self.smoothing.setSpecialValueText("0 · raw surface")
+        self.smoothing.setToolTip("0 keeps the raw surface; 0.50 matches Slicer's default smoothing strength. Stronger smoothing can remove small features. Display only.")
+        controls.addWidget(self.smoothing)
+        self.detail_button = QPushButton("Apply surface settings")
+        self.detail_button.clicked.connect(lambda: self.detail_requested.emit(self.detail.currentData(), self.smoothing.value()))
+        controls.addWidget(self.detail_button)
+        self.set_detail_available(True)
         self.show_planes = QCheckBox("Show MRI slice planes")
         self.show_planes.toggled.connect(self.update_planes)
         controls.addWidget(self.show_planes)
@@ -140,10 +164,21 @@ class MeshView(QWidget):
         for button in self.preset_buttons.values():
             button.setEnabled(False)
         self.summary.setText("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
+        self.set_detail_available(self.detail_available)
+
+    def set_detail_available(self, available):
+        self.detail_available = available
+        enabled = available and self.model is not None and self.model.kind == "e1"
+        self.detail.setEnabled(enabled)
+        self.smoothing.setEnabled(enabled)
+        self.detail_button.setEnabled(enabled)
 
     def set_model(self, model):
         self.clear()
         self.model = model
+        self.detail.setCurrentIndex(self.detail.findData(model.surface_step))
+        self.smoothing.setValue(model.surface_smoothing)
+        self.set_detail_available(self.detail_available)
         count = sum(len(surface.triangles) for surface in model.surfaces)
         title = model.labels[0].name if model.kind == "e1" else model.directory.name
         self.summary.setText("\n".join((title, f"{len(model.surfaces)} surfaces · {count:,} triangles",
@@ -172,6 +207,24 @@ class MeshView(QWidget):
         self.preset_buttons[False].setEnabled("head" in self.presets)
         if self.renderer is not None:
             self.build_scene()
+
+    def replace_model(self, model):
+        """Keep the user's tissue controls and camera when changing surface detail."""
+        states = {tag: (check.isChecked(), self.sliders[tag].value()) for tag, check in self.checks.items()}
+        camera = None
+        if self.renderer is not None:
+            current = self.renderer.GetActiveCamera()
+            camera = current.NewInstance()
+            camera.DeepCopy(current)
+        self.set_model(model)
+        for tag, (visible, opacity) in states.items():
+            if tag in self.checks:
+                self.checks[tag].setChecked(visible)
+                self.sliders[tag].setValue(opacity)
+        if camera is not None:
+            self.renderer.GetActiveCamera().DeepCopy(camera)
+            self.renderer.ResetCameraClippingRange()
+            self.render()
 
     def ensure_renderer(self):
         if self.model is None:

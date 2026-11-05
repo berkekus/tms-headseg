@@ -54,6 +54,8 @@ The first two choices come directly from the user; document review is not implie
 
 ## Next useful action
 
+Workbench now offers Auto and explicit 4/2/1-voxel surface detail plus Slicer-style display smoothing for E1/E2 predictions. Native sub-10159 testing verified the 3,487,226-triangle 1-voxel view and smoothing factor 0.50, preserving the camera and input hashes. See the [display-detail evidence](experiments/e2-handoff-review.md#adjustable-desktop-surface-detail) and [smoothing evidence](experiments/e2-handoff-review.md#slicer-style-surface-smoothing).
+
 The [E2 model review and Workbench integration](experiments/e2-handoff-review.md) verified the supplied final checkpoint, epoch 100 and 16 readable validation predictions. Workbench now offers E1/E2 selection. Real E2 CPU inference on GU011 completed in about 206 seconds plus report/viewer work and opened in native 3D. Against the same reconstructed E2 reference, retained E1 and fresh E2 CPU outputs score 0.8161 / 0.9155. This is one validation case's agreement with the E2 labels. The original E2 cohort score is 0.91402824 on 16 cases. Windows execution and independent anatomical comparison remain pending. Earlier E2-pending entries below describe preparation history.
 
 The [MultiAxial K2 batch](experiments/multiaxial-k2-preflight.md) verified all six archive checksums and launched nine T1-only CHARM runs sequentially on 2026-11-04 (eight training, GU011 validation). Workbench monitors live records and logs. GU011 started, with eight cases pending at the launch check. Completion, label QC and E2 training remain pending.

@@ -22,6 +22,14 @@ For an E1/E2 comparison, use the same MRI and mirror-augmentation setting. A val
 
 **Cancel inference** stops the owned process tree and preserves partial output. Closing an active run asks whether to stop it and waits for cleanup. Import, K3 export, CHARM and E1 inference cannot run simultaneously. The K3 project-model import/export path remains available after the inference ends; E1 display does not automatically run cleanup or change its geometry/export contract.
 
+## Surface display detail
+
+In **03 3D model**, choose **Surface detail · voxel step**, then **Apply surface settings**. **Auto** keeps the fast bounded preview. Explicit **4**, **2** and **1 voxel** settings rebuild the surfaces at the selected sampling step. A smaller step retains more of the original label detail and uses more rendering memory. The step is measured in source voxels, with their existing spacing.
+
+The update uses the saved prediction and preserves the camera and tissue visibility/opacity. MRI slices, labels and inference outputs remain unchanged. Explicit choices have an eight-million-triangle limit. If exceeded, an error asks for a coarser step while retaining the previous model. This control applies to E1/E2 predictions; imported meshes keep their supplied geometry.
+
+**Surface smoothing · Slicer method** controls a display-only Windowed Sinc filter. **0** shows the raw surface. **0.50** uses Slicer's default factor mapping (40 iterations, passband 0.01). Start with **1 voxel** and **0.50** for a detailed smooth view. Higher factors can remove small features. The filter runs in label voxel space before applying the world affine, matching Slicer's treatment of anisotropic spacing. The underlying triangulation remains our existing marching-cubes extraction. This reproduces Slicer's smoothing settings rather than guaranteeing identical meshes from different conversion algorithms. [Slicer conversion implementation](https://github.com/Slicer/Slicer/blob/main/Libs/vtkSegmentationCore/vtkBinaryLabelmapToClosedSurfaceConversionRule.cxx).
+
 ## Outputs and provenance
 
 Each run has a new UTC-stamped ID; existing runs and model files are never overwritten:

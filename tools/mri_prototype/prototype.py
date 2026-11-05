@@ -205,6 +205,7 @@ class Window(LauncherWindow):
         self.batch.busy_changed.connect(self.update_controls)
         self.tabs.addTab(self.processing_tabs, "02   CHARM processing")
         self.mesh_view = MeshView()
+        self.mesh_view.detail_requested.connect(self.change_surface_detail)
         self.tabs.addTab(self.mesh_view, "03   3D model")
         self.inference = InferencePanel()
         self.tabs.addTab(self.inference, "04   E1 / E2 segmentation")
@@ -273,6 +274,7 @@ class Window(LauncherWindow):
                         self.open_e1_button, self.e1_assume_mm):
             control.setEnabled(not busy)
         batch_external = self.batch is not None and self.batch.external_active
+        self.mesh_view.set_detail_available(not busy and not batch_external)
         self.start_button.setEnabled(not busy and not batch_external)
         self.labels_button.setEnabled(self.volume is not None and not busy)
         for control in (self.level, self.width, self.auto_button):
@@ -333,6 +335,25 @@ class Window(LauncherWindow):
     def inference_completed(self, job):
         self.e1_assume_mm.setChecked(job.assume_mm)
         self.load_e1_prediction(job.mri, job.prediction, assume_mm=job.assume_mm, show_3d=True)
+
+    def change_surface_detail(self, step, smoothing=None):
+        if self.busy or self.head_model is None or self.head_model.kind != "e1":
+            return
+        current = self.head_model
+        if smoothing is None:
+            smoothing = current.surface_smoothing
+        if step == current.surface_step and smoothing == current.surface_smoothing:
+            return
+        self.feedback.setText("Rebuilding display surfaces from the saved segmentation…")
+        def loaded(model):
+            self.head_model = model
+            self.mesh_view.replace_model(model)
+            self.feedback.setText("Surface detail updated · " + model.geometry_note)
+        self.run_task(lambda: load_e1_model(current.volume.path, current.labels[0],
+                                           assume_mm=current.units_assumed, surface_step=step,
+                                           surface_smoothing=smoothing), loaded,
+                      error_title="Surface detail could not be updated",
+                      recovery="Choose a coarser voxel step and apply again.")
 
     def clear_model(self):
         self.head_model = None
