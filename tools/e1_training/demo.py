@@ -192,7 +192,7 @@ h1{{font-size:32px;margin:10px 0}}.badge{{display:inline-block;background:#e7f0f
 <img alt="MRI, referans etiket ve model tahmininin eşleşen üç düzlemde karşılaştırması" src="data:image/png;base64,{picture}">
 {difference_legend}<ul>{notes}</ul>
 <small>Bu çıktı doku segmentasyonu ve gösterim yüzeyleridir; simülasyona hazır hacim mesh'i veya klinik doğrulama değildir. Kaydedilmiş rapor internet bağlantısı gerektirmez.</small></main></html>'''
-    (folder / "report.html").write_text(page)
+    (folder / "report.html").write_text(page, encoding="utf-8")
     return folder / "report.html"
 
 
@@ -232,7 +232,9 @@ def initialize_e2(predictor, model_folder):
     from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 
     folder = Path(model_folder)
-    with torch.serialization.safe_globals([np.core.multiarray.scalar, np.dtype,
+    # NumPy 2 moved this callable; older checkpoints keep its NumPy 1 module path.
+    with torch.serialization.safe_globals([np.core.multiarray.scalar,
+                                           (np.core.multiarray.scalar, "numpy.core.multiarray.scalar"), np.dtype,
                                            type(np.dtype("float32")), type(np.dtype("float64"))]):
         checkpoint = torch.load(folder / "fold_0/checkpoint_final.pth", map_location="cpu", weights_only=True)
     require(checkpoint.get("trainer_name") == "nnUNetTrainer_E2Preliminary", "Expected the completed E2 model.")

@@ -86,7 +86,7 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(result["case_mean_dice"], 1)
         self.assertIsNone(result["timing"])
         self.assertTrue(result["surface_view"]["visualization_only"])
-        html = (out / "report.html").read_text()
+        html = (out / "report.html").read_text(encoding="utf-8")
         self.assertIn("data:image/png;base64,", html)
         self.assertIn("Kaydedilmiş tahmin", html)
         self.assertTrue('<script src=' not in html, "Report must bundle its viewer library")
@@ -100,7 +100,7 @@ class DemoTests(unittest.TestCase):
         demo.make_report(self.mri, self.pred, out, experiment="E2")
         result = json.loads((out / "report.json").read_text())
         self.assertEqual(result["experiment"], "E2")
-        page = (out / "report.html").read_text()
+        page = (out / "report.html").read_text(encoding="utf-8")
         self.assertIn("E2 ön model", page)
         self.assertNotIn("E1 ön model", page)
         self.assertNotIn("44 eğitim", page)
@@ -120,7 +120,7 @@ class DemoTests(unittest.TestCase):
     def test_report_without_reference_has_no_disagreement_claim(self):
         out = self.root / "without_reference"
         demo.make_report(self.mri, self.pred, out)
-        page = (out / "report.html").read_text()
+        page = (out / "report.html").read_text(encoding="utf-8")
         self.assertTrue("Referans yok; bu MRI için Dice hesaplanmadı." in page, "Missing no-reference explanation")
         self.assertTrue("Turuncu:" not in page, "Disagreement legend requires a reference")
 
