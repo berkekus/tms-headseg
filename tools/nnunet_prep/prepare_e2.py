@@ -14,7 +14,10 @@ Each case must have a charm delivery whose SHA256SUMS.txt matches, whose run.jso
 and outputs_ok, and (unless --allow-unchecked) a QC row marked `pass`; later --qc sheets override earlier
 ones (K1 review after K2's `check`). Labels are mapped with headmodel.labels.CHARM_TO_PROJECT (blood 9 -> CSF,
 PR #5) and written on the T1 grid. Labels on exactly-zero voxels connected to the volume border (padding,
-defacing) become background, because charm extrapolates tissue there.
+defacing) become background, because charm extrapolates tissue there. MultiAxial cases also get the
+lesion rule (csf_like_lesions, decided 2026-11-05): charm has no lesion class and labels partly filled
+stroke lesions and parts of enlarged ventricles as WM/GM; thick regions that the Dataset001 reference
+calls CSF and that are CSF-dark on T1 become CSF. Thin sulcal differences keep charm's convention.
 
 Output under --out (outside the repository):
     nnUNet_raw/Dataset002_E2Charm/{dataset.json,imagesTr,labelsTr}
@@ -50,6 +53,8 @@ SIMNIBS_VERSION = "4.6.0"
 IXI_VAL_PER_SITE = 2
 GEOMETRY_ATOL = 1e-3
 CHARM_BATCH = HERE.parent / "charm_batch"
+LESION_OPEN_VOXELS = 2   # regions thinner than about 2 * this many voxels are sulcal, not lesions
+LESION_MIN_ML = 1.0      # smaller CSF-like regions are left to charm
 
 
 def sha256(path: Path) -> str:
@@ -127,8 +132,31 @@ def find_image(source: str, subject: str, ixi_images: Path, ma_images: Path) -> 
     return candidates[0]
 
 
-def convert_case(t1_path: Path, label_path: Path, image_out: Path, label_out: Path) -> dict:
-    """Write the T1 and mapped labels on one grid; return geometry facts."""
+def csf_like_lesions(image: np.ndarray, mapped: np.ndarray, reference: np.ndarray, voxel_ml: float) -> np.ndarray:
+    """Voxels to relabel CSF: reference CSF, charm GM/WM, T1 darker than midway between the reference CSF
+    and GM medians, inside a region thick enough to survive an opening and at least LESION_MIN_ML.
+
+    EXP-002 (2026-11-05): 19 of 54 MultiAxial cases have 10-120 mL of such tissue (stroke lesions,
+    enlarged ventricles); the opening keeps thin sulcal CSF/GM differences out, so the cortical
+    boundary still follows charm."""
+    csf, gm = reference == 3, reference == 4
+    if not csf.any() or not gm.any():
+        return np.zeros(mapped.shape, bool)
+    threshold = (np.median(image[csf]) + np.median(image[gm])) / 2
+    candidate = csf & np.isin(mapped, (4, 5)) & (image < threshold)
+    cross, cube = ndimage.generate_binary_structure(3, 1), ndimage.generate_binary_structure(3, 3)
+    core = ndimage.binary_opening(candidate, cross, iterations=LESION_OPEN_VOXELS)
+    grown = candidate & ndimage.binary_dilation(core, cube, iterations=LESION_OPEN_VOXELS)
+    regions, _ = ndimage.label(grown, cube)
+    sizes = np.bincount(regions.ravel()) * voxel_ml
+    sizes[0] = 0
+    return np.isin(regions, np.flatnonzero(sizes >= LESION_MIN_ML))
+
+
+def convert_case(t1_path: Path, label_path: Path, image_out: Path, label_out: Path,
+                 reference_path: Path | None = None) -> dict:
+    """Write the T1 and mapped labels on one grid; return geometry facts. With a reference (Dataset001
+    labels, MultiAxial only), CSF-like lesions become CSF (csf_like_lesions)."""
     t1 = nib.load(str(t1_path))
     lab = nib.load(str(label_path))
     labels = np.asanyarray(lab.dataobj)
@@ -143,12 +171,20 @@ def convert_case(t1_path: Path, label_path: Path, image_out: Path, label_out: Pa
     padding = outside_acquisition(image)
     cleared = int(np.count_nonzero(mapped[padding]))
     mapped[padding] = 0
+    voxel_ml = float(np.prod(t1.header.get_zooms()[:3])) / 1000.0
+    lesion_ml = None
+    if reference_path is not None:
+        ref = nib.load(str(reference_path))
+        if ref.shape != t1.shape or float(np.abs(ref.affine - t1.affine).max()) > GEOMETRY_ATOL:
+            raise ValueError(f"{t1_path.name}: reference labels are not on the image grid")
+        lesion = csf_like_lesions(image, mapped, np.asanyarray(ref.dataobj), voxel_ml)
+        mapped[lesion] = 3
+        lesion_ml = int(lesion.sum()) * voxel_ml
     affine, shear_error = orthonormalize(t1.affine)
     save_nifti(image_out, image, affine)
     save_nifti(label_out, mapped, affine)
-    voxel_ml = float(np.prod(t1.header.get_zooms()[:3])) / 1000.0
     return {"affine_diff": affine_diff, "shear_error": shear_error, "padding_cleared_ml": cleared * voxel_ml,
-            "voxels_per_label": np.bincount(mapped.ravel(), minlength=6).tolist()}
+            "lesion_csf_ml": lesion_ml, "voxels_per_label": np.bincount(mapped.ravel(), minlength=6).tolist()}
 
 
 def outside_acquisition(image: np.ndarray) -> np.ndarray:
@@ -189,15 +225,22 @@ def build(args) -> dict:
             missing.append((case_id, f"QC {status or 'not done'}"))
             continue
         t1 = find_image(info["source"], case_id, args.ixi_images, args.ma_images)
+        reference = None
+        if info["source"] == "MultiAxial":
+            reference = (args.ma_labels or args.ma_images.parent / "labelsTr") / f"{case_id}.nii.gz"
+            if not reference.is_file():
+                raise FileNotFoundError(f"{case_id}: Dataset001 reference labels not found at {reference}")
         print(info["split"], case_id, flush=True)
         facts = convert_case(t1, folder / "final_tissues.nii.gz",
-                             raw / "imagesTr" / f"{case_id}_0000.nii.gz", raw / "labelsTr" / f"{case_id}.nii.gz")
+                             raw / "imagesTr" / f"{case_id}_0000.nii.gz", raw / "labelsTr" / f"{case_id}.nii.gz",
+                             reference_path=reference)
         manifest.append({"case_id": case_id, **info, "charm_owner": run.get("owner", ""),
                          "t1_only": bool(run.get("t1_only", run.get("t2") is None)),
                          "forceqform": bool(run.get("forceqform")), "qc": status or "unchecked",
                          "t1_source": t1.name, "affine_diff": f"{facts['affine_diff']:.2e}",
                          "affine_orthonormalized": facts["shear_error"] > SHEAR_TOLERANCE,
                          "padding_cleared_ml": f"{facts['padding_cleared_ml']:.1f}",
+                         "lesion_csf_ml": "" if facts["lesion_csf_ml"] is None else f"{facts['lesion_csf_ml']:.1f}",
                          "voxels_per_label": " ".join(map(str, facts["voxels_per_label"]))})
 
     if missing:
@@ -239,6 +282,7 @@ def parse_args(argv=None):
     parser.add_argument("--qc", type=Path, nargs="*", default=[], help="QC sheets (subject,qc,notes)")
     parser.add_argument("--ixi-images", type=Path, required=True, help="Unpacked D06 IXI folder")
     parser.add_argument("--ma-images", type=Path, required=True, help="Dataset001 imagesTr folder")
+    parser.add_argument("--ma-labels", type=Path, help="Dataset001 labelsTr folder (default: next to --ma-images)")
     parser.add_argument("--ixi-assignment", type=Path, default=CHARM_BATCH / "ixi_assignment.csv")
     parser.add_argument("--ma-assignment", type=Path, default=CHARM_BATCH / "multiaxial_assignment.csv")
     parser.add_argument("--out", type=Path, required=True)

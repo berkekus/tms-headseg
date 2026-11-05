@@ -43,8 +43,10 @@ class E2Fixture:
             self.image(folder / f"{r['subject']}-{r['site']}-0001-T1.nii.gz")
             self.delivery(r["subject"], t1_only=False)
         self.ma_images.mkdir()
+        (root / "labelsTr").mkdir()
         for r in self.ma:
             self.image(self.ma_images / f"{r['subject']}_0000.nii.gz")
+            nib.save(nib.Nifti1Image(np.zeros((6, 6, 6), np.uint8), np.eye(4)), str(root / "labelsTr" / f"{r['subject']}.nii.gz"))
             self.delivery(r["subject"], t1_only=True)
         self.qc = root / "qc.csv"
         self.write_qc({})
@@ -178,6 +180,63 @@ class PrepareE2Tests(unittest.TestCase):
             nib.save(nib.Nifti1Image(fx.labels[..., None], shifted), str(folder / "final_tissues.nii.gz"))
             fx.resum(folder)
             with self.assertRaisesRegex(ValueError, "affines differ"):
+                e2.build(fx.args())
+
+    @staticmethod
+    def lesion_volumes():
+        """20^3 head: reference GM shell, a 6^3 lesion and a one-voxel-thin sheet, both reference CSF,
+        charm WM and dark on T1; a bright 6^3 block that is reference CSF but charm WM."""
+        image = np.full((20, 20, 20), 300, np.float32)    # WM-like signal
+        charm = np.full((20, 20, 20), 1, np.int16)         # charm 1 = WM
+        ref = np.full((20, 20, 20), 5, np.uint8)           # reference WM
+        ref[:, :, :2] = 4; image[:, :, :2] = 200           # reference GM, GM-like T1
+        ref[2:8, 2:8, 4:10] = 3; image[2:8, 2:8, 4:10] = 80          # lesion: thick, CSF-dark
+        ref[12, 2:18, 4:16] = 3; image[12, 2:18, 4:16] = 80           # thin sheet (sulcus-like)
+        ref[14:20, 12:18, 12:18] = 3                                  # reference CSF but T1 stays bright
+        return image, charm, ref
+
+    def test_csf_like_lesion_becomes_csf_but_thin_and_bright_regions_stay(self):
+        image, charm, ref = self.lesion_volumes()
+        mapped = np.where(charm == 1, 5, 0).astype(np.int16)
+        fix = e2.csf_like_lesions(image, mapped, ref, voxel_ml=0.008)  # 2 mm voxels: lesion 1.7 mL
+        self.assertTrue(fix[2:8, 2:8, 4:10].all())
+        self.assertFalse(fix[12].any())
+        self.assertFalse(fix[14:20, 12:18, 12:18].any())
+        self.assertEqual(int(fix.sum()), 6 * 6 * 6)
+        self.assertFalse(e2.csf_like_lesions(image, mapped, ref, voxel_ml=0.001).any())  # 0.2 mL: below the minimum
+
+    def test_convert_case_applies_the_lesion_rule_only_with_a_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image, charm, ref = self.lesion_volumes()
+            affine = np.diag([2.0, 2.0, 2.0, 1.0])
+            nib.save(nib.Nifti1Image(image, affine), str(root / "t1.nii.gz"))
+            nib.save(nib.Nifti1Image(charm[..., None], affine), str(root / "lab.nii.gz"))
+            nib.save(nib.Nifti1Image(ref, affine), str(root / "ref.nii.gz"))
+            facts = e2.convert_case(root / "t1.nii.gz", root / "lab.nii.gz", root / "img.nii.gz", root / "out.nii.gz",
+                                    reference_path=root / "ref.nii.gz")
+            out = np.asanyarray(nib.load(str(root / "out.nii.gz")).dataobj)
+            self.assertTrue((out[2:8, 2:8, 4:10] == 3).all())
+            self.assertTrue((out[12, 2:18, 4:16] == 5).all())
+            self.assertAlmostEqual(facts["lesion_csf_ml"], 216 * 0.008)
+            plain = e2.convert_case(root / "t1.nii.gz", root / "lab.nii.gz", root / "img2.nii.gz", root / "out2.nii.gz")
+            self.assertIsNone(plain["lesion_csf_ml"])
+            self.assertTrue((np.asanyarray(nib.load(str(root / "out2.nii.gz")).dataobj)[2:8, 2:8, 4:10] == 5).all())
+            nib.save(nib.Nifti1Image(ref, np.eye(4)), str(root / "ref_moved.nii.gz"))
+            with self.assertRaisesRegex(ValueError, "reference"):
+                e2.convert_case(root / "t1.nii.gz", root / "lab.nii.gz", root / "img3.nii.gz", root / "out3.nii.gz",
+                                reference_path=root / "ref_moved.nii.gz")
+
+    def test_build_uses_the_dataset001_reference_for_multiaxial_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = E2Fixture(Path(tmp))
+            manifest = {m["case_id"]: m for m in e2.build(fx.args())["manifest"]}
+            self.assertEqual(manifest["GU001"]["lesion_csf_ml"], "0.0")
+            self.assertEqual(manifest["IXI001"]["lesion_csf_ml"], "")
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = E2Fixture(Path(tmp))
+            (fx.root / "labelsTr" / "NC001.nii.gz").unlink()
+            with self.assertRaisesRegex(FileNotFoundError, "NC001"):
                 e2.build(fx.args())
 
     def test_refuses_to_write_into_a_non_empty_dataset(self):
