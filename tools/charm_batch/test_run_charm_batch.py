@@ -211,6 +211,24 @@ class RunTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertFalse((root / "out" / "m2m_IXI100").exists())
 
+    def test_accepted_qform_diff_runs_only_for_named_subject_and_below_cap(self):
+        self.assertEqual(batch.charm_flags(1.2e-3, False, accepted=True), ["--forceqform"])
+        self.assertIsNone(batch.charm_flags(1.2e-3, False))
+        self.assertIsNone(batch.charm_flags(0.5, False, accepted=True))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_inputs(root, "IXI100", shift=1.2e-3)
+            self.make_inputs(root, "IXI101", shift=1.2e-3)
+            assignment = self.write_assignment(root, ["IXI100", "IXI101"])
+            code = batch.main(["--owner", "K2", "--data", str(root / "data"), "--out", str(root / "out"),
+                               "--assignment", str(assignment), "--charm", self.fake_charm(root),
+                               "--accept-qform-diff", "IXI100"])
+            self.assertEqual(code, 1)  # IXI101 not accepted, still skipped
+            rec = json.loads((root / "out" / "runs" / "IXI100.json").read_text())
+            self.assertTrue(rec["outputs_ok"] and rec["forceqform"])
+            self.assertIn("qform_diff_accepted", rec)
+            self.assertIn("skipped_reason", json.loads((root / "out" / "runs" / "IXI101.json").read_text()))
+
     def test_dry_run_rejects_large_qform_mismatch_without_writing_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

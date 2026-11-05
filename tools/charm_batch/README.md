@@ -68,6 +68,7 @@ Bunları elle yapma ya da değiştirme. K1'in makinesinde de birebir aynı adım
   - IXI dosyalarının bir kısmında iki konum kaydı arasında 0,00001 mm düzeyinde yuvarlama farkı var. charm bu durumda durur.
   - Araç, charm'ın kendi kontrolünü önceden yapar. Fark yuvarlama düzeyindeyse `--forceqform` ekler (K2'nin 15 kişisinin 12'sinde gerekiyor).
   - Fark 0,001 mm'den büyükse vakayı **atlar** ve K1'e sor der.
+  - K1 farkı inceleyip kabul ederse vaka `--accept-qform-diff <ID>` ile `--forceqform` kullanarak çalışır (yalnızca adı verilen vaka, fark 0,01'in altındaysa). Kabul `runs/<ID>.json` içinde `qform_diff_accepted` olarak kaydedilir. Şimdiye kadar tek örnek IXI130 (kalibrasyon; T2'de en uç köşede 0,28 mm).
 - **İş parçacığı sınırları.** Matematik kütüphanelerinin iş parçacığı sayısını 1'e sabitler (`OPENBLAS_NUM_THREADS`, `OPENBLAS_DEFAULT_NUM_THREADS`, `OMP_NUM_THREADS`). Bu, Windows'ta görülen OpenBLAS çökmesini önleyen ayar (EXP-002); MRI Workbench'teki charm başlatıcısı da aynısını yapıyor.
 - **Kayıt.** Her kişi için `runs/<ID>.json` yazar: başlangıç ve bitiş zamanı, süre, çıkış kodu, SimNIBS sürümü, `--forceqform` kullanılıp kullanılmadığı, işletim sistemi. charm'ın tüm çıktısı `logs/<ID>.log` dosyasına gider.
 - **Canlı durum ve kilit.** Yeni koşular atomik `running` / `completed` / `failed` vaka kayıtları yazar. Gerçek batch boyunca aynı çıktı klasöründe ikinci batch'i engelleyen kilit tutulur; kuru deneme CHARM başlatmaz. Bu kilit farklı çıktı klasörlerindeki başka CHARM işlerini engellemez.
@@ -101,6 +102,10 @@ Araç `qc_K2.csv` dosyasını oluşturur. Biten her kişi için `m2m_<ID>/charm_
 ## MultiAxial (E2, K1)
 
 E2'de MultiAxial'ın E1 eğitim ve doğrulama vakaları da charm ile etiketlenir (54 vaka, karar 2026-11-04). Atama [multiaxial_assignment.csv](multiaxial_assignment.csv) içinde; `make_assignment.py --multiaxial <split_manifest.csv> <çıktı>` ile üretilir. MultiAxial test vakaları listede yoktur.
+
+Dağılım: K1 laptop `--part 1/3` ve `2/3` (36 vaka). Part 3/3'ün 18 vakası ikiye bölündü (2026-11-04): K1 masaüstü 9 vakayı `--only GU008 GU016 GU024 GU035 NC004 NC014 NC021 NC031 NYU006` ile çalıştırır (`--part` olmadan, çünkü `--only` bölmeden önce uygulanır). K2 ise kalan 9 vakayı [multiaxial_assignment_K2.csv](multiaxial_assignment_K2.csv) ve `--owner K2` ile çalıştırır. Bu dosyayı elle değiştirme; ana atama dosyasındaki K1 satırlarını da değiştirme, yoksa laptop'un parçaları kayar.
+
+Part 2/3 de bölündü (2026-11-04, laptop GU006'dayken). Laptop GU006 ve GU010'u bitirdikten sonra `--only GU015 GU018 GU021 GU027 GU033 GU038 GU041 NC010` ile yeniden başlatılır. K1 masaüstü `--only NC017 NC020 NC023 NC029 NYU002 NYU005 NYU008` ile, ardından `--only NC013` ile çalışır. K2'de yalnızca part 3/3'ün 9 vakası kalır.
 
 MultiAxial'da T2 yok. Girdi, Dataset001'deki nnU-Net görüntüsüdür (`<ID>_0000.nii.gz`), böylece etiketler E2'ye girecek görüntüyle aynı ızgarada olur. Makineler `--part K/N` ile çakışmadan bölünür; N'i başta seç ve değiştirme.
 

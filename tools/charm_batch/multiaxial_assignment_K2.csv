@@ -1,0 +1,10 @@
+subject,site,cohort,owner,note
+GU011,GU,val,K2,T1 only; input is the Dataset001 nnU-Net image
+GU019,GU,train,K2,T1 only; input is the Dataset001 nnU-Net image
+GU030,GU,train,K2,T1 only; input is the Dataset001 nnU-Net image
+GU039,GU,train,K2,T1 only; input is the Dataset001 nnU-Net image
+NC011,NC,train,K2,T1 only; input is the Dataset001 nnU-Net image
+NC018,NC,train,K2,T1 only; input is the Dataset001 nnU-Net image
+NC024,NC,train,K2,T1 only; input is the Dataset001 nnU-Net image
+NYU003,NYU,train,K2,T1 only; input is the Dataset001 nnU-Net image
+NYU010,NYU,train,K2,T1 only; input is the Dataset001 nnU-Net image
