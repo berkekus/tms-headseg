@@ -9,16 +9,19 @@ from PySide6.QtCore import QTimer, Qt, QUrl, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar,
-    QPushButton, QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 from PySide6.QtGui import QDesktopServices
 
 from batch_runner import MULTIAXIAL_ASSIGNMENT, BatchJob, BatchRunner, batch, command_prefix, log_snapshot, read_cases, untracked_runs
 from installation import find_charm
+from time_estimates import duration, queued_batch_estimate
+from visual_theme import compact_choice, paint_disclosure
 
 
 class BatchPanel(QWidget):
     busy_changed = Signal()
+    notice = Signal(str, str, str)
 
     def __init__(self):
         super().__init__()
@@ -40,6 +43,7 @@ class BatchPanel(QWidget):
         heading.addWidget(title)
         heading.addStretch()
         self.setup_button = QPushButton("Hide setup")
+        paint_disclosure(self.setup_button, "Batch setup", True)
         self.setup_button.clicked.connect(lambda: self.show_setup(self.inputs.isHidden()))
         heading.addWidget(self.setup_button)
         layout.addLayout(heading)
@@ -52,6 +56,7 @@ class BatchPanel(QWidget):
         self.owner = QComboBox()
         self.owner.setAccessibleName("Batch owner")
         self.owner.addItems(["K2", "K1"])
+        compact_choice(self.owner)
         form.addRow("Assigned worker", self.owner)
         self.python = self.path_field(form, "SimNIBS Python", False)
         self.python.setToolTip("Use SimNIBS's bin/simnibs_python on macOS, or simnibs_env/python.exe on Windows.")
@@ -80,7 +85,7 @@ class BatchPanel(QWidget):
         self.run_button.setObjectName("primary")
         self.run_button.clicked.connect(lambda: self.start())
         self.cancel_button = QPushButton("Cancel this batch")
-        self.cancel_button.clicked.connect(self.cancel)
+        self.cancel_button.clicked.connect(self.confirm_cancel)
         self.monitor_button = QPushButton("Monitor folder only")
         self.monitor_button.clicked.connect(self.monitor)
         for button in [self.check_button, self.run_button, self.cancel_button, self.monitor_button]:
@@ -96,6 +101,10 @@ class BatchPanel(QWidget):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         layout.addWidget(self.summary)
+        self.estimate = QLabel("Queued time estimate: available after two cases finish in this batch.")
+        self.estimate.setWordWrap(True)
+        self.estimate.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(self.estimate)
         layout.addWidget(self.progress)
         self.table = QListWidget()
         self.table.setAccessibleName("Assigned cases: subject, site, state and runtime")
@@ -193,7 +202,7 @@ class BatchPanel(QWidget):
 
     def show_setup(self, visible):
         self.inputs.setVisible(visible)
-        self.setup_button.setText("Hide setup" if visible else "Show setup")
+        paint_disclosure(self.setup_button, "Batch setup", visible)
 
     def select_case(self, *_):
         self.follow.setChecked(False)
@@ -236,6 +245,9 @@ class BatchPanel(QWidget):
                 seconds = int(time.monotonic() - self.runner.started_at)
                 elapsed = f" · batch elapsed {seconds // 60:02d}:{seconds % 60:02d}"
             self.summary.setText(f"{self.owner.currentText()} · {done} / {len(cases)} completed · {pending} pending · {failed} need review{elapsed} · visual QC remains separate")
+            estimate = queued_batch_estimate(cases)
+            self.estimate.setText(f"Queued cases: about {duration(estimate['seconds'])} · based on {estimate['samples']} completed cases. The active case is excluded; case sizes vary."
+                                  if estimate else "Queued time estimate: need at least two completed cases in this batch. No reliable estimate for the active case yet.")
             self.progress.setRange(0, len(cases))
             self.progress.setValue(done)
             self.show_log()
@@ -275,6 +287,7 @@ class BatchPanel(QWidget):
             runner.start()
         except (OSError, ValueError) as error:
             self.status.setText("Cannot start batch: " + str(error))
+            self.notice.emit("error", "Batch could not start", self.status.text())
             return
         if self.runner is not None:
             self.runner.close()
@@ -316,8 +329,20 @@ class BatchPanel(QWidget):
                     self.logs.setPlainText(self.console)
                 self.set_available(self.available)
                 self.busy_changed.emit()
+                self.notice.emit("info" if runner.cancelled else "success" if runner.complete else "error",
+                                 "Batch input check finished" if runner.job.dry_run else "Batch stopped" if runner.cancelled else "Batch finished",
+                                 self.status.text())
                 return
         self.refresh()
+
+    def confirm_cancel(self):
+        if not self.busy:
+            return
+        answer = QMessageBox.question(self, "Stop this CHARM batch?",
+            "Stop this window's batch and its child processes? Partial outputs and logs will remain.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes and self.busy:
+            self.cancel()
 
     def cancel(self):
         if self.busy:

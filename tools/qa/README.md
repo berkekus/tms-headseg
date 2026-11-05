@@ -4,6 +4,10 @@ K4 owns the integrated report, acceptance evidence and follow-up defects. Compon
 owners keep their existing tests. This runner aggregates those checks without real
 MRI, GPU training, CHARM reconstruction or model inference.
 
+The aggregate includes E2 handoff/geometry checks as `e2-handoff`. Passing them
+does not establish that E2 weights or an inference runtime are installed, or that
+a real E2 prediction has completed on this machine.
+
 ## First run on Windows
 
 From the repository root:
@@ -75,7 +79,7 @@ non-sensitive asset identifiers in shared notes.
 | DEMO-01 | REQ-01,09 | Start Workbench from the documented environment. The window opens and controls respond. | Actual machine/environment and startup result. |
 | DEMO-02 | REQ-01,04 | Open the agreed T1 MRI. Three slice views load and navigate; no stale previous-case display. | Input identifier and slice-view evidence. |
 | DEMO-03 | REQ-01,07 | Select an invalid/non-3D/corrupt input. A clear error appears; the app remains usable and stale data clears. | Error and successful recovery. |
-| DEMO-04 | REQ-03,04 | Open the saved E1 prediction paired with its MRI. Overlay and all expected tissue controls work. | Matching asset IDs, model version and overlay. |
+| DEMO-04 | REQ-03,04 | Open the saved E1 or E2 prediction paired with its matching MRI. Overlay and all expected tissue controls work. | Matching asset IDs, model version and overlay. |
 | DEMO-05 | REQ-02,04 | Rotate/zoom the 3D output and change tissue visibility/opacity. MRI plane alignment remains inspectable. | Native screen recording. |
 | DEMO-06 | REQ-05,07 | Try a mismatched grid or unknown units. Record actual refusal/warning and any explicit assumption; do not declare physical geometry verified from appearance. | Geometry values, message and behavior. |
 | DEMO-07 | REQ-05,06 | Export an eligible result with declared units and verify/reopen it using an independent reader. | Export manifest and verification result. |
@@ -105,3 +109,22 @@ Sources: [project requirements](../../knowledge/scope.md),
 
 Keep personal findings and generated reports under ignored `outputs/`. Share only
 the minimal reproduction and relevant evidence when coordinating an actual defect.
+
+## Repeated real E2 CPU timing
+
+`benchmark_inference.py` is a separate opt-in benchmark, not part of CI or the
+synthetic runner. It starts three new real CPU predictions sequentially through
+the desktop verification helper. From the repository root, use:
+
+```text
+<qa-python> tools/qa/benchmark_inference.py --desktop-python <desktop-python> --python <inference-python> --model <E2-model-folder> --mri <public-T1.nii.gz> --output <new-folder-outside-Git> --repeats 3
+```
+
+Keep both Python environments separate. Outputs must be new and outside every
+Git checkout. The script records protocol/hardware, every attempt and log,
+per-repeat CSV and successful-only medians with failure counts. It does not
+install packages, train, overwrite results or compare accuracy. Model preparation,
+prediction/restoration and desktop/report/3D total have distinct timing boundaries;
+the first two are included in the total. Processes reload the model each time;
+OS cache and background load are uncontrolled. See the
+[K4 timing experiment](../../knowledge/experiments/k4-inference-timing.md).

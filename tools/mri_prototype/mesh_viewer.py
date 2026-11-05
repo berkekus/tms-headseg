@@ -4,11 +4,12 @@ import numpy as np
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QSurfaceFormat
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSlider,
+    QCheckBox, QComboBox, QDoubleSpinBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSlider,
     QVBoxLayout, QWidget,
 )
 
 from viewer import label_color
+from visual_theme import compact_choice
 
 
 def configure_surface_format():
@@ -80,10 +81,15 @@ class MeshView(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 16, 0, 0)
         sidebar = QWidget()
-        sidebar.setFixedWidth(265)
         controls = QVBoxLayout(sidebar)
-        controls.setContentsMargins(0, 0, 18, 0)
-        self.summary = QLabel("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
+        controls.setContentsMargins(0, 0, 12, 0)
+        controls.setSpacing(10)
+        self.controls_scroll = QScrollArea()
+        self.controls_scroll.setWidgetResizable(True)
+        self.controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.controls_scroll.setFixedWidth(310)
+        self.controls_scroll.setWidget(sidebar)
+        self.summary = QLabel("No result is open. Open a saved result or create a segmentation, then return to 3D view.")
         self.summary.setTextFormat(Qt.TextFormat.PlainText)
         self.summary.setWordWrap(True)
         controls.addWidget(self.summary)
@@ -99,15 +105,20 @@ class MeshView(QWidget):
         reset = QPushButton("Reset camera")
         reset.clicked.connect(self.reset_camera)
         controls.addWidget(reset)
-        controls.addWidget(QLabel("Surface detail · voxel step"))
+        appearance = QGroupBox("Surface appearance")
+        appearance_layout = QVBoxLayout(appearance)
+        appearance_layout.setContentsMargins(12, 16, 12, 12)
+        appearance_layout.setSpacing(9)
+        appearance_layout.addWidget(QLabel("Surface detail · voxel step"))
         self.detail = QComboBox()
         self.detail.setAccessibleName("Surface voxel step")
         for title, value in (("Auto · fast preview", None), ("4 voxels · coarse", 4),
                              ("2 voxels · medium", 2), ("1 voxel · full detail", 1)):
             self.detail.addItem(title, value)
+        compact_choice(self.detail)
         self.detail.setToolTip("Step in source voxels, not millimetres. Smaller steps retain more detail and require more memory. Applies to E1/E2 display surfaces.")
-        controls.addWidget(self.detail)
-        controls.addWidget(QLabel("Surface smoothing · Slicer method"))
+        appearance_layout.addWidget(self.detail)
+        appearance_layout.addWidget(QLabel("Surface smoothing"))
         self.smoothing = QDoubleSpinBox()
         self.smoothing.setRange(0.0, 1.0)
         self.smoothing.setSingleStep(0.1)
@@ -115,29 +126,34 @@ class MeshView(QWidget):
         self.smoothing.setAccessibleName("Surface smoothing factor")
         self.smoothing.setSpecialValueText("0 · raw surface")
         self.smoothing.setToolTip("0 keeps the raw surface; 0.50 matches Slicer's default smoothing strength. Stronger smoothing can remove small features. Display only.")
-        controls.addWidget(self.smoothing)
+        appearance_layout.addWidget(self.smoothing)
+        self.surface_hint = QLabel()
+        self.surface_hint.setObjectName("subtitle")
+        self.surface_hint.setWordWrap(True)
+        appearance_layout.addWidget(self.surface_hint)
         self.detail_button = QPushButton("Apply surface settings")
+        self.detail_button.setObjectName("primary")
         self.detail_button.clicked.connect(lambda: self.detail_requested.emit(self.detail.currentData(), self.smoothing.value()))
-        controls.addWidget(self.detail_button)
+        appearance_layout.addWidget(self.detail_button)
+        controls.addWidget(appearance)
         self.set_detail_available(True)
         self.show_planes = QCheckBox("Show MRI slice planes")
         self.show_planes.toggled.connect(self.update_planes)
         controls.addWidget(self.show_planes)
         controls.addWidget(QLabel("Tissue visibility / opacity"))
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
         self.tissue_controls = QWidget()
         self.tissue_layout = QVBoxLayout(self.tissue_controls)
         self.tissue_layout.setContentsMargins(0, 0, 8, 0)
         self.tissue_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        scroll.setWidget(self.tissue_controls)
-        controls.addWidget(scroll, 1)
+        controls.addWidget(self.tissue_controls)
+        controls.addStretch(1)
         self.coordinate_note = QLabel("RAS world coordinates · mm\nDrag: rotate · Shift-drag: pan\nScroll: zoom")
         self.coordinate_note.setWordWrap(True)
         controls.addWidget(self.coordinate_note)
-        layout.addWidget(sidebar)
+        layout.addWidget(self.controls_scroll)
         self.viewport = QVBoxLayout()
-        self.empty = QLabel("3D surfaces appear here after opening a head model folder or E1 segmentation.")
+        self.empty = QLabel("Your 3D preview will appear here.\nOpen a saved result, or create one in AI segmentation.")
+        self.empty.setWordWrap(True)
         self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty.setStyleSheet("background: #101c21; color: #c6d9d8; border-radius: 5px;")
         self.viewport.addWidget(self.empty)
@@ -163,7 +179,7 @@ class MeshView(QWidget):
         self.presets.clear()
         for button in self.preset_buttons.values():
             button.setEnabled(False)
-        self.summary.setText("Open a head model folder or E1 segmentation to inspect its 3D surfaces.")
+        self.summary.setText("No result is open. Open a saved result or create a segmentation, then return to 3D view.")
         self.set_detail_available(self.detail_available)
 
     def set_detail_available(self, available):
@@ -172,6 +188,13 @@ class MeshView(QWidget):
         self.detail.setEnabled(enabled)
         self.smoothing.setEnabled(enabled)
         self.detail_button.setEnabled(enabled)
+        if self.model is None:
+            hint = "Open or create an AI segmentation to adjust its surfaces."
+        elif self.model.kind != "e1":
+            hint = "Imported meshes keep their original shape. These settings apply to AI segmentations."
+        else:
+            hint = "Smaller voxel steps show more detail and use more memory. 0 keeps the raw surface. Display only; saved labels stay unchanged."
+        self.surface_hint.setText(hint)
 
     def set_model(self, model):
         self.clear()

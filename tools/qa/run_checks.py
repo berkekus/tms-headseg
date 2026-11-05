@@ -40,6 +40,7 @@ SUITES = (
     Suite("data-preparation", ROOT / "tools/nnunet_prep", GEOMETRY),
     Suite("geometry-export", ROOT / "tools/headmodel", GEOMETRY, top=ROOT / "tools"),
     Suite("e1-demo", ROOT / "tools/e1_training", IMAGE + ("scipy", "skimage", "matplotlib", "plotly")),
+    Suite("e2-handoff", ROOT / "tools/e2_training", GEOMETRY),
     Suite("launcher-desktop", ROOT / "tools/charm_gui", ("PySide6.QtWidgets",) + WINDOWS),
     Suite("workbench", ROOT / "tools/mri_prototype",
           GEOMETRY + ("PySide6.QtWidgets", "vtk", "pyvistaqt") + WINDOWS),

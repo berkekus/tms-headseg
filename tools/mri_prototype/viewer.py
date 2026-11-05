@@ -36,15 +36,22 @@ class Canvas(QWidget):
         self.image = None
         self.aspect = 1.
         self.directions = directions
+        self.empty_message = "Open a T1 MRI to inspect slices"
         self.setMinimumSize(180, 220)
         self.setAccessibleName("MRI slice; orientation markers at image edges")
+
+    def set_empty_message(self, message):
+        self.empty_message = message
+        self.setAccessibleDescription(message)
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor("#101c21"))
         painter.setPen(QColor("#98aeb7"))
         if self.image is None:
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Open a T1 MRI to inspect slices")
+            painter.drawText(self.rect().adjusted(18, 18, -18, -18),
+                             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, self.empty_message)
             return
         area = self.rect().adjusted(26, 26, -26, -26)
         width = min(area.width(), area.height() * self.aspect)
@@ -110,4 +117,5 @@ class SlicePanel(QFrame):
             self.canvas.aspect = shape[axes[0]] * spacing[axes[0]] / (shape[axes[1]] * spacing[axes[1]])
             coordinate = self.volume.image.affine[self.axis, self.axis] * index + self.volume.image.affine[self.axis, 3]
             self.position.setText(f"{index + 1}/{shape[self.axis]} · {coordinate:.1f} mm")
+            self.canvas.setAccessibleDescription(self.position.text())
         self.canvas.update()

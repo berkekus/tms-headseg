@@ -98,6 +98,7 @@ class E1ModelTests(unittest.TestCase):
         view.smoothing.setValue(0.5)
         view.detail_button.click()
         self.assertFalse(view.detail_button.isEnabled())
+        self.assertIn("Updating 3D surface", window.activity_label.text())
         self.wait_idle(window)
         self.assertEqual(window.head_model.surface_step, 1)
         self.assertEqual(window.head_model.surface_smoothing, 0.5)
@@ -143,6 +144,31 @@ class E1ModelTests(unittest.TestCase):
             self.wait_idle(window)
         self.assertIs(window.head_model, previous)
         self.assertIn("geometry exceeds limit", window.error_message.text())
+        self.assertIn("previous preview", window.error_recovery.text())
+        self.assertTrue(window.mesh_view.detail_button.isEnabled())
+        window.change_surface_detail(4)
+        self.wait_idle(window)
+        self.assertEqual(window.head_model.surface_step, 4)
+        self.assertTrue(window.error_banner.isHidden())
+
+    def test_surface_and_tissue_controls_remain_reachable_in_a_short_window(self):
+        window = Window()
+        self.addCleanup(window.close)
+        window.load_e1_prediction(self.mri, self.pred)
+        self.wait_idle(window)
+        window.showNormal()
+        window.resize(900, 560)
+        # Check sidebar layout without initializing native OpenGL in this suite.
+        with patch.object(window.mesh_view, "ensure_renderer"):
+            window.tabs.setCurrentIndex(2)
+        scroll = window.mesh_view.controls_scroll
+        self.app.processEvents()
+        for control in (window.mesh_view.detail, window.mesh_view.smoothing,
+                        window.mesh_view.detail_button, window.mesh_view.sliders[5]):
+            scroll.ensureWidgetVisible(control)
+            self.app.processEvents()
+            point = control.mapTo(scroll.viewport(), control.rect().center())
+            self.assertTrue(scroll.viewport().rect().contains(point))
 
     def test_known_units_do_not_acquire_an_assumption_when_opt_in_enabled(self):
         loaded = self.load(assume_mm=True)
