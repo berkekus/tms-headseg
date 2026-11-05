@@ -56,6 +56,18 @@ The first screen offers three tasks: **Open an MRI**, **Open a saved result**, a
 available below. MRI-only controls appear after an image loads. **More file
 actions** holds export, reports and additional import actions.
 
+Action buttons size to their labels rather than spanning the page. The Ernie
+example and model-folder actions share one compact row below the three task
+cards. AI/reference/batch actions use the same sizing; section disclosure headers
+retain their full width to show which settings they contain.
+
+Reference tools and AI segmentation use a centered page column up to 1120 logical
+pixels wide. Headings, forms, actions and progress share that column instead of
+leaving a short form on the left of a wide page. Smaller windows use the available
+width; Reference tools retains its existing inner scrolling. Choose/Browse stays
+next to its field. Long paths remain fully editable and selectable. MRI slice
+and 3D workspaces retain their available viewing area.
+
 The tabs are **MRI images**, **Reference tools** (optional SimNIBS/CHARM),
 **3D view**, and **AI segmentation**. Creating a result opens the AI page but
 starts no process. **Model setup**, **Advanced settings**, and the technical log

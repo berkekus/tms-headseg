@@ -1,9 +1,9 @@
 """Presentation only: shared colors, selection states and disclosure affordances."""
 
 from pathlib import Path
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QComboBox, QSizePolicy
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QSizePolicy, QWidget
 
 ASSETS = Path(__file__).with_name("assets")
 
@@ -12,6 +12,30 @@ def compact_choice(combo):
     """Keep short choices at their content width, including in growing forms."""
     combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
     combo.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+
+def compact_action(button):
+    """Size an action to its label while retaining normal click-target padding."""
+    button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+
+def center_page_content(scroll, content):
+    """Center one coherent page column, including headings, forms and actions."""
+    content.setMaximumWidth(1120)
+    scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+
+
+def centered_page(content):
+    """Balance a page containing its own scrolling without adding a scrollbar."""
+    content.setMaximumWidth(1120)
+    page = QWidget()
+    row = QHBoxLayout(page)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(0)
+    row.addStretch(0)
+    row.addWidget(content, 1)
+    row.addStretch(0)
+    return page
 
 
 def refresh_style(widget):
