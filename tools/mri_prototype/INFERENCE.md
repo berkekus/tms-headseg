@@ -1,10 +1,18 @@
-# Run our E1 model in MRI Workbench
+# Run our E1 or E2 model in MRI Workbench
 
-The **04 E1 segmentation** tab creates a new prediction from MRI using the existing E1 model. The header's **Open E1 segmentation…** action opens an already-saved prediction. Training and CHARM remain separate actions.
+The **04 E1 / E2 segmentation** tab creates a new prediction using the selected model version. The header's **Open E1 / E2 segmentation…** action opens an already-saved prediction.
+
+## E2 model selection
+
+Select **E2** under **Model version**, then choose the completed E2 model directory with `plans.json`, `dataset.json` and `fold_0/checkpoint_final.pth`. Each version remembers its selected folder during the session. The supplied `Downloads/E2_L4_001` model is offered when present. Click **Generate E2 segmentation** to run it locally.
+
+E2 rebuilds the reviewed standard architecture from its plans, loads the epoch-100 weights strictly and manually initializes nnU-Net. The original E2 notebook and custom trainer source are optional for this inference route. MRI headers must declare millimetre units. K3's `headmodel.model_io` prepares a lossless RAS copy and restores predicted labels to the input grid. The run retains `model_input_0000.nii.gz`, `geometry.json` and `prediction_model.nii.gz` alongside the final source-grid `prediction.nii.gz`. E1 retains its existing loading and stored-axis behavior.
+
+For an E1/E2 comparison, use the same MRI and mirror-augmentation setting. A validation score against E2's CHARM-based labels measures agreement with that reference. The E1 and E2 cohort scores use different references and cohort sizes.
 
 ## First run
 
-1. Start Workbench as described in [README.md](README.md), then open **04 E1 segmentation**.
+1. Start Workbench as described in [README.md](README.md), then open **04 E1 / E2 segmentation** and select **E1** for the original model workflow.
 2. Select **Inference Python**, the executable inside a separate Python 3.11 environment containing nnU-Net 2.8.1, torch 2.6.0 and the [E1 demo dependencies](../e1_training/DEMO.md). The existing local demo environment is prefilled if found beside this checkout. Keep its virtual-environment executable path; selecting the base interpreter or SimNIBS Python will not provide the same environment. No installation/download happens automatically.
 3. Select your trusted **trained model folder**, containing `plans.json`, `dataset.json` and `fold_0/checkpoint_final.pth`. The known local demo model is prefilled if available. See the [model handoff](../e1_training/HANDOFF.md).
 4. Select **Source T1 MRI** and an existing **Output parent folder** outside Git and outside the model directory. An MRI opened in the inspection tab fills this input too.

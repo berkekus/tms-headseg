@@ -183,16 +183,16 @@ def load_e1_model(mri_path, prediction_path, assume_mm=False):
     volume = load_volume(mri_path, assume_mm=assume_mm)
     path, source, prediction_assumed = read_image(prediction_path, assume_mm=assume_mm)
     if source.shape != volume.source_shape or not np.allclose(source.affine, volume.source_affine, rtol=0, atol=1e-4):
-        raise ValueError("E1 prediction must match the MRI source grid; no registration is applied.")
+        raise ValueError("Prediction must match the MRI source grid; no registration is applied.")
     values = np.asarray(source.dataobj)
     if not np.isin(values, range(6)).all() or not np.any(values):
-        raise ValueError("E1 prediction needs nonempty integer labels 0–5 (skin/skull/CSF/GM/WM).")
+        raise ValueError("Prediction needs nonempty integer labels 0–5 (skin/skull/CSF/GM/WM).")
     labels = load_labels(path, volume, assume_mm=assume_mm)
     meshes = extract_surfaces(values, source.affine)
     surfaces = [Surface(mesh["label"], mesh["vertices"], mesh["faces"]) for mesh in meshes]
     describe_surfaces(surfaces, E1_TISSUES, 1, (4, 5), lambda tag: tag)
     step = max(mesh["step_size"] for mesh in meshes)
-    note = f"E1 display surfaces · sampling up to {step} voxels · not a FEM mesh"
+    note = f"Segmentation display surfaces · sampling up to {step} voxels · not a FEM mesh"
     assumed = volume.units_assumed or prediction_assumed
     if assumed:
         note += "\nUnknown units assumed mm · physical scale unverified"

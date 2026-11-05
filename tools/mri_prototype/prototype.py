@@ -66,7 +66,7 @@ class Window(LauncherWindow):
         name.setObjectName("workbenchTitle")
         header.addWidget(name)
         header.addStretch()
-        self.open_e1_button = QPushButton("Open E1 segmentation…")
+        self.open_e1_button = QPushButton("Open E1 / E2 segmentation…")
         self.open_e1_button.clicked.connect(self.choose_e1_prediction)
         header.addWidget(self.open_e1_button)
         self.e1_assume_mm = QCheckBox("E1: assume mm")
@@ -207,7 +207,7 @@ class Window(LauncherWindow):
         self.mesh_view = MeshView()
         self.tabs.addTab(self.mesh_view, "03   3D model")
         self.inference = InferencePanel()
-        self.tabs.addTab(self.inference, "04   E1 segmentation")
+        self.tabs.addTab(self.inference, "04   E1 / E2 segmentation")
         self.inference.busy_changed.connect(self.update_controls)
         self.inference.completed.connect(self.inference_completed)
         self.tabs.currentChanged.connect(self.tab_changed)
@@ -302,10 +302,10 @@ class Window(LauncherWindow):
 
     def choose_e1_prediction(self):
         directory = str(self.volume.path.parent) if self.volume is not None else str(Path.home())
-        mri, _ = QFileDialog.getOpenFileName(self, "Choose E1 source T1 MRI", directory, "NIfTI images (*.nii *.nii.gz)")
+        mri, _ = QFileDialog.getOpenFileName(self, "Choose source T1 MRI", directory, "NIfTI images (*.nii *.nii.gz)")
         if not mri:
             return
-        prediction, _ = QFileDialog.getOpenFileName(self, "Choose E1 prediction (labels 0–5)", str(Path(mri).parent), "NIfTI labels (*.nii *.nii.gz)")
+        prediction, _ = QFileDialog.getOpenFileName(self, "Choose prediction (labels 0–5)", str(Path(mri).parent), "NIfTI labels (*.nii *.nii.gz)")
         if prediction:
             self.load_e1_prediction(mri, prediction, assume_mm=self.e1_assume_mm.isChecked())
 
@@ -319,14 +319,14 @@ class Window(LauncherWindow):
             panel.set_volume(None)
         self.metadata.clear()
         self.source.setText(Path(prediction_path).name)
-        self.feedback.setText("Opening E1 MRI and prediction; extracting display surfaces…")
+        self.feedback.setText("Opening MRI and prediction; extracting display surfaces…")
         self.tabs.setCurrentIndex(0)
         def loaded(model):
             self.model_loaded(model)
             if show_3d:
                 self.tabs.setCurrentIndex(2)
                 self.inference.status.setText("Inference complete. New prediction opened in 2D/3D.")
-                self.feedback.setText("New E1 prediction generated locally · " + self.feedback.text())
+                self.feedback.setText("New prediction generated locally · " + self.feedback.text())
         on_error = (lambda error: self.inference.status.setText("Inference complete; could not open the new result in 3D: " + error)) if show_3d else None
         self.run_task(lambda: load_e1_model(mri_path, prediction_path, assume_mm=assume_mm), loaded, on_error=on_error)
 
@@ -367,7 +367,7 @@ class Window(LauncherWindow):
             if model.units_assumed:
                 self.metadata.setText(self.metadata.text() + "\nMRI/prediction units assumed mm · physical scale unverified")
             export = "" if model.export_source else "Export needs MRI and prediction units stated in their headers. "
-            self.feedback.setText("E1 ready · inspect slices or select 03 3D model. " + export + model.geometry_note)
+            self.feedback.setText("Segmentation ready · inspect slices or select 03 3D model. " + export + model.geometry_note)
         else:
             self.feedback.setText(" ".join(("Model ready · inspect slices or select 03 3D model. Mesh and MRI use subject-world millimeters; review alignment.", *model.notes)))
 

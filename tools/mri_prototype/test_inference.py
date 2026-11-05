@@ -103,6 +103,28 @@ print('new prediction complete',flush=True)
         self.assertNotIn("train", command)
         self.assertEqual(job.prediction, job.run_dir / "prediction.nii.gz")
 
+    def test_e2_passes_model_version_and_requires_known_units(self):
+        job = self.job(experiment="E2")
+        job.validate()
+        command = job.command()
+        self.assertEqual(command[command.index("--experiment") + 1], "E2")
+        self.save(self.mri, units="unknown")
+        with self.assertRaisesRegex(ValueError, "known millimetre"):
+            self.job(experiment="E2", assume_mm=True).validate()
+
+    def test_model_version_switch_preserves_each_selected_folder(self):
+        from inference_panel import InferencePanel
+        panel = InferencePanel()
+        self.addCleanup(panel.close)
+        panel.model.setText(str(self.root / "E1-model"))
+        panel.experiment.setCurrentText("E2")
+        panel.model.setText(str(self.root / "E2-model"))
+        self.assertFalse(panel.assume_mm.isEnabled())
+        panel.experiment.setCurrentText("E1")
+        self.assertEqual(panel.model.text(), str(self.root / "E1-model"))
+        panel.experiment.setCurrentText("E2")
+        self.assertEqual(panel.model.text(), str(self.root / "E2-model"))
+
     def test_job_rejects_git_outputs_existing_runs_and_missing_weights(self):
         job = self.job();job.validate()
         job.run_dir.mkdir()

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 import nibabel as nib
@@ -93,6 +94,24 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(before, {p: p.read_bytes() for p in before})
         with self.assertRaisesRegex(ValueError, "exists"):
             demo.make_report(self.mri, self.pred, out, reference=self.ref)
+
+    def test_e2_report_has_correct_experiment_without_e1_cohort_claim(self):
+        out = self.root / "e2_report"
+        demo.make_report(self.mri, self.pred, out, experiment="E2")
+        result = json.loads((out / "report.json").read_text())
+        self.assertEqual(result["experiment"], "E2")
+        page = (out / "report.html").read_text()
+        self.assertIn("E2 ön model", page)
+        self.assertNotIn("E1 ön model", page)
+        self.assertNotIn("44 eğitim", page)
+
+    def test_saved_e2_report_cli_forwards_experiment(self):
+        arguments = ["demo.py", "report", "--mri", str(self.mri),
+                     "--recorded-prediction", str(self.pred), "--out", str(self.root / "report"),
+                     "--experiment", "E2"]
+        with patch("sys.argv", arguments), patch.object(demo, "make_report", return_value="report.html") as report:
+            demo.main()
+        self.assertEqual(report.call_args.kwargs["experiment"], "E2")
 
     def test_recorded_report_cannot_claim_live_timing(self):
         with self.assertRaisesRegex(ValueError, "timing"):

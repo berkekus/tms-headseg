@@ -21,7 +21,7 @@ Results go to `MyDrive/TMS_E2/runs/E2_L4_001/`. Training flags are off by defaul
 
 `prepare_e2.py` keeps each scan in its stored order: IXI is PSR, MultiAxial is RAS. nnU-Net does not reorient, so the network would see two array layouts. With `CANONICALIZE_TO_RAS = True` (default) the notebook writes a copy in which every image and label is permuted and flipped to RAS, without interpolation and with each voxel's world position unchanged (the K3 coordinate contract, D-004). The per-case changes are saved with the run.
 
-A model trained this way expects RAS-ordered input. Inference on a PSR scan should go through `tools/headmodel/model_io.py prepare` and `restore`; the Workbench's **04 E1 segmentation** tab does not do this yet.
+A model trained this way expects RAS-ordered input. The Workbench's **04 E1 / E2 segmentation** tab now applies K3's lossless preparation and source-grid restoration when E2 is selected. See [desktop inference](../mri_prototype/INFERENCE.md) for model and input requirements.
 
 ## Files
 

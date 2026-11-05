@@ -1,4 +1,4 @@
-"""Desktop controls for a fresh E1 inference job and live local logs."""
+"""Desktop controls for a fresh E1/E2 inference job and live local logs."""
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,7 +31,7 @@ class InferencePanel(QWidget):
         self.timer.setInterval(250)
         self.timer.timeout.connect(self.tick)
         layout = QVBoxLayout(self)
-        title = QLabel("Run our E1 model")
+        title = QLabel("Run our segmentation model")
         title.setStyleSheet("font-size: 23px; font-weight: 600;")
         layout.addWidget(title)
         note = QLabel("Choose a T1 MRI and our completed model. A new segmentation is generated locally and opens in 2D/3D when finished. Existing data and weights stay unchanged.")
@@ -41,10 +41,14 @@ class InferencePanel(QWidget):
         form = QFormLayout(self.inputs)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.experiment = QComboBox()
+        self.experiment.addItems(["E1", "E2"])
+        self.experiment.setAccessibleName("Segmentation model version")
+        form.addRow("Model version", self.experiment)
         self.python = self.path_field(form, "Inference Python", "file")
         self.python.setToolTip("Separate Python 3.11 environment with nnU-Net 2.8.1 / torch 2.6.0. Keep its venv executable path; do not select SimNIBS Python.")
         self.model = self.path_field(form, "Our trained model folder", "folder")
-        self.model.setToolTip("Your trusted E1 output folder containing plans.json, dataset.json and fold_0/checkpoint_final.pth.")
+        self.model.setToolTip("Your trusted model folder containing plans.json, dataset.json and fold_0/checkpoint_final.pth.")
         self.mri = self.path_field(form, "Source T1 MRI", "image")
         self.output = self.path_field(form, "Output parent folder", "folder")
         self.device = QComboBox()
@@ -93,6 +97,18 @@ class InferencePanel(QWidget):
         self.logs.setReadOnly(True)
         self.logs.setMaximumBlockCount(10000)
         layout.addWidget(self.logs, 1)
+        e2 = Path.home() / "Downloads/E2_L4_001/Dataset002_E2Charm/nnUNetTrainer_E2Preliminary__nnUNetPlans__3d_fullres"
+        self.model_paths = {"E1": self.model.text(), "E2": str(e2) if (e2 / "fold_0/checkpoint_final.pth").is_file() else ""}
+        self.selected_experiment = "E1"
+        self.experiment.currentTextChanged.connect(self.change_experiment)
+
+    def change_experiment(self, experiment):
+        self.model_paths[self.selected_experiment] = self.model.text()
+        self.selected_experiment = experiment
+        self.model.setText(self.model_paths[experiment])
+        self.run_button.setText(f"Generate {experiment} segmentation")
+        self.assume_mm.setEnabled(experiment == "E1")
+        self.status.setText(f"{experiment} selected. Choose the source MRI and generate a new segmentation.")
 
     def path_field(self, form, label, kind):
         row = QWidget()
@@ -135,7 +151,9 @@ class InferencePanel(QWidget):
             python = Path(self.python.text()).expanduser().absolute()
             job = InferenceJob(python, Path(self.model.text()).expanduser().resolve(),
                 Path(self.mri.text()).expanduser().resolve(), Path(self.output.text()).expanduser().resolve(),
-                f"e1_{stamp}_{uuid.uuid4().hex[:8]}", self.device.currentData(), self.tta.isChecked(), self.assume_mm.isChecked())
+                f"{self.experiment.currentText().lower()}_{stamp}_{uuid.uuid4().hex[:8]}", self.device.currentData(),
+                self.tta.isChecked(), self.assume_mm.isChecked() if self.experiment.currentText() == "E1" else False,
+                self.experiment.currentText())
             runner = InferenceRunner(job)
             runner.start()
         except (ValueError, OSError, ImageFileError) as error:
@@ -146,7 +164,7 @@ class InferencePanel(QWidget):
         self.runner, self.error = runner, ""
         self.logs.setPlainText(f"New inference · {job.device.upper()} · mirror augmentation {'on' if job.tta else 'off'}\nOutput: {job.run_dir}\nLog: {runner.log_path}\n")
         self.progress.setRange(0, 0)
-        self.status.setText("Running E1 inference. Live logs below; no reliable completion percentage is available.")
+        self.status.setText(f"Running {job.experiment} inference. Live logs below; no reliable completion percentage is available.")
         self.cancel_button.setEnabled(True)
         self.folder_button.setEnabled(False)
         self.timer.start()
@@ -175,7 +193,7 @@ class InferencePanel(QWidget):
         elapsed = int(time.monotonic() - runner.started_at)
         if code is None:
             if not runner.cancelled:
-                self.status.setText(f"Running E1 inference · {elapsed // 60:02d}:{elapsed % 60:02d} elapsed · logs below")
+                self.status.setText(f"Running {runner.job.experiment} inference · {elapsed // 60:02d}:{elapsed % 60:02d} elapsed · logs below")
             return
         self.timer.stop()
         runner.close()

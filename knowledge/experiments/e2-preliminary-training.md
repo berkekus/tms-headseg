@@ -63,7 +63,7 @@ Per-class final Dice is in `fold_0/validation/summary.json`, which was not read 
 ## Measurement limits
 
 - Validation Dice will be against charm labels, so it cannot be compared directly with E1's Dice against the MultiAxial reference.
-- A model trained on RAS-ordered data needs RAS-ordered input at inference. The Workbench inference path does not reorient yet.
+- A model trained on RAS-ordered data needs RAS-ordered input at inference. The [E2 Workbench integration](e2-handoff-review.md) now prepares RAS input and restores labels to the source grid.
 
 ## Tests
 

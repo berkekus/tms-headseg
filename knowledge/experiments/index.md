@@ -1,5 +1,7 @@
 # Experiment Register
 
+- [E2 Model Handoff and Workbench Integration](e2-handoff-review.md) — E2 selects and loads in Workbench; real GU011 CPU inference and native 3D display passed. Same-reference E1/E2 Dice 0.8161/0.9155 on one validation case.
+
 [Project map](../index.md) · [Current state](../current.md)
 
 Concurrent records retain their original IDs: the two EXP-002 notes describe distinct IXI and Ernie runs; the EXP-003 notes describe the same E1 model, with team-summary and local preparation/demo evidence respectively. Use the linked note title to distinguish them.
