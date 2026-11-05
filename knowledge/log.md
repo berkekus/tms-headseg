@@ -1,5 +1,10 @@
 # Knowledge Update Log
 
+## 2026-11-06
+
+- **Hybrid mesh (K1)**: Put E2's NC023 validation labels into a copy of charm's folder and ran `charm --mesh`. It took 11.2 min, against 46 min for charm alone. Against the MultiAxial reference it scored skin/skull/CSF/GM/WM 0.832/0.823/0.756/0.839/0.893, against 0.671/0.741/0.694/0.825/0.890 for charm's own mesh. Recorded charm stage times and the reported Brainsight import of charm meshes, which is unverified. Recorded in [EXP-009](experiments/hybrid-charm-mesh.md).
+- **E2 K1 review**: Recorded per-source validation Dice and a same-case cross-scoring (E1/E2/charm against the MultiAxial reference: 0.872/0.800/0.783). The prediction failed on a wide field of view (Ernie Extended) and recovered after cropping to the head (GM 0.925 against charm). Also recorded a check on a private 6 mm clinical scan. Recorded in [EXP-008](experiments/e2-preliminary-training.md#k1-review-2026-11-06).
+
 ## 2026-11-05
 
 - **Slicer-style display smoothing**: Added the optional Windowed Sinc surface filter with Slicer's parameter mapping in voxel space. Native 1-voxel sub-10159 testing at factor 0.50 preserved labels, camera and triangle count; 78 Workbench tests passed. [Evidence](experiments/e2-handoff-review.md#slicer-style-surface-smoothing).

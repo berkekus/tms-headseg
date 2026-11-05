@@ -8,6 +8,7 @@
 
 Concurrent records retain their original IDs: the two EXP-002 notes describe distinct IXI and Ernie runs; the EXP-003 notes describe the same E1 model, with team-summary and local preparation/demo evidence respectively. Use the linked note title to distinguish them.
 
+- [EXP-009: E2 Labels Through charm Meshing (Hybrid), NC023](hybrid-charm-mesh.md) — EXP-009 — completed_one_case. `charm --mesh` on E2 labels built a SimNIBS mesh in 11.2 min (charm alone 46 min); against the MultiAxial reference it beat charm's own mesh in every tissue (GM 0.839 vs 0.825). charm's step mainly adds a smooth skin; our own surfaces show 1 mm terraces.
 - [EXP-008: E2 Preliminary nnU-Net on charm Labels](e2-preliminary-training.md) — EXP-008 — completed_validation_only. 100-epoch E2 on Dataset002_E2Charm (67/16, RAS copy): mean validation Dice 0.9140 against charm labels; L4 then A100 sessions.
 - [MultiAxial K2 CHARM Preflight and Launch](multiaxial-k2-preflight.md) — nine T1-only cases passed preflight; GU011 started and Workbench displays live logs.
 - [IXI K2 Batch Preparation and Preflight](ixi-k2-preflight.md) — completed_execution_qc_pending. IXI037 finished in 32:52 (batch 33.0 min), exit 0; input/output/delivery hashes passed. Native batch monitoring shows 1/15 completed. Anatomical QC and the other 14 runs remain pending.

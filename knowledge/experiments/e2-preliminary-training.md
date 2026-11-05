@@ -58,7 +58,38 @@ Read from `TMS_E2/runs/E2_L4_001/` in the user's Drive: `experiment_contract.jso
 | Last epoch pseudo-Dice (patch-based, not the final metric) | skin 0.9295, skull 0.8761, CSF 0.8847, GM 0.9182, WM 0.9471 |
 | Runtime release | `run_success.json` records the release request; actual release was not checked. |
 
-Per-class final Dice is in `fold_0/validation/summary.json`, which was not read here.
+Per-class final Dice is in `fold_0/validation/summary.json`, which was not read here; K1 read it on 2026-11-06 (below).
+
+## K1 review (2026-11-06)
+
+K1 extracted the delivered `E2_L4_001` zip to `tms-data/results_e2_L4_20261105` (outside Git). The run used K1's `handoff_k2_e2.zip`: the contract's archive SHA-256 equals the published `.sha256`. Its `splits_final.json` hashes the same as the handoff's. The contract records `test_accessed: false`.
+
+Final validation Dice from `summary.json`, by source:
+
+| Source | Skin | Skull | CSF | GM | WM | Mean |
+| --- | --- | --- | --- | --- | --- | --- |
+| IXI (6) | 0.923 | 0.880 | 0.872 | 0.936 | 0.958 | 0.914 |
+| MultiAxial (10) | 0.907 | 0.890 | 0.899 | 0.927 | 0.948 | 0.914 |
+
+The lowest IXI cases were IXI426 and IXI294 (skull 0.83–0.87, CSF 0.83). In `progress.png`, validation loss follows training loss with no widening gap, unlike E1. The moving-average pseudo-Dice was still rising slowly at epoch 100, under a learning rate that decays to zero by then. That longer training may help is an inference, not a measurement.
+
+**Same cases, both label sets.** The 10 MultiAxial validation cases were scored against the MultiAxial reference (Dataset001 `labelsTr`, semi-manual) and against the charm labels in Dataset002. E1 predictions are from `k2_delivery/E1_L4_001`.
+
+| Mean of 5 classes | vs MultiAxial reference | vs charm labels |
+| --- | --- | --- |
+| E1 (trained on the reference) | 0.872 | 0.820 |
+| E2 (trained on charm) | 0.800 | 0.914 |
+| charm itself | 0.783 | — |
+
+Each model reproduces the labels it was trained on. E2 agrees with the reference slightly more than charm does, so it does not copy all of charm's differences. Neither label set is ground truth, so this does not show which model is more accurate.
+
+**New-subject checks** with `tools/nnunet_prep/predict_e2.py` on the K1 desktop (RTX 4070, mirroring on). The script reorients to RAS, loads the network with the standard trainer's builder and writes the prediction on the RAS grid.
+
+- GU011, as a check of the script: voxel agreement with the delivered validation prediction was 0.99998, and per-class Dice ≥ 0.9999.
+- Ernie Extended T1 (289×421×526 voxels, PSR, head, neck and shoulders): the prediction failed, with implausible volumes and GM Dice 0.35 against charm. Cropped to the head (243×213×195; 30 mm beside and in front of and behind the charm GM extent, 60 mm below it, 20 mm above it), it ran in 18 s with Dice against charm of skin 0.882, skull 0.782, CSF 0.808, GM 0.925 and WM 0.955. The crop used charm's labels, so it is not an automatic crop. The model needs a head-only field of view; **automatic head cropping is a missing pipeline step.**
+- One private clinical T1 held locally by K1 (28 axial slices, 0.94 mm in plane, 6 mm thick), interpolated to 1 mm beforehand: the prediction ran in 34 s and its surfaces verified. Folding looked sharp in plane but smeared through plane, as expected from 6 mm slices. Against the earlier E1 prediction on the same grid, Dice was 0.92 skin, 0.75 skull, 0.74 CSF, 0.82 GM and 0.87 WM. There is no reference, so accuracy was not measured. The data and outputs stay local; no identifiers are recorded.
+
+Meshing E2 labels with charm is recorded in [EXP-009](hybrid-charm-mesh.md).
 
 ## Measurement limits
 
