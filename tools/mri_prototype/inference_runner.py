@@ -57,7 +57,7 @@ class InferenceJob:
         if self.device not in ("cpu", "cuda"):
             raise ValueError("Choose CPU or CUDA.")
         if not self.python.is_file() or (sys.platform != "win32" and not os.access(self.python, os.X_OK)):
-            raise ValueError("Choose the inference environment's Python executable (Python 3.11, nnU-Net 2.8.1, torch 2.6.0).")
+            raise ValueError("Choose the inference environment's Python executable (nnU-Net 2.8.1, torch 2.6.0).")
         if not DEMO.is_file():
             raise ValueError("Keep tools/e1_training beside the desktop prototype.")
         for name in ("plans.json", "dataset.json", "fold_0/checkpoint_final.pth"):
