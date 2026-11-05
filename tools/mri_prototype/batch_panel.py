@@ -16,7 +16,7 @@ from PySide6.QtGui import QDesktopServices
 from batch_runner import MULTIAXIAL_ASSIGNMENT, BatchJob, BatchRunner, batch, command_prefix, log_snapshot, read_cases, untracked_runs
 from installation import find_charm
 from time_estimates import duration, queued_batch_estimate
-from visual_theme import compact_choice, paint_disclosure
+from visual_theme import compact_action, compact_choice, paint_disclosure
 
 
 class BatchPanel(QWidget):
@@ -89,7 +89,9 @@ class BatchPanel(QWidget):
         self.monitor_button = QPushButton("Monitor folder only")
         self.monitor_button.clicked.connect(self.monitor)
         for button in [self.check_button, self.run_button, self.cancel_button, self.monitor_button]:
+            compact_action(button)
             actions.addWidget(button)
+        actions.addStretch(1)
         layout.addLayout(actions)
         self.status = QLabel("Choose folders, check inputs, then explicitly start the remaining training cases. Monitor does not start or stop CHARM.")
         self.status.setWordWrap(True)
@@ -126,6 +128,8 @@ class BatchPanel(QWidget):
         tools.addStretch()
         tools.addWidget(self.report_button)
         tools.addWidget(self.folder_button)
+        compact_action(self.report_button)
+        compact_action(self.folder_button)
         layout.addLayout(tools)
         self.stage = QLabel("No reliable per-case percentage or remaining-time estimate is available.")
         self.stage.setWordWrap(True)

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from viewer import label_color
-from visual_theme import compact_choice
+from visual_theme import compact_action, compact_choice
 
 
 def configure_surface_format():
@@ -103,6 +103,7 @@ class MeshView(QWidget):
             self.preset_buttons[brain] = button
         controls.addLayout(presets)
         reset = QPushButton("Reset camera")
+        compact_action(reset)
         reset.clicked.connect(self.reset_camera)
         controls.addWidget(reset)
         appearance = QGroupBox("Surface appearance")
@@ -133,6 +134,7 @@ class MeshView(QWidget):
         appearance_layout.addWidget(self.surface_hint)
         self.detail_button = QPushButton("Apply surface settings")
         self.detail_button.setObjectName("primary")
+        compact_action(self.detail_button)
         self.detail_button.clicked.connect(lambda: self.detail_requested.emit(self.detail.currentData(), self.smoothing.value()))
         appearance_layout.addWidget(self.detail_button)
         controls.addWidget(appearance)

@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from inference_runner import InferenceJob, InferenceRunner
 from time_estimates import duration, prediction_progress
-from visual_theme import bind_disclosure, compact_choice
+from visual_theme import bind_disclosure, compact_action, compact_choice
 
 
 class InferencePanel(QWidget):
@@ -117,6 +117,9 @@ class InferencePanel(QWidget):
         self.folder_button.setEnabled(False)
         self.folder_button.clicked.connect(self.open_output)
         buttons.addWidget(self.folder_button)
+        for button in (self.run_button, self.cancel_button, self.folder_button):
+            compact_action(button)
+        buttons.addStretch(1)
         layout.addLayout(buttons)
         self.progress = QProgressBar()
         self.progress.setRange(0, 1)

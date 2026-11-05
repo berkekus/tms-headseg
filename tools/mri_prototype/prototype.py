@@ -22,7 +22,7 @@ from model import load_e1_model, load_model
 from mesh_viewer import MeshView, configure_surface_format
 from inference_panel import InferencePanel
 from batch_panel import BatchPanel
-from visual_theme import bind_disclosure, refresh_style, stylesheet
+from visual_theme import bind_disclosure, center_page_content, centered_page, compact_action, refresh_style, stylesheet
 
 from headmodel.build_model import build_model
 
@@ -49,6 +49,8 @@ class Window(LauncherWindow):
         self.cancel_button.clicked.disconnect()
         self.cancel_button.clicked.connect(self.confirm_reconstruction_cancel)
         processing = self.takeCentralWidget()
+        for button in processing.findChildren(QPushButton):
+            compact_action(button)
         processing.layout().setContentsMargins(16, 12, 16, 12)
         self.start_button.setStyleSheet("")
         self.start_button.setObjectName("primary")
@@ -325,16 +327,25 @@ class Window(LauncherWindow):
             detail.setWordWrap(True)
             card_layout.addWidget(detail, 1)
             button.clicked.connect(action)
-            card_layout.addWidget(button)
+            compact_action(button)
+            card_layout.addWidget(button, 0, Qt.AlignmentFlag.AlignLeft)
             cards.addWidget(card, 1)
         welcome_layout.addLayout(cards)
         self.welcome_example_button = QPushButton("Try the public Ernie example")
         self.welcome_example_button.clicked.connect(self.load_ernie)
-        welcome_layout.addWidget(self.welcome_example_button)
-        self.welcome_model_button = QPushButton("Have a SimNIBS or exported model? Open its folder…")
+        self.welcome_model_button = QPushButton("Open a model folder…")
+        self.welcome_model_button.setToolTip("Open a SimNIBS head model or an exported project model folder.")
         self.welcome_model_button.clicked.connect(self.choose_model)
         self.welcome_model_button.setFlat(True)
-        welcome_layout.addWidget(self.welcome_model_button)
+        self.welcome_auxiliary = QWidget()
+        auxiliary_layout = QHBoxLayout(self.welcome_auxiliary)
+        auxiliary_layout.setContentsMargins(0, 0, 0, 0)
+        auxiliary_layout.setSpacing(12)
+        for button in (self.welcome_example_button, self.welcome_model_button):
+            compact_action(button)
+            auxiliary_layout.addWidget(button)
+        auxiliary_layout.addStretch(1)
+        welcome_layout.addWidget(self.welcome_auxiliary)
         welcome_layout.addStretch()
         self.preview_stack.addWidget(self.welcome)
         self.slice_container = QWidget()
@@ -379,7 +390,8 @@ class Window(LauncherWindow):
         reference_hint.setObjectName("subtitle")
         reference_layout.addWidget(reference_hint)
         reference_layout.addWidget(self.processing_tabs, 1)
-        self.tabs.addTab(self.reference_page, "Reference tools")
+        self.reference_shell = centered_page(self.reference_page)
+        self.tabs.addTab(self.reference_shell, "Reference tools")
         self.mesh_view = MeshView()
         self.mesh_view.detail_requested.connect(self.change_surface_detail)
         self.tabs.addTab(self.mesh_view, "3D view")
@@ -387,6 +399,7 @@ class Window(LauncherWindow):
         self.inference_scroll = QScrollArea()
         self.inference_scroll.setWidgetResizable(True)
         self.inference_scroll.setWidget(self.inference)
+        center_page_content(self.inference_scroll, self.inference)
         self.tabs.addTab(self.inference_scroll, "AI segmentation")
         self.tabs.tabBar().setDrawBase(False)
         self.processing_tabs.tabBar().setDrawBase(False)
