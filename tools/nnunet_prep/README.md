@@ -68,6 +68,8 @@ nnUNetv2_plan_and_preprocess -d 2 -c 3d_fullres --verify_dataset_integrity -np 1
 
 Preview (2026-11-04): all 29 IXI cases (23 train, 6 val) built with image/label affine difference 0; the 14-case preview passed `nnUNetv2_extract_fingerprint --verify_dataset_integrity`. The full build waits for the 54 MultiAxial charm runs.
 
+Pass-only build (2026-11-05): all 54 MultiAxial runs delivered and verified. 19 are QC `check` because charm labels partly filled stroke lesions as WM (EXP-002). The other 35 plus all 29 IXI cases (64; 50 train, 14 val) were built into `e2_pass_20261105` and passed `--verify_dataset_integrity`. `--require-all` waits for the team's lesion decision.
+
 ## Tests
 
 ```bash

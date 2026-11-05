@@ -105,6 +105,8 @@ E2'de MultiAxial'ın E1 eğitim ve doğrulama vakaları da charm ile etiketlenir
 
 Dağılım: K1 laptop `--part 1/3` ve `2/3` (36 vaka). Part 3/3'ün 18 vakası ikiye bölündü (2026-11-04): K1 masaüstü 9 vakayı `--only GU008 GU016 GU024 GU035 NC004 NC014 NC021 NC031 NYU006` ile çalıştırır (`--part` olmadan, çünkü `--only` bölmeden önce uygulanır). K2 ise kalan 9 vakayı [multiaxial_assignment_K2.csv](multiaxial_assignment_K2.csv) ve `--owner K2` ile çalıştırır. Bu dosyayı elle değiştirme; ana atama dosyasındaki K1 satırlarını da değiştirme, yoksa laptop'un parçaları kayar.
 
+Part 2/3 de bölündü (2026-11-04, laptop GU006'dayken). Laptop GU006 ve GU010'u bitirdikten sonra `--only GU015 GU018 GU021 GU027 GU033 GU038 GU041 NC010` ile yeniden başlatılır. K1 masaüstü `--only NC017 NC020 NC023 NC029 NYU002 NYU005 NYU008` ile, ardından `--only NC013` ile çalışır. K2'de yalnızca part 3/3'ün 9 vakası kalır.
+
 MultiAxial'da T2 yok. Girdi, Dataset001'deki nnU-Net görüntüsüdür (`<ID>_0000.nii.gz`), böylece etiketler E2'ye girecek görüntüyle aynı ızgarada olur. Makineler `--part K/N` ile çakışmadan bölünür; N'i başta seç ve değiştirme.
 
 ```powershell
