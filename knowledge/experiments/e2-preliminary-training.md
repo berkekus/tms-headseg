@@ -1,13 +1,13 @@
 ---
 type: Experiment
 title: 'EXP-008: E2 Preliminary nnU-Net on charm Labels'
-description: Plan and notebook for the 100-epoch E2 model on Dataset002_E2Charm; not run yet.
+description: 100-epoch E2 model on Dataset002_E2Charm completed; mean validation Dice 0.9140 against charm labels (16 cases).
 status: draft
 generated:
   by: claude/opus-5.5
   at: '2026-11-05T17:30:00+03:00'
 experiment_id: EXP-008
-experiment_state: not_run
+experiment_state: completed_validation_only
 sources:
 - id: handoff
   resource: charm-ixi-pilot.md
@@ -22,7 +22,7 @@ sources:
 
 # EXP-008: E2 Preliminary nnU-Net on charm Labels
 
-Experiment state: **not run**. The user, acting for K2 on 2026-11-05, asked for the E2 Colab training code; this note records what was prepared.
+Experiment state: **completed, validation only** (2026-11-05). The user, acting for K2, asked for the E2 Colab training code and ran it; the run records below were read from the user's shared Drive results folder.
 
 ## Question
 
@@ -41,6 +41,24 @@ Does training on charm 4.6.0 labels (IXI and MultiAxial, one GM/CSF convention) 
 - Same as E1_L4_001: the pinned environment (`requirements-colab.lock.txt`, Python 3.11, nnU-Net 2.8.1, PyTorch 2.6.0 + CUDA 12.4), seed 42, a checkpoint every epoch, `3d_fullres`, fold 0, two augmentation workers, no `torch.compile`, L4 suggested. An optional 5-epoch check, then a 100-epoch run (`nnUNetTrainer_E2Preliminary`).
 - Before preprocessing, the notebook verifies the archive checksum and audits the split, file names, grids, and labels against the contract.
 - **Deviation from K1's dataset:** with `CANONICALIZE_TO_RAS = True` (default), every case is permuted and flipped to RAS before nnU-Net, because `prepare_e2.py` keeps IXI in PSR and MultiAxial in RAS and nnU-Net does not reorient. This is a lossless axis change. The plan K1 computed (patch 160×128×112) was made before this change, so the notebook's own plan may differ.
+
+## Run record (2026-11-05)
+
+Read from `TMS_E2/runs/E2_L4_001/` in the user's Drive: `experiment_contract.json`, `session_*.json`, `run_success.json`, and the training logs.
+
+| Field | Value |
+| --- | --- |
+| Archive / data checks | Archive SHA-256 matched the contract. Source dataset fingerprint `804ff1d4…`; trained RAS copy `9bda4ffe…`; `canonicalized_to_ras: true`. |
+| Split | 67 train / 16 validation, from the contract (`split_sha256` `edf32ad3…`). |
+| Plan | `3d_fullres`, 1 mm, patch 160×128×112, batch 2, `SimpleITKIO`, `transpose_forward` [0, 1, 2]. |
+| Settings | Seed 42, nnU-Net 2.8.1, torch 2.6.0+cu124, `torch.compile` off. Augmentation workers **4** (the notebook default is 2; changed by the user). |
+| Hardware | First session NVIDIA L4 (13:34 UTC); two later sessions NVIDIA A100-SXM4-80GB that resumed from checkpoints. The last session ran epochs 59–99 at about 72–93 s per epoch. |
+| Timing | First training log 14:02 UTC; `Training done.` 18:03:21 UTC; validation complete 18:04:52 UTC. Wall time includes the resumes; billed units were not recorded (`cu_per_hour` 0). |
+| Result | Final 3d_fullres validation on all 16 cases: **mean foreground Dice 0.9140** (IoU 0.8432). |
+| Last epoch pseudo-Dice (patch-based, not the final metric) | skin 0.9295, skull 0.8761, CSF 0.8847, GM 0.9182, WM 0.9471 |
+| Runtime release | `run_success.json` records the release request; actual release was not checked. |
+
+Per-class final Dice is in `fold_0/validation/summary.json`, which was not read here.
 
 ## Measurement limits
 

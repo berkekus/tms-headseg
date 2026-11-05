@@ -2,6 +2,7 @@
 
 ## 2026-11-05
 
+- **E2 preliminary model trained (user acting for K2)**: The 100-epoch run `E2_L4_001` finished with validation on all 16 cases, mean foreground Dice 0.9140 against charm labels. It trained on the RAS copy, started on an L4 and resumed on A100s, with four augmentation workers. Not comparable with E1's 0.8716, which was measured against MultiAxial reference labels. Recorded in [EXP-008](experiments/e2-preliminary-training.md).
 - **E2 Colab notebook (user acting for K2)**: Added `tools/e2_training` with `E2_Colab.ipynb`, generated from the E1_L4_001 notebook flow with the same environment and trainers. It checks K1's `handoff_k2_e2.zip` against its published SHA-256 and the 67/16 split recomputed from `prepare_e2.plan_cases`, and by default trains on a lossless RAS copy because IXI is stored PSR and MultiAxial RAS. Not run; recorded in [EXP-008](experiments/e2-preliminary-training.md).
 
 ## 2026-11-04
