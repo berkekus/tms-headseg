@@ -4,6 +4,7 @@
 
 Concurrent records retain their original IDs: the two EXP-002 notes describe distinct IXI and Ernie runs; the EXP-003 notes describe the same E1 model, with team-summary and local preparation/demo evidence respectively. Use the linked note title to distinguish them.
 
+- [EXP-008: E2 Preliminary nnU-Net on charm Labels](e2-preliminary-training.md) — EXP-008 — not_run. Colab notebook prepared for the 100-epoch E2 model on Dataset002_E2Charm (67/16), with archive and split checks and a lossless RAS copy.
 - [MultiAxial K2 CHARM Preflight and Launch](multiaxial-k2-preflight.md) — nine T1-only cases passed preflight; GU011 started and Workbench displays live logs.
 - [IXI K2 Batch Preparation and Preflight](ixi-k2-preflight.md) — completed_execution_qc_pending. IXI037 finished in 32:52 (batch 33.0 min), exit 0; input/output/delivery hashes passed. Native batch monitoring shows 1/15 completed. Anatomical QC and the other 14 runs remain pending.
 - [EXP-007: Envelope Seal on a Second Head (SimNIBS MNI152 Example)](mni152-envelope-seal.md) — EXP-007 — completed. The 8 mm seal filled 123.5 mL of internal air and left the outer skin in place; the surface lay 0.24 mm from charm's skin on average.
