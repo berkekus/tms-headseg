@@ -1,5 +1,7 @@
 # Experiment Register
 
+- [K4 E2 CPU Timing Baseline](k4-inference-timing.md) — K4-TIME-001, completed: 3/3 E2 CPU Ernie runs passed; median prediction/restore 128.628 s and desktop total 158.623 s. Source hashes preserved; one-case timing, not accuracy or model comparison.
+
 - [E2 Model Handoff and Workbench Integration](e2-handoff-review.md) — E2 selects and loads in Workbench; real GU011 CPU inference and native 3D display passed. Same-reference E1/E2 Dice 0.8161/0.9155 on one validation case.
 
 [Project map](../index.md) · [Current state](../current.md)

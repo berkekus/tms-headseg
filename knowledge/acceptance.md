@@ -20,7 +20,7 @@ sources:
 
 # Acceptance and Measurement Definitions
 
-No project performance measurements are recorded yet. The latest source proposes the targets below; team approval and final measurement definitions are not recorded.[^roadmap] Receipt of a revised PDF does not freeze an experiment protocol.
+Bounded execution timings are now recorded in the [E2 handoff review](experiments/e2-handoff-review.md), including native inference and separate display rebuild observations. The [K4 timing baseline](experiments/k4-inference-timing.md) now adds three repeated E2 CPU Ernie runs on fixed hardware/settings. Broader matched-model comparisons and accepted performance gates remain unestablished. The latest source proposes the targets below; team approval and final measurement definitions are not recorded.[^roadmap] Receipt of a revised PDF does not freeze an experiment protocol.
 
 The later [nineteen-page SRC-006](references/module-a-roadmap-team-update.md) expands team planning only; the numerical proposals below are unchanged. Existing page citations remain tied to the seventeen-page SRC-005.
 
