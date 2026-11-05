@@ -11,6 +11,18 @@ project root. No setup or package download runs automatically. Startup failures
 show a message with a local log path under `%LOCALAPPDATA%\TMSHeadSeg\logs`.
 The command-line method below remains available for troubleshooting.
 
+On macOS, complete the initial setup below, then double-click **Open MRI
+Workbench.command** in Finder. It opens Terminal and starts Workbench using
+`tools/mri_prototype/.venv/bin/python`; no commands need to be typed on later
+launches. Keep the file in the project root. It never installs dependencies or
+starts inference automatically. Startup errors show a dialog and retain a log
+under `~/Library/Logs/TMSHeadSeg/`; Terminal also stays readable on failure.
+
+Git checkouts preserve the launcher's executable permission. If a ZIP download
+or copy loses it, run `chmod +x "Open MRI Workbench.command"` once from the project
+root. If macOS asks whether to open the downloaded file, use Finder's **Open**
+action only for your trusted checkout. The launcher does not bypass system checks.
+
 In VS Code, open the repository folder, select **Run and Debug** (`Ctrl+Shift+D`),
 choose **MRI Workbench**, and press **F5** or the green start button. The checked-in
 launch configuration selects this tool's `.venv` on Windows/macOS/Linux and sends

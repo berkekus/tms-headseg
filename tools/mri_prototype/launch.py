@@ -1,20 +1,37 @@
-"""Windows windowed entry point with a local startup log and visible failures."""
+"""Desktop entry point with local startup logs and visible failures."""
 
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 import ctypes
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import traceback
 
 
 def show_error(message):
-    if os.name == "nt":
+    if sys.platform == "darwin":
+        try:
+            subprocess.run(["/usr/bin/osascript", "-e",
+                'on run argv\n display alert "MRI Workbench" message (item 1 of argv) as critical\nend run',
+                message], check=True, capture_output=True, timeout=10)
+            return
+        except (OSError, subprocess.SubprocessError):
+            pass
+        if sys.stderr is not None:
+            print(message, file=sys.stderr)
+    elif os.name == "nt":
         ctypes.windll.user32.MessageBoxW(0, message, "MRI Workbench", 0x10)
     elif sys.stderr is not None:
         print(message, file=sys.stderr)
+
+
+def log_directory():
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Logs" / "TMSHeadSeg"
+    return Path(os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()) / "TMSHeadSeg" / "logs"
 
 
 def launch():
@@ -22,7 +39,7 @@ def launch():
     root = here.parents[1]
     log_path = None
     try:
-        folder = Path(os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()) / "TMSHeadSeg" / "logs"
+        folder = log_directory()
         folder.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         log_path = folder / f"workbench-{stamp}-{os.getpid()}.log"

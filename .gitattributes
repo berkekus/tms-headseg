@@ -1,0 +1,2 @@
+# Finder command scripts require Unix line endings on every checkout.
+*.command text eol=lf
