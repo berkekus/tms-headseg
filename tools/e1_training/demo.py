@@ -260,7 +260,8 @@ def initialize_e2(predictor, model_folder):
                                     checkpoint["trainer_name"], checkpoint.get("inference_allowed_mirroring_axes"))
 
 
-def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, summary=None, experiment="E1"):
+def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, summary=None, experiment="E1",
+            head_crop=True):
     require(experiment in ("E1", "E2"), "Choose E1 or E2.")
     require(device in ("cpu", "cuda"), "Use cpu or cuda.")
     require(not Path(output).resolve().is_relative_to(Path(model_folder).resolve()),
@@ -289,13 +290,20 @@ def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, s
                                    verbose=False, verbose_preprocessing=False, allow_tqdm=True)
         inference_mri = Path(mri).resolve()
         destination = folder / "prediction"
+        crop = None
         if experiment == "E2":
             initialize_e2(predictor, model_folder)
             import sys
             sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
             from headmodel.model_io import prepare, restore_labels
-            inference_mri = folder / "model_input_0000.nii.gz"
-            prepare(mri, inference_mri, folder / "geometry.json")
+            from nnunet_prep.head_crop import crop_file, paste_file
+            canonical = folder / "model_input_ras.nii.gz"
+            prepare(mri, canonical, folder / "geometry.json")
+            inference_mri = canonical
+            if head_crop:  # E2 fails on neck and shoulders (EXP-008); the model sees the head only
+                inference_mri = folder / "model_input_0000.nii.gz"
+                crop = crop_file(canonical, inference_mri)
+                (folder / "head_crop.json").write_text(json.dumps(crop, indent=2) + "\n")
             destination = folder / "prediction_model"
         else:
             predictor.initialize_from_trained_model_folder(str(model_folder), use_folds=(0,), checkpoint_name="checkpoint_final.pth")
@@ -305,7 +313,11 @@ def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, s
         predictor.predict_from_files([[str(inference_mri)]], [str(destination)], save_probabilities=False,
                                      overwrite=False, num_processes_preprocessing=1, num_processes_segmentation_export=1)
         if experiment == "E2":
-            restore_labels(destination.with_suffix(".nii.gz"), folder / "geometry.json", folder / "prediction.nii.gz")
+            model_output = destination.with_suffix(".nii.gz")
+            if crop is not None:
+                model_output = folder / "prediction_model_full.nii.gz"
+                paste_file(destination.with_suffix(".nii.gz"), canonical, crop, model_output)
+            restore_labels(model_output, folder / "geometry.json", folder / "prediction.nii.gz")
             destination = folder / "prediction"
         sync()
         finished = time.perf_counter()
@@ -337,13 +349,16 @@ def main():
             command.add_argument("--model", type=Path, required=True)
             command.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
             command.add_argument("--disable-tta", action="store_true")
+            command.add_argument("--no-head-crop", action="store_true",
+                                 help="E2: feed the whole field of view instead of the head crop")
     args = parser.parse_args()
     if args.command == "report":
         report = make_report(args.mri, args.recorded_prediction, args.out, reference=args.reference,
                              summary=args.summary, experiment=args.experiment)
     else:
         report = predict(args.model, args.mri, args.out, reference=args.reference, device=args.device,
-                         tta=not args.disable_tta, summary=args.summary, experiment=args.experiment)
+                         tta=not args.disable_tta, summary=args.summary, experiment=args.experiment,
+                         head_crop=not args.no_head_crop)
     print(f"Rapor hazır: {report}", flush=True)
 
 

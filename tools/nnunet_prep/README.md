@@ -72,6 +72,19 @@ Pass-only build (2026-11-05): all 54 MultiAxial runs delivered and verified. 19 
 
 Lesion rule (decided 2026-11-05, option b): for MultiAxial cases, regions that the Dataset001 reference labels CSF, that charm labels GM or WM, and that are CSF-dark on T1 become CSF when they are thick (survive a 2-voxel opening) and at least 1 mL (`csf_like_lesions`). Thin sulcal differences keep charm's convention. The reference is read from `labelsTr` next to `--ma-images` (or `--ma-labels`); `e2_manifest.csv` records `lesion_csf_ml`. The full build (`e2_full_20261105`, 83 cases, `--require-all`) adds the QC sheet `qc_K1_lesion_rule_20261105.csv` after the other sheets.
 
+## Run E2 on a new MRI (`predict_e2.py`)
+
+```powershell
+& <tms-data>\venv-nnunet\Scripts\python.exe tools\nnunet_prep\predict_e2.py `
+    --model <...\nnUNetTrainer_E2Preliminary__nnUNetPlans__3d_fullres> --mri T1.nii.gz --out <new folder> `
+    [--charm-reference m2m_X\final_tissues.nii.gz] [--no-head-crop]
+& tools\mri_prototype\.venv\Scripts\python.exe tools\nnunet_prep\view_e2.py <new folder>
+```
+
+The T1 is reoriented to RAS (`T1_ras.nii.gz`). By default `head_crop.py` then cuts it to the head (`T1_ras_head.nii.gz`), and the prediction is pasted back onto the full RAS grid (`prediction.nii.gz`); labels outside the crop are background. `run.json` records the crop box. The crop keeps from 10 mm above the vertex to 240 mm below it, with 15 mm beside the head, measured above the shoulders. It uses the image alone: half the Otsu threshold, then the largest connected part.
+
+Check (2026-11-06): on Ernie Extended (head, neck and shoulders, 526×289×421), GM Dice against charm went from 0.35 uncropped to 0.923 (inside the crop: skin 0.835, skull 0.759, CSF 0.794, WM 0.953; a hand crop gave 0.925 GM). All charm GM voxels stayed inside the crop; the cut removed spinal cord and shoulders. On the 16 E2 validation images the crop removed no labeled voxels, except 0.15% at the bottom of the neck in GU041. On GU011 the cropped prediction matched the uncropped validation prediction in 99.6% of voxels; patch tiling changes with the image size.
+
 ## Tests
 
 ```bash
