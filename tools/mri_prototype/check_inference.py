@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--mri", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="Existing parent outside Git for fresh outputs/screenshots")
     parser.add_argument("--assume-mm", action="store_true")
+    parser.add_argument("--experiment", choices=("E1", "E2"), default="E1")
     args = parser.parse_args()
     output = args.output.resolve()
     assert output.is_dir() and not any((p / ".git").exists() for p in (output, *output.parents))
@@ -35,8 +36,10 @@ def main():
     before = {str(p): sha256(p) for p in sources}
     app = QApplication([])
     window = Window()
-    window.show()
+    window.setWindowTitle(f"MRI Workbench · {args.experiment} QA rehearsal")
+    window.show_fitted()
     panel = window.inference
+    panel.experiment.setCurrentText(args.experiment)
     panel.python.setText(str(args.python))
     panel.model.setText(str(args.model))
     panel.mri.setText(str(args.mri))
@@ -52,12 +55,16 @@ def main():
         print(f"NEW inference started: {job.run_dir}\nLive log: {panel.runner.log_path}", flush=True)
         next_update = started + 30
         captured = False
+        captured_eta = False
         while window.busy and time.monotonic() - started < 1800:
             app.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 40)
             time.sleep(.02)
             if not captured and time.monotonic() - started > 2:
                 window.grab().save(str(output / f"{job.subject}-running.png"))
                 captured = True
+            if not captured_eta and "for prediction only" in panel.metrics.text():
+                window.grab().save(str(output / f"{job.subject}-prediction-eta.png"))
+                captured_eta = True
             if time.monotonic() >= next_update:
                 print(panel.status.text(), flush=True)
                 next_update += 30
@@ -75,12 +82,13 @@ def main():
         child_status = json.loads((job.run_dir / "status.json").read_text())
         desktop_status = json.loads(job.record_path.read_text())
         assert child_status["state"] == desktop_status["state"] == "completed"
-        record = {"state": "passed", "new_inference": True, "run_dir": str(job.run_dir),
+        record = {"state": "passed", "experiment": job.experiment, "new_inference": True, "run_dir": str(job.run_dir),
                   "prediction": str(job.prediction), "timing": child_status["timing"],
                   "elapsed_seconds": time.monotonic() - started, "source_hashes_unchanged": True,
                   "source_hashes": before, "surfaces": len(window.head_model.surfaces),
                   "triangles": sum(len(s.triangles) for s in window.head_model.surfaces),
-                  "automatic_3d_open": True, "assumed_units": window.head_model.units_assumed}
+                  "automatic_3d_open": True, "prediction_stage_eta_observed": captured_eta,
+                  "assumed_units": window.head_model.units_assumed}
         (output / f"{job.subject}-verification.json").write_text(json.dumps(record, indent=2) + "\n")
         print(json.dumps(record, indent=2), flush=True)
     finally:

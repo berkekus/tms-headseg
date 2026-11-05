@@ -22,3 +22,18 @@ m2m_*/
 /tools/charm_gui/.build/
 /tools/charm_gui/.build-cache/
 /tools/charm_gui/dist/
+
+# Generated artifacts, local reports and backups.
+/outputs/
+/tools/qa/FINDINGS.md
+
+# Local secrets and private key material.
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.log

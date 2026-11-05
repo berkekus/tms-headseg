@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
@@ -52,6 +53,24 @@ class PrototypeTests(unittest.TestCase):
         self.addCleanup(window.close)
         return window
 
+    def test_startup_fits_available_screen_and_slice_controls_remain_reachable(self):
+        window = self.window()
+        window.show_fitted()
+        self.app.processEvents()
+        available = window.screen().availableGeometry()
+        self.assertTrue(window.isMaximized())
+        self.assertLessEqual(window.frameGeometry().width(), available.width())
+        self.assertLessEqual(window.frameGeometry().height(), available.height())
+        self.assertGreaterEqual(window.frameGeometry().left(), available.left())
+        self.assertGreaterEqual(window.frameGeometry().top(), available.top())
+        self.assertTrue(window.welcome.isVisible())
+        window.load_mri(self.path)
+        self.wait_idle(window)
+        self.app.processEvents()
+        for panel in window.panels:
+            self.assertTrue(panel.rect().contains(panel.slider.geometry()))
+        self.assertGreater(window.inspection_sidebar.verticalScrollBar().maximum(), 0)
+
     def test_left_right_and_slice_orientation(self):
         affine = np.diag([-2., 3., 4., 1.])
         affine[0, 3] = 8
@@ -61,6 +80,142 @@ class PrototypeTests(unittest.TestCase):
         self.assertEqual(slice_data(volume.data, 2, 4)[2, 0], 434)
         self.assertEqual(slice_data(volume.data, 1, 3)[2, 0], 434)
         self.assertEqual(slice_data(volume.data, 0, 0)[2, 3], 434)
+
+    def test_loading_feedback_stays_visible_and_ui_responsive_until_worker_finishes(self):
+        window = self.window()
+        window.show_fitted()
+        gate = threading.Event()
+        self.addCleanup(gate.set)
+        def load_when_released():
+            gate.wait(5)
+            return load_volume(self.path)
+        window.run_task(load_when_released, window.mri_loaded, activity="Opening T1 MRI")
+        try:
+            self.app.processEvents()
+            self.assertTrue(window.activity_banner.isVisible())
+            self.assertIn("Opening T1 MRI", window.activity_label.text())
+            self.assertIn("Completion time is not yet known", window.activity_label.text())
+            self.assertFalse(window.open_button.isEnabled())
+            self.assertIn("Preparing preview", window.panels[0].canvas.empty_message)
+            window.tabs.setCurrentIndex(1)
+            self.app.processEvents()
+            self.assertEqual(window.tabs.currentIndex(), 1)
+            self.assertTrue(window.activity_banner.isVisible())
+            with patch("prototype.LoadTask") as duplicate:
+                window.run_task(lambda: None, lambda result: None)
+                duplicate.assert_not_called()
+        finally:
+            gate.set()
+            self.wait_idle(window)
+        self.assertTrue(window.activity_banner.isHidden())
+        self.assertFalse(window.activity_timer.isActive())
+        self.assertTrue(window.open_button.isEnabled())
+        self.assertEqual(window.volume.path, self.path.resolve())
+        self.assertEqual(window.panels[0].canvas.accessibleDescription(), window.panels[0].position.text())
+
+    def test_e2_controls_can_be_reached_in_a_short_window_without_starting_inference(self):
+        window = self.window()
+        window.show_fitted()
+        window.showNormal()
+        window.resize(900, 560)
+        window.tabs.setCurrentIndex(3)
+        window.inference.experiment.setCurrentText("E2")
+        self.app.processEvents()
+        scroll = window.inference_scroll
+        self.assertGreater(scroll.verticalScrollBar().maximum(), 0)
+        scroll.ensureWidgetVisible(window.inference.run_button)
+        self.app.processEvents()
+        center = window.inference.run_button.rect().center()
+        point = window.inference.run_button.mapTo(scroll.viewport(), center)
+        self.assertTrue(scroll.viewport().rect().contains(point))
+        self.assertEqual(window.inference.run_button.text(), "Create E2 segmentation")
+        self.assertFalse(window.inference.assume_mm.isEnabled())
+        self.assertIsNone(window.inference.runner)
+        self.assertFalse(window.busy)
+
+    def test_notifications_do_not_shift_tabs_or_scroll_recovery_actions_away(self):
+        window = self.window()
+        window.show_fitted()
+        window.showNormal()
+        window.resize(1000, 700)
+        self.app.processEvents()
+        tab_bounds = window.tabs.geometry()
+        action = window.welcome_open_button
+        open_position = action.mapTo(window, action.rect().center())
+        window.inspection_sidebar.verticalScrollBar().setValue(window.inspection_sidebar.verticalScrollBar().maximum())
+        window.load_mri(self.root / "missing.nii")
+        self.app.processEvents()
+        self.assertEqual(window.tabs.geometry(), tab_bounds)
+        self.wait_idle(window)
+        self.app.processEvents()
+        self.assertEqual(window.tabs.geometry(), tab_bounds)
+        self.assertEqual(action.mapTo(window, action.rect().center()), open_position)
+        self.assertTrue(action.isVisible())
+        self.assertTrue(window.open_button.isEnabled())
+        window.show_notice("error", "Long error", "<not markup> " + "long-path/" * 1000)
+        self.app.processEvents()
+        self.assertEqual(window.tabs.geometry(), tab_bounds)
+        with patch("prototype.QMessageBox") as dialog:
+            window.error_details_button.click()
+            dialog.return_value.setDetailedText.assert_called_once_with(window.error_message.text())
+        window.dismiss_error_button.click()
+        self.app.processEvents()
+        self.assertEqual(window.tabs.geometry(), tab_bounds)
+        window.load_mri(self.path)
+        self.wait_idle(window)
+        self.assertEqual(window.notifications.currentWidget(), window.result_banner)
+        self.assertIn("MRI loaded", window.result_message.text())
+        self.assertEqual(window.tabs.geometry(), tab_bounds)
+
+    def test_page_validation_errors_are_visible_without_starting_processes(self):
+        window = self.window()
+        window.show_fitted()
+        window.tabs.setCurrentIndex(3)
+        window.inference.python.clear()
+        window.inference.run_button.click()
+        self.assertEqual(window.notifications.currentWidget(), window.error_banner)
+        self.assertEqual(window.error_title.text(), "Inference could not start")
+        self.assertIsNone(window.inference.runner)
+        window.tabs.setCurrentIndex(1)
+        window.processing_tabs.setCurrentIndex(1)
+        window.batch.python.clear()
+        window.batch.check_button.click()
+        self.assertEqual(window.error_title.text(), "Batch could not start")
+        self.assertIsNone(window.batch.runner)
+        window.processing_tabs.setCurrentIndex(0)
+        window.start_job()
+        self.assertEqual(window.error_title.text(), "MRI inspection required")
+        self.assertIsNone(window.runner)
+
+    def test_display_callback_exception_cannot_report_success(self):
+        window = self.window()
+        window.show_fitted()
+        def broken_display(value):
+            raise RuntimeError("display failed")
+        window.run_task(lambda: None, broken_display)
+        self.wait_idle(window)
+        self.assertEqual(window.notifications.currentWidget(), window.error_banner)
+        self.assertIn("display failed", window.error_message.text())
+        self.assertTrue(window.open_button.isEnabled())
+
+    def test_start_screen_guides_users_without_starting_processing(self):
+        window = self.window()
+        window.show_fitted()
+        self.app.processEvents()
+        self.assertTrue(window.welcome.isVisible())
+        self.assertTrue(window.sidebar_column.isHidden())
+        self.assertTrue(window.welcome_open_button.isVisible())
+        self.assertFalse(window.e1_assume_mm.isChecked())
+        self.assertTrue(window.e1_assume_mm.isHidden())
+        window.welcome_generate_button.click()
+        self.assertEqual(window.tabs.currentIndex(), 3)
+        self.assertIsNone(window.inference.runner)
+        self.assertFalse(window.busy)
+        window.tabs.setCurrentIndex(0)
+        window.load_mri(self.path)
+        self.wait_idle(window)
+        self.assertEqual(window.preview_stack.currentWidget(), window.slice_container)
+        self.assertTrue(window.sidebar_column.isVisible())
 
     def test_permuted_axes_keep_physical_spacing(self):
         affine = np.array([[0., 2., 0., 0.], [3., 0., 0., 0.], [0., 0., 4., 0.], [0., 0., 0., 1.]])
@@ -140,6 +295,48 @@ class PrototypeTests(unittest.TestCase):
         self.assertIsNone(window.volume)
         self.assertIsNone(window.panels[0].canvas.image)
         self.assertIn("Could not load", window.feedback.text())
+
+    def test_empty_mri_shows_visible_error_and_valid_retry_recovers(self):
+        window = self.window()
+        window.show()
+        invalid = self.root / "invalid_mri.nii"
+        invalid.touch()
+        with patch("prototype.QFileDialog.getOpenFileName", return_value=(str(invalid), "")):
+            window.choose_mri()
+        self.wait_idle(window)
+        self.assertTrue(window.error_banner.isVisible())
+        self.assertEqual(window.error_title.text(), "MRI could not be opened")
+        self.assertIn("empty", window.error_message.text().lower())
+        self.assertIn("Open MRI", window.error_recovery.text())
+        self.assertTrue(window.activity_banner.isHidden())
+        self.assertFalse(window.activity_timer.isActive())
+        self.assertIn("No MRI preview", window.panels[0].canvas.empty_message)
+        self.assertIsNone(window.volume)
+        self.assertTrue(window.open_button.isEnabled())
+        self.assertIsNone(window.panels[0].canvas.image)
+        window.tabs.setCurrentIndex(1)
+        window.tabs.setCurrentIndex(0)
+        window.load_mri(self.path)
+        self.wait_idle(window)
+        self.assertTrue(window.error_banner.isHidden())
+        self.assertEqual(window.error_message.text(), "")
+        self.assertEqual(window.volume.path, self.path.resolve())
+
+    def test_cancelled_picker_keeps_error_and_dismiss_does_not_load_a_scan(self):
+        window = self.window()
+        window.show()
+        window.load_mri(self.root / "missing.nii")
+        self.wait_idle(window)
+        message = window.error_message.text()
+        with patch("prototype.QFileDialog.getOpenFileName", return_value=("", "")):
+            window.choose_mri()
+        self.assertTrue(window.error_banner.isVisible())
+        self.assertEqual(window.error_message.text(), message)
+        window.dismiss_error_button.click()
+        self.assertTrue(window.error_banner.isHidden())
+        self.assertEqual(window.panels[0].canvas.empty_message, "Open a T1 MRI to inspect slices")
+        self.assertIsNone(window.volume)
+        self.assertTrue(window.open_button.isEnabled())
 
     def test_requires_inspection_and_automatically_loads_job_labels(self):
         window = self.window()

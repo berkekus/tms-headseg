@@ -1,4 +1,4 @@
-"""E1 single-MRI inference and saved-result presentation. Never trains or rewrites inputs."""
+"""E1/E2 single-MRI inference and saved-result presentation. Never trains or rewrites inputs."""
 
 import argparse
 import base64
@@ -16,6 +16,7 @@ import numpy as np
 LABELS = {"background": 0, "skin": 1, "skull": 2, "csf": 3, "gray_matter": 4, "white_matter": 5}
 TITLES = {1: "Deri", 2: "Kafatası", 3: "BOS / CSF", 4: "Gri cevher", 5: "Beyaz cevher"}
 VALIDATION_CASES = ("GU011", "GU012", "GU018", "GU033", "GU041", "NC012", "NC019", "NC023", "NC029", "NYU005")
+E2_VALIDATION_CASES = VALIDATION_CASES + ("IXI148", "IXI167", "IXI294", "IXI320", "IXI368", "IXI426")
 
 
 def require(condition, message):
@@ -90,7 +91,7 @@ def fresh_directory(path):
     return path
 
 
-def render_comparison(mri, prediction, reference, destination):
+def render_comparison(mri, prediction, reference, destination, experiment="E1"):
     os.environ.setdefault("MPLBACKEND", "Agg")
     os.environ.setdefault("MPLCONFIGDIR", str(Path(destination).parent / ".matplotlib"))
     import matplotlib
@@ -129,35 +130,37 @@ def render_comparison(mri, prediction, reference, destination):
             ax.set_title(f"{title} · voksel {center[axis]}\n{titles[column]}", fontsize=10)
             ax.axis("off")
     fig.legend(handles=[Patch(color=colors[i][:3], label=TITLES[i]) for i in range(1, 6)], loc="lower center", ncol=5)
-    fig.suptitle("E1 · MRI ve doku segmentasyonu\nAynı voksel ızgarası; sınırlı kesit incelemesi", fontsize=13)
+    fig.suptitle(f"{experiment} · MRI ve doku segmentasyonu\nAynı voksel ızgarası; sınırlı kesit incelemesi", fontsize=13)
     fig.tight_layout(rect=(0, .04, 1, .94))
     fig.savefig(destination, dpi=140)
     plt.close(fig)
 
 
-def cohort_metrics(path):
+def cohort_metrics(path, experiment="E1"):
     if path is None:
         return None
     data = json.loads(Path(path).read_text())
     rows = data["metric_per_case"]
     ids = [Path(row["reference_file"]).name.removesuffix(".nii.gz") for row in rows]
-    require(len(ids) == 10 and set(ids) == set(VALIDATION_CASES), "Expected the fixed ten validation cases.")
+    expected = E2_VALIDATION_CASES if experiment == "E2" else VALIDATION_CASES
+    require(len(ids) == len(expected) and set(ids) == set(expected), "Expected the fixed validation cases for this experiment.")
     means = {str(i): float(np.mean([row["metrics"][str(i)]["Dice"] for row in rows])) for i in range(1, 6)}
     require(all(np.isfinite(x) and 0 <= x <= 1 for x in means.values()), "Invalid validation Dice.")
     value = float(np.mean(list(means.values())))
     require(np.isclose(value, data["foreground_mean"]["Dice"], rtol=0, atol=1e-10), "Validation summary mean disagrees.")
-    return {"validation_cases": 10, "mean_dice": value, "per_label_dice": means, "summary_sha256": sha256(path)}
+    return {"validation_cases": len(ids), "mean_dice": value, "per_label_dice": means, "summary_sha256": sha256(path)}
 
 
-def make_report(mri, prediction, output, reference=None, mode="recorded", timing=None, summary=None, model=None):
+def make_report(mri, prediction, output, reference=None, mode="recorded", timing=None, summary=None, model=None, experiment="E1"):
+    require(experiment in ("E1", "E2"), "Choose E1 or E2.")
     require(mode in ("recorded", "inference"), "Unknown demo mode.")
     require(mode != "recorded" or timing is None, "Recorded predictions cannot claim live inference timing.")
     require(mode != "inference" or timing is not None, "New inference requires measured timing.")
     result = compare_volumes(mri, prediction, reference)
-    result.update({"mode": mode, "timing": timing, "cohort": cohort_metrics(summary), "model": model,
+    result.update({"experiment": experiment, "mode": mode, "timing": timing, "cohort": cohort_metrics(summary, experiment), "model": model,
                    "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "held_out_test": False})
     folder = fresh_directory(output)
-    render_comparison(mri, prediction, reference, folder / "comparison.png")
+    render_comparison(mri, prediction, reference, folder / "comparison.png", experiment)
     from surface_view import make_view
     source, _ = read_volume(mri)
     _, labels = read_volume(prediction, labels=True)
@@ -167,7 +170,7 @@ def make_report(mri, prediction, output, reference=None, mode="recorded", timing
     number = lambda value: "—" if value is None else f"{value:.4f}"
     rows = "".join(f"<tr><td>{html.escape(m['name'])}</td><td>{number(m['dice'])}</td></tr>" for m in (result["per_label"] or {}).values())
     cohort = result["cohort"]
-    cohort_text = f"Eğitim sonunda kaydedilen 10 vakalık doğrulama · ortalama Dice <strong>{cohort['mean_dice']:.4f}</strong>" if cohort else "Bu raporda kohort skoru sunulmuyor."
+    cohort_text = f"Eğitim sonunda kaydedilen {cohort['validation_cases']} vakalık doğrulama · ortalama Dice <strong>{cohort['mean_dice']:.4f}</strong>" if cohort else "Bu raporda kohort skoru sunulmuyor."
     score_table = (f"<table><tr><th>Doku</th><th>Bu vaka — Dice</th></tr>{rows}</table>"
                    if rows else "<p>Referans yok; bu MRI için Dice hesaplanmadı.</p>")
     difference_legend = "<p>Turuncu: referans ve tahminin farklı etiket verdiği vokseller.</p>" if reference else ""
@@ -178,18 +181,18 @@ def make_report(mri, prediction, output, reference=None, mode="recorded", timing
     picture = base64.b64encode((folder / "comparison.png").read_bytes()).decode()
     notes = "".join(f"<li>{html.escape(note)}</li>" for note in result["warnings"])
     page = f'''<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>E1 · MRI doku segmentasyonu</title><style>
+<title>{experiment} · MRI doku segmentasyonu</title><style>
 body{{font:17px/1.55 system-ui,sans-serif;color:#18232d;background:#f3f5f7;margin:0}}main{{max-width:1180px;margin:36px auto;padding:28px;background:white;border-radius:14px}}
 h1{{font-size:32px;margin:10px 0}}.badge{{display:inline-block;background:#e7f0ff;color:#174b87;padding:6px 12px;border-radius:6px}}img{{width:100%;height:auto}}table{{border-collapse:collapse;min-width:320px}}td,th{{text-align:left;padding:9px 18px;border-bottom:1px solid #dde3e8}}small{{color:#53606c}}
 </style><main><div class="badge">{badge}</div><h1>MRI → doku segmentasyonu</h1>
-<p>E1 ön model · 100 epoch · 44 eğitim / 10 doğrulama · fold 0</p><p>{cohort_text}</p>
+<p>{experiment} ön model · 100 epoch · fold 0</p><p>{cohort_text}</p>
 <p>Seçilen vaka: <strong>{html.escape(Path(mri).name)}</strong> · vaka ortalama Dice: <strong>{number(result['case_mean_dice'])}</strong></p>
 <p><small>Rapor kayıt zamanı: {result['created_utc']} (UTC). Bu dosyayı yeniden açmak yeni tahmin başlatmaz.</small></p>
 {timing_text}{surface_html}{score_table}
 <img alt="MRI, referans etiket ve model tahmininin eşleşen üç düzlemde karşılaştırması" src="data:image/png;base64,{picture}">
 {difference_legend}<ul>{notes}</ul>
 <small>Bu çıktı doku segmentasyonu ve gösterim yüzeyleridir; simülasyona hazır hacim mesh'i veya klinik doğrulama değildir. Kaydedilmiş rapor internet bağlantısı gerektirmez.</small></main></html>'''
-    (folder / "report.html").write_text(page)
+    (folder / "report.html").write_text(page, encoding="utf-8")
     return folder / "report.html"
 
 
@@ -197,8 +200,8 @@ def validate_model(folder):
     folder = Path(folder)
     require((folder / "dataset.json").is_file(), "Model dataset.json is missing.")
     dataset = json.loads((folder / "dataset.json").read_text())
-    require(dataset.get("labels") == LABELS, "Model labels differ from the E1 mapping.")
-    require(dataset.get("channel_names") == {"0": "T1"} and dataset.get("file_ending") == ".nii.gz", "Expected the E1 T1 model.")
+    require(dataset.get("labels") == LABELS, "Model labels differ from the project mapping.")
+    require(dataset.get("channel_names") == {"0": "T1"} and dataset.get("file_ending") == ".nii.gz", "Expected a T1 model.")
     require((folder / "plans.json").is_file(), "Model plans.json is missing.")
     plans = json.loads((folder / "plans.json").read_text())
     require("3d_fullres" in plans.get("configurations", {}), "Model lacks 3d_fullres.")
@@ -220,12 +223,51 @@ def register_trainer():
         target.write_text(source)
 
 
-def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, summary=None):
+def initialize_e2(predictor, model_folder):
+    """Restore this E2 architecture from its plans without installing trainer code."""
+    import torch
+    import inspect
+    from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+    from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+    from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+
+    folder = Path(model_folder)
+    # NumPy 2 moved this callable; older checkpoints keep its NumPy 1 module path.
+    with torch.serialization.safe_globals([np.core.multiarray.scalar,
+                                           (np.core.multiarray.scalar, "numpy.core.multiarray.scalar"), np.dtype,
+                                           type(np.dtype("float32")), type(np.dtype("float64"))]):
+        checkpoint = torch.load(folder / "fold_0/checkpoint_final.pth", map_location="cpu", weights_only=True)
+    require(checkpoint.get("trainer_name") == "nnUNetTrainer_E2Preliminary", "Expected the completed E2 model.")
+    require(checkpoint.get("current_epoch") == 100, "Expected a completed 100-epoch E2 checkpoint.")
+    plans_data = json.loads((folder / "plans.json").read_text())
+    dataset = json.loads((folder / "dataset.json").read_text())
+    require(checkpoint["init_args"]["plans"] == plans_data, "Checkpoint and model plans disagree.")
+    require(checkpoint["init_args"]["configuration"] == "3d_fullres", "Expected E2 3d_fullres.")
+    plans = PlansManager(plans_data)
+    configuration = plans.get_configuration("3d_fullres")
+    num_input = determine_num_input_channels(plans, configuration, dataset)
+    num_output = plans.get_label_manager(dataset).num_segmentation_heads
+    builder = nnUNetTrainer.build_network_architecture
+    if "plans_manager" in inspect.signature(builder).parameters:
+        network = builder(plans, configuration, num_input, num_output, enable_deep_supervision=False)
+    else:
+        network = builder(configuration.network_arch_class_name, configuration.network_arch_init_kwargs,
+                          configuration.network_arch_init_kwargs_req_import,
+                          num_input, num_output, enable_deep_supervision=False)
+    weights = checkpoint["network_weights"]
+    network.load_state_dict(weights, strict=True)
+    predictor.manual_initialization(network, plans, configuration, [weights], dataset,
+                                    checkpoint["trainer_name"], checkpoint.get("inference_allowed_mirroring_axes"))
+
+
+def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, summary=None, experiment="E1"):
+    require(experiment in ("E1", "E2"), "Choose E1 or E2.")
     require(device in ("cpu", "cuda"), "Use cpu or cuda.")
     require(not Path(output).resolve().is_relative_to(Path(model_folder).resolve()),
             "Output must be outside the model directory.")
     read_volume(mri)
     model = validate_model(model_folder)
+    model["experiment"] = experiment
     folder = fresh_directory(output)
     status = folder / "status.json"
     status.write_text(json.dumps({"state": "running", "mode": "inference"}) + "\n")
@@ -236,7 +278,8 @@ def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, s
         require(torch.__version__.split("+")[0] == "2.6.0", "Use torch 2.6.0.")
         require(device != "cuda" or torch.cuda.is_available(), "CUDA unavailable; select a GPU runtime.")
         os.environ["nnUNet_compile"] = "false"
-        register_trainer()
+        if experiment == "E1":
+            register_trainer()
         from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
         sync = lambda: torch.cuda.synchronize() if device == "cuda" else None
         sync()
@@ -244,20 +287,33 @@ def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, s
         predictor = nnUNetPredictor(tile_step_size=.5, use_gaussian=True, use_mirroring=tta,
                                    device=torch.device(device), perform_everything_on_device=device == "cuda",
                                    verbose=False, verbose_preprocessing=False, allow_tqdm=True)
-        predictor.initialize_from_trained_model_folder(str(model_folder), use_folds=(0,), checkpoint_name="checkpoint_final.pth")
-        require(predictor.trainer_name == "nnUNetTrainer_E1Preliminary", "Expected the completed 100-epoch E1 model.")
+        inference_mri = Path(mri).resolve()
+        destination = folder / "prediction"
+        if experiment == "E2":
+            initialize_e2(predictor, model_folder)
+            import sys
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+            from headmodel.model_io import prepare, restore_labels
+            inference_mri = folder / "model_input_0000.nii.gz"
+            prepare(mri, inference_mri, folder / "geometry.json")
+            destination = folder / "prediction_model"
+        else:
+            predictor.initialize_from_trained_model_folder(str(model_folder), use_folds=(0,), checkpoint_name="checkpoint_final.pth")
+            require(predictor.trainer_name == "nnUNetTrainer_E1Preliminary", "Expected the completed 100-epoch E1 model.")
         sync()
         loaded = time.perf_counter()
-        destination = folder / "prediction"
-        predictor.predict_from_files([[str(Path(mri).resolve())]], [str(destination)], save_probabilities=False,
+        predictor.predict_from_files([[str(inference_mri)]], [str(destination)], save_probabilities=False,
                                      overwrite=False, num_processes_preprocessing=1, num_processes_segmentation_export=1)
+        if experiment == "E2":
+            restore_labels(destination.with_suffix(".nii.gz"), folder / "geometry.json", folder / "prediction.nii.gz")
+            destination = folder / "prediction"
         sync()
         finished = time.perf_counter()
         timing = {"device": device, "model_load_seconds": loaded - start, "prediction_seconds": finished - loaded,
                   "tta": tta, "torch": torch.__version__, "nnunetv2": "2.8.1",
                   "hardware": torch.cuda.get_device_name(0) if device == "cuda" else __import__("platform").platform()}
         report = make_report(mri, destination.with_suffix(".nii.gz"), folder / "report", reference=reference,
-                             mode="inference", timing=timing, summary=summary, model=model)
+                             mode="inference", timing=timing, summary=summary, model=model, experiment=experiment)
         status.write_text(json.dumps({"state": "completed", "report": str(report), "timing": timing}, indent=2) + "\n")
         return report
     except BaseException as error:
@@ -274,6 +330,7 @@ def main():
         command.add_argument("--reference", type=Path)
         command.add_argument("--summary", type=Path)
         command.add_argument("--out", type=Path, required=True)
+        command.add_argument("--experiment", choices=("E1", "E2"), default="E1")
         if name == "report":
             command.add_argument("--recorded-prediction", type=Path, required=True)
         else:
@@ -282,10 +339,11 @@ def main():
             command.add_argument("--disable-tta", action="store_true")
     args = parser.parse_args()
     if args.command == "report":
-        report = make_report(args.mri, args.recorded_prediction, args.out, reference=args.reference, summary=args.summary)
+        report = make_report(args.mri, args.recorded_prediction, args.out, reference=args.reference,
+                             summary=args.summary, experiment=args.experiment)
     else:
         report = predict(args.model, args.mri, args.out, reference=args.reference, device=args.device,
-                         tta=not args.disable_tta, summary=args.summary)
+                         tta=not args.disable_tta, summary=args.summary, experiment=args.experiment)
     print(f"Rapor hazır: {report}", flush=True)
 
 

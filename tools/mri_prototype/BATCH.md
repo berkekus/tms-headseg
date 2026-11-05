@@ -1,6 +1,6 @@
 # CHARM batch in MRI Workbench
 
-Open **02 CHARM processing → IXI batch**. **Single MRI** retains the original one-case launcher. To open directly in read-only batch monitoring mode:
+Open **02 CHARM processing → CHARM batch**. **Single MRI** retains the original one-case launcher. To open directly in read-only batch monitoring mode:
 
 ```bash
 tools/mri_prototype/.venv/bin/python tools/mri_prototype/prototype.py --batch
@@ -19,6 +19,8 @@ On Windows use `tools/mri_prototype/.venv/Scripts/python.exe`. Keep `tools/charm
 Setup collapses while checking or monitoring to keep logs visible; **Show setup** reopens it. There is no reliable per-case percentage or ETA. Log age measures the last file write, not process liveness or a proven stall. Local elapsed time read from an older CHARM header assumes that header used this computer's timezone.
 
 ## Monitor an existing CLI run
+
+For MultiAxial, copy the exact assignment CSV used by the CLI into its output folder as `multiaxial_assignment.csv`. Pick that output folder and click **Monitor folder only**, or open Workbench with `--batch-output /path/to/output`. The monitor lists the selected worker's `train` and `val` cases, reads their logs and run records, and disables batch launch controls for that folder.
 
 **Monitor folder only** reads existing case records and logs. It does not acquire cancellation ownership, start CHARM, rewrite results or update QC. Closing such a window leaves the external process alone. Legacy folders/logs without execution records are shown as external/unconfirmed and prevent launching another batch from this page until completion is recorded or interruption is reviewed.
 

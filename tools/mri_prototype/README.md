@@ -1,13 +1,27 @@
 # MRI Workbench prototype
 
-A local PySide6 desktop tool for inspecting NIfTI MRI, reopening SimNIBS head models and exported project models, displaying E1 predictions, viewing tissue surfaces in 3D, exporting a model, and launching installed CHARM. It imports the `tools/charm_gui` window and runner and the `tools/headmodel` geometry package, and reuses `tools/e1_training/surface_view.py` for E1 display geometry; keep those sibling folders together.
+A local PySide6 desktop tool for inspecting NIfTI MRI, reopening SimNIBS head models and exported project models, displaying E1/E2 predictions, viewing tissue surfaces in 3D, exporting a model, and launching installed CHARM. It imports the `tools/charm_gui` window and runner and the `tools/headmodel` geometry package, and reuses `tools/e1_training/surface_view.py` for E1 display geometry; keep those sibling folders together.
 
 ## Run
+
+After the initial Windows setup below, double-click **Open MRI Workbench.vbs** in
+the project root. It uses this tool's `.venv` and opens the app without a terminal.
+You can create a normal Windows shortcut to that file; keep the original in the
+project root. No setup or package download runs automatically. Startup failures
+show a message with a local log path under `%LOCALAPPDATA%\TMSHeadSeg\logs`.
+The command-line method below remains available for troubleshooting.
+
+In VS Code, open the repository folder, select **Run and Debug** (`Ctrl+Shift+D`),
+choose **MRI Workbench**, and press **F5** or the green start button. The checked-in
+launch configuration selects this tool's `.venv` on Windows/macOS/Linux and sends
+diagnostics to the Debug Console. **Ctrl+F5** starts without debugging. This needs
+the Microsoft Python Debugger extension and the initial environment setup below.
 
 Use Python 3.11 or newer and install dependencies into this tool's own environment. From the repository root on macOS:
 
 ```bash
 python3 -m venv tools/mri_prototype/.venv
+tools/mri_prototype/.venv/bin/python -m pip install --upgrade pip
 tools/mri_prototype/.venv/bin/python -m pip install -r tools/mri_prototype/requirements.txt
 tools/mri_prototype/.venv/bin/python tools/mri_prototype/prototype.py
 ```
@@ -16,6 +30,7 @@ Windows PowerShell:
 
 ```powershell
 py -3 -m venv tools/mri_prototype/.venv
+& tools/mri_prototype/.venv/Scripts/python.exe -m pip install --upgrade pip
 & tools/mri_prototype/.venv/Scripts/python.exe -m pip install -r tools/mri_prototype/requirements.txt
 & tools/mri_prototype/.venv/Scripts/python.exe tools/mri_prototype/prototype.py
 ```
@@ -24,25 +39,79 @@ SimNIBS must be installed separately to create a model. MRI and existing-model i
 
 ## Workflow
 
-**Batch mode:** **02 CHARM processing** now contains **Single MRI** and **IXI batch**. The batch page runs the shared training-only assignment, shows per-case records and live logs, and can monitor an existing CLI run without owning or cancelling it. Read the [batch guide](BATCH.md) before starting a long job. `--batch` opens monitoring mode without launching CHARM.
+The first screen offers three tasks: **Open an MRI**, **Open a saved result**, and
+**Create a segmentation**. A public Ernie example and model-folder import remain
+available below. MRI-only controls appear after an image loads. **More file
+actions** holds export, reports and additional import actions.
 
-1. **Open T1 MRI** or choose **Use Ernie example**. Ernie selection fills the public T1/T2 paths and subject ID; it never starts processing. `--ernie` performs the same preload on startup.
+The tabs are **MRI images**, **Reference tools** (optional SimNIBS/CHARM),
+**3D view**, and **AI segmentation**. Creating a result opens the AI page but
+starts no process. **Model setup**, **Advanced settings**, and the technical log
+can be expanded when needed. An optional ignored `outputs/workbench/settings.json`
+prefills reviewed local Python/model/MRI/output paths at normal startup; it never
+starts processing or enables unit assumptions. Missing setup stays visible.
+
+**Reference tools** groups **Single MRI** and **CHARM batch** inside one bordered
+section with a shared heading. Their smaller, softly selected mode tabs are
+visually subordinate to the main navigation. Numbered scan/job headings sit above
+their form boxes with separate title and content spacing.
+
+The selected tab is filled teal. Expandable sections display **Show** or **Hide**,
+a directional icon and a highlighted header while open. **Import options** shows
+its current choice even while closed: **Standard** uses MRI file units;
+**Assume mm** is the same explicit older-E1 assumption and appears in amber.
+Its menu marks the selected choice with a check. This presentation does not change
+units, model settings, processing or export behavior on its own.
+
+During AI inference, elapsed time is measured. A remaining-time estimate becomes
+available after two reported prediction iterations, uses the current measured
+speed, and applies only to prediction. Saving, report generation and 3D preview
+are separate steps. A full prediction bar is not whole-job completion; stale
+estimates are withdrawn instead of counting down indefinitely. Batch estimates
+use the median of at least two completed cases in that batch and cover only
+queued cases, excluding the active case. All estimates may change.
+
+The app starts maximized within the available desktop, respecting display scaling
+and the taskbar. Inspection controls scroll on shorter displays; smaller windows
+can scroll the inspection page instead of clipping slice controls.
+The E1/E2 inference page also scrolls in shorter windows so model settings and
+run/cancel controls remain reachable.
+
+Opening an MRI, saved segmentation or head model, aligning labels, and exporting
+a model display a banner above the tabs with an indeterminate progress bar and
+elapsed time. It stays visible when switching tabs and clears when the background
+operation finishes. It does not estimate a completion percentage or certify image
+quality. Empty slice views distinguish loading from a failed import and point to
+the persistent error banner for recovery.
+
+Notifications share a reserved-height area so loading, errors, success and
+dismissal do not move the tabs. **Open MRI** and **Open model folder** stay
+above the scrollable inspection settings. Long errors keep their full text under
+**Details…**. Inference/batch validation failures and terminal states also appear
+in this area; a successful load/export confirms execution only, not anatomical
+quality. Closing active reconstruction, batch or inference retains an explicit
+stop confirmation with **No** as the default, as do the cancel buttons. Reading a
+file needs no confirmation.
+
+**Batch mode:** **Reference tools** contains **Single MRI** and **CHARM batch**. The batch page runs the shared training-only assignment, shows per-case records and live logs, and can monitor an existing CLI run without owning or cancelling it. Read the [batch guide](BATCH.md) before starting a long job. `--batch` opens monitoring mode without launching CHARM.
+
+1. **Open MRI** or choose **Use Ernie example**. Ernie selection fills the public T1/T2 paths and subject ID and opens the MRI preview; it never starts CHARM reconstruction. `--ernie` performs the same preload on startup.
 2. Scroll the three slice controls. Adjust window level/width or use **Auto contrast**. Source dimensions, spacing, and axis codes are displayed. The views use neurological convention: left is screen left in axial/coronal views. Sagittal anterior is screen right. Positions are RAS world millimeters, and image proportions account for voxel spacing.
-3. Optionally **Load tissue labels** from a discrete NIfTI segmentation of the same subject. Standalone overlays identify numeric IDs. Adjust opacity or clear the overlay.
+3. Optionally **Add tissue overlay** from a discrete NIfTI segmentation of the same subject. Standalone overlays identify numeric IDs. Adjust opacity or clear the overlay.
 4. In **CHARM processing**, review T1, optional T2, installed CHARM, a new subject ID, and an output folder outside Git. If the T1 path changes there, return to inspection and use **Load T1 selected in CHARM tab** before starting.
 5. **Create head model** uses the existing safe runner, live logs, child-scoped thread limits, and process-tree cancellation. On successful completion with expected outputs, the generated model folder is loaded automatically for slice and 3D inspection. **Open report** and **Open 3D mesh in Gmsh** remain available for external inspection.
 
 ### Reopen a precreated model
 
-Choose **Open head model folder…** in the inspection tab and select an `m2m_SUBJECT` directory. It must contain `T1.nii.gz` (or `T1.nii`), `final_tissues.nii.gz`, and the subject's `.msh` file. If no matching subject filename exists, there must be exactly one `.msh` file. `final_tissues_LUT.txt` and the HTML report are optional. Missing or ambiguous required assets produce an error and clear the previous model.
+Choose **Open model folder…** in the inspection tab and select an `m2m_SUBJECT` directory. It must contain `T1.nii.gz` (or `T1.nii`), `final_tissues.nii.gz`, and the subject's `.msh` file. If no matching subject filename exists, there must be exactly one `.msh` file. `final_tissues_LUT.txt` and the HTML report are optional. Missing or ambiguous required assets produce an error and clear the previous model.
 
 The same button opens a folder exported by [`tools/headmodel`](../headmodel/README.md), recognized by its `model.json`. Such a folder must pass `verify_model` first; a failed check refuses the model and clears the view. Its face-coverage status and warnings stay visible beside the 3D view. SimNIBS and project label numbers mean different tissues, so the viewer finds head and brain surfaces by role rather than by number.
 
-**Export head model…** turns the open SimNIBS folder, a T1 with loaded project labels, or an E1 prediction whose MRI and prediction headers state their units, into a new exported folder and opens it. An E1 import that relies on **E1: assume mm** is not exported, because the export reads both files under the coordinate contract; the status line says so. Name a new folder outside any Git checkout. SimNIBS labels use the mapping proposed in EXP-002, which is not accepted.
+**Export head model…** turns the open SimNIBS folder, a T1 with loaded project labels, or an E1 prediction whose MRI and prediction headers state their units, into a new exported folder and opens it. An E1 import that relies on **Import options → Assume mm for older E1 files** is not exported, because the export reads both files under the coordinate contract; the status line says so. Name a new folder outside any Git checkout. SimNIBS labels use the mapping proposed in EXP-002, which is not accepted.
 
 MRI, segmentation, and tagged mesh surfaces are read in the background. The lookup table supplies tissue names and colors for both the slice overlays and 3D controls; absent names stay numeric. **Open model report** opens the selected folder's report without needing a processing job in this session.
 
-Select **03 3D model** to rotate with left drag, pan with Shift-drag, and zoom with the wheel. Each surface has visibility and opacity controls. The initial view shows gray matter with transparent scalp where those tags exist. **Brain**, **Head**, and **Reset camera** provide convenient views. The orientation cube labels R/L, A/P, and S/I.
+Select **3D view** to rotate with left drag, pan with Shift-drag, and zoom with the wheel. Each surface has visibility and opacity controls. The initial view shows gray matter with transparent scalp where those tags exist. **Brain**, **Head**, and **Reset camera** provide convenient views. The orientation cube labels R/L, A/P, and S/I.
 
 **Show MRI slice planes** places the three current MRI slices into the same physical coordinate system as the mesh. Slice positions and contrast follow the inspection tab's controls. Original mesh node coordinates are retained in subject-world millimeters; the MRI affine places the image planes. No additional mesh transform, smoothing, decimation, or registration is applied. Visual checks remain necessary; bounding-box overlap alone does not establish anatomical alignment.
 
@@ -54,21 +123,25 @@ tools/mri_prototype/.venv/bin/python tools/mri_prototype/prototype.py --model /p
 
 Loading and resampling run in a background thread. Import controls are disabled during loading or processing; slice and contrast controls remain available. Closing during image loading asks you to wait for loading to finish. Closing during a CHARM run retains the existing confirmation/cancellation behavior. No reconstruction starts automatically, and original MRI/label files are never written.
 
-### Open our E1 model's segmentation
+### Open a saved E1 or E2 segmentation
 
 1. Start the Workbench using the command above. If its environment predates this extension, install the updated requirements first; E1 surfaces need `scikit-image==0.26.0`.
-2. Click **Open E1 segmentation…** in the header. Choose the source T1 MRI, then its saved E1 prediction (`.nii` or `.nii.gz`). Select the corresponding subject's prediction from `fold_0/validation/`, or an output from the separate E1 inference demo. This action reads a prediction; it does not run the neural network.
-3. Original E1 handoff MRIs have unknown header units. For those originals only, explicitly enable **E1: assume mm** before importing if using the handoff's millimetre assumption. It is off by default, applies only to this E1 import, and never rewrites headers. The metadata and 3D view state that units are assumed and physical scale is unverified. Later team-prepared copies with explicit units need no opt-in. Ordinary MRI and SimNIBS imports remain strict.
-4. Inspect the three slice overlays, then select **03 3D model**. Rotate, zoom, change tissue visibility/opacity, choose **Brain** or **Head**, and optionally show the linked MRI slice planes.
+2. Click **Open saved result…** in the header. Choose the source T1 MRI, then its matching saved prediction (`.nii` or `.nii.gz`). Select the corresponding subject's prediction from `fold_0/validation/`, or an output from a completed inference run. This action reads a prediction; it does not run the neural network.
+3. Original E1 handoff MRIs have unknown header units. For those originals only, explicitly enable **Import options → Assume mm for older E1 files** before importing if using the handoff's millimetre assumption. It is off by default, applies only to this E1 import, and never rewrites headers. The metadata and 3D view state that units are assumed and physical scale is unverified. Later team-prepared copies with explicit units need no opt-in. Ordinary MRI and SimNIBS imports remain strict.
+4. Inspect the three slice overlays, then select **3D view**. Rotate, zoom, change tissue visibility/opacity, choose **Brain** or **Head**, and optionally show the linked MRI slice planes.
 
 E1 IDs are **1 skin / 2 skull / 3 CSF / 4 gray matter / 5 white matter**. These differ from SimNIBS IDs; names, colors and presets switch with the imported source. The prediction must contain nonempty integer IDs 0–5 and match the original MRI's shape and affine after unit normalization. Different grids are rejected, not registered. Matching metadata does not prove subject identity or anatomical accuracy.
 
 The shared marching-cubes extractor uses the prediction's original affine for surface placement and bounded, approximate geometry (at most 360,000 triangles). The summary states the display sampling step. Source labels and scores are unchanged. These surfaces need no `.msh` conversion and are **not** a simulation-ready tetrahedral FEM mesh. Loading a new input that fails clears the previous scene; canceling a file picker leaves it unchanged.
 
-The header import action displays a completed prediction. To generate a new one, open **04 E1 segmentation**: select the inference Python, trusted model folder, MRI and output parent, then click **Generate E1 segmentation**. Successful new output opens automatically in 2D/3D. See the [desktop inference guide](INFERENCE.md) for setup, cancellation, provenance and checks. The existing K3 import/export workflow is preserved; training and model weights remain outside the desktop environment in the [E1 handoff](../e1_training/HANDOFF.md).
+The header import action displays a completed prediction. To generate a new one, open **AI segmentation**: select the inference Python, trusted model folder, MRI and output parent, then click **Create E1 segmentation**. Successful new output opens automatically in 2D/3D. See the [desktop inference guide](INFERENCE.md) for setup, cancellation, provenance and checks. The existing K3 import/export workflow is preserved; training and model weights remain outside the desktop environment in the [E1 handoff](../e1_training/HANDOFF.md).
 
 ## Geometry and validation
 
+- Failed image/model loads and exports show a persistent error banner above the
+  tabs, with error details and a recovery action. MRI failures identify the accepted
+  NIfTI input and keep Open MRI available after the worker finishes. Starting a
+  new operation clears the banner; canceling a file picker leaves it unchanged.
 - Supports real numeric, finite 3D `.nii`/`.nii.gz` volumes with coded qform/sform and explicit mm, meter, or micron spatial units. Trailing singleton dimensions are accepted (as used by supplied SimNIBS labels); multi-volume 4D data is rejected. Unsupported or malformed data produces an inline error. A failed MRI replacement clears the old preview.
 - Unit normalization and orientation changes affect the in-memory display only. Source geometry is retained. Axis permutations/flips use NiBabel; oblique/sheared scans are resampled linearly to an axis-aligned RAS display grid.
 - Labels must be non-negative integer IDs up to 65535, with 1–256 foreground classes. They are resampled by affine using nearest-neighbor interpolation, preserving discrete IDs. Nonoverlapping/empty overlays are rejected.

@@ -103,6 +103,46 @@ print('new prediction complete',flush=True)
         self.assertNotIn("train", command)
         self.assertEqual(job.prediction, job.run_dir / "prediction.nii.gz")
 
+    def test_e2_passes_model_version_and_requires_known_units(self):
+        job = self.job(experiment="E2")
+        job.validate()
+        command = job.command()
+        self.assertEqual(command[command.index("--experiment") + 1], "E2")
+        self.save(self.mri, units="unknown")
+        with self.assertRaisesRegex(ValueError, "known millimetre"):
+            self.job(experiment="E2", assume_mm=True).validate()
+
+    def test_model_version_switch_preserves_each_selected_folder(self):
+        from inference_panel import InferencePanel
+        panel = InferencePanel()
+        self.addCleanup(panel.close)
+        panel.model.setText(str(self.root / "E1-model"))
+        panel.experiment.setCurrentText("E2")
+        panel.model.setText(str(self.root / "E2-model"))
+        self.assertFalse(panel.assume_mm.isEnabled())
+        panel.experiment.setCurrentText("E1")
+        self.assertEqual(panel.model.text(), str(self.root / "E1-model"))
+        panel.experiment.setCurrentText("E2")
+        self.assertEqual(panel.model.text(), str(self.root / "E2-model"))
+
+    def test_local_setup_only_prefills_paths_and_never_runs_or_assumes_units(self):
+        window=Window();self.addCleanup(window.close)
+        panel=window.inference
+        settings=self.root/'settings.json'
+        settings.write_text(json.dumps({'python':sys.executable,'mri':str(self.mri),'output':str(self.root),
+            'models':{'E2':str(self.model)},'experiment':'E2','assume_mm':True}),encoding='utf-8')
+        panel.restore_local_defaults(settings)
+        self.assertEqual(panel.experiment.currentText(),'E2')
+        self.assertEqual(panel.model.text(),str(self.model))
+        self.assertEqual(panel.mri.text(),str(self.mri))
+        self.assertFalse(panel.assume_mm.isChecked())
+        self.assertIsNone(panel.runner)
+        self.assertFalse(window.busy)
+        self.assertTrue(panel.setup_inputs.isHidden())
+        settings.write_text('invalid JSON',encoding='utf-8')
+        panel.restore_local_defaults(settings)
+        self.assertEqual(panel.model.text(),str(self.model))
+
     def test_job_rejects_git_outputs_existing_runs_and_missing_weights(self):
         job = self.job();job.validate()
         job.run_dir.mkdir()
@@ -196,6 +236,43 @@ child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
             panel.start();self.wait_window(window)
         self.assertIsNone(window.head_model)
         self.assertIn('failed',panel.status.text().lower())
+
+    def test_prediction_estimate_does_not_claim_the_whole_job_is_complete(self):
+        window=Window();self.addCleanup(window.close)
+        panel=window.inference
+        panel.python.setText(sys.executable);panel.model.setText(str(self.model));panel.mri.setText(str(self.mri));panel.output.setText(str(self.root))
+        script=self.standin("import time;time.sleep(30)")
+        with patch.object(inference.InferenceJob,'command',return_value=[sys.executable,'-u',str(script)]):
+            panel.start()
+            panel.progress_text='Predicting x:\n7%|# | 2/27 [00:09<01:57, 4s/it]'
+            panel.update_metrics()
+            self.assertIn('for prediction only',panel.metrics.text())
+            self.assertEqual(panel.progress.maximum(),27)
+            panel.progress_text+='\r100%|##| 27/27 [02:04<00:00, 5s/it]'
+            panel.update_metrics()
+            self.assertIn('Saving',panel.metrics.text())
+            self.assertEqual(panel.progress.maximum(),0)
+            self.assertTrue(panel.busy)
+            panel.cancel();self.wait_window(window)
+
+    def test_cancel_button_requires_confirmation_and_preserves_partial_output(self):
+        window=Window();self.addCleanup(window.close)
+        panel=window.inference
+        panel.python.setText(sys.executable);panel.model.setText(str(self.model));panel.mri.setText(str(self.mri));panel.output.setText(str(self.root))
+        script=self.standin("import time; print('running',flush=True);time.sleep(30)")
+        with patch.object(inference.InferenceJob,'command',return_value=[sys.executable,'-u',str(script)]):
+            panel.start()
+            with patch('inference_panel.QMessageBox.question',return_value=QMessageBox.StandardButton.No):
+                panel.cancel_button.click()
+            self.assertTrue(panel.busy)
+            self.assertFalse(panel.runner.cancelled)
+            with patch('inference_panel.QMessageBox.question',return_value=QMessageBox.StandardButton.Yes):
+                panel.cancel_button.click()
+            self.wait_window(window)
+        self.assertTrue(panel.runner.cancelled)
+        self.assertTrue(panel.runner.log_path.exists())
+        self.assertTrue(panel.runner.job.record_path.exists())
+        self.assertEqual(window.result_title.text(), 'Inference cancelled')
 
     def test_display_failure_is_distinguished_from_completed_inference(self):
         window=Window();self.addCleanup(window.close)

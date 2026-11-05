@@ -10,7 +10,7 @@ COLORS = {1: "#fca685", 2: "#ead675", 3: "#408cff", 4: "#ad60cf", 5: "#e4e7ed"}
 OPACITY = {1: .12, 2: .3, 3: .25, 4: 1., 5: 1.}
 
 
-def extract_surfaces(labels, affine, step_size=2, max_faces=360_000):
+def extract_surfaces(labels, affine, step_size=2, max_faces=360_000, adaptive=True):
     from skimage.measure import marching_cubes
 
     labels, affine = np.asarray(labels), np.asarray(affine)
@@ -24,7 +24,7 @@ def extract_surfaces(labels, affine, step_size=2, max_faces=360_000):
         raise ValueError("Invalid surface extraction settings or empty labels.")
     ids = [int(value) for value in np.unique(labels) if value]
     # shortcut: coarser marching-cubes sampling is for display only; use validated full-resolution meshing for simulation.
-    for step in range(step_size, 5):
+    for step in (range(step_size, 5) if adaptive else (step_size,)):
         surfaces = []
         for label in ids:
             mask = labels == label
@@ -43,7 +43,7 @@ def extract_surfaces(labels, affine, step_size=2, max_faces=360_000):
             surfaces.append({"label": label, "vertices": vertices, "faces": faces.astype(np.int32), "step_size": used})
         if sum(len(mesh["faces"]) for mesh in surfaces) <= max_faces:
             return surfaces
-    raise ValueError("Surface geometry is too complex for the bounded browser preview.")
+    raise ValueError("Surface geometry is too complex for this preview limit; choose a coarser voxel step.")
 
 
 def make_view(labels, affine, names):

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+import csv
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,7 @@ from installation import command_prefix
 
 BATCH = TOOLS / "charm_batch/run_charm_batch.py"
 ASSIGNMENT = TOOLS / "charm_batch/ixi_assignment.csv"
+MULTIAXIAL_ASSIGNMENT = "multiaxial_assignment.csv"
 
 
 def training_rows(owner):
@@ -46,11 +48,28 @@ def untracked_runs(output):
                   and not read_record(output / "runs" / f"{s}.json"))
 
 
+def monitor_rows(output, owner):
+    assignment = output / MULTIAXIAL_ASSIGNMENT
+    if not assignment.exists():
+        return training_rows(owner)
+    with assignment.open(newline="", encoding="utf-8-sig") as source:
+        reader = csv.DictReader(source)
+        if not {"subject", "owner", "cohort", "site"}.issubset(reader.fieldnames or ()):
+            raise ValueError("MultiAxial assignment is missing required columns.")
+        rows = [row for row in reader if row["owner"] == owner and row["cohort"] in ("train", "val")]
+    subjects = [row["subject"] or "" for row in rows]
+    if not subjects or len(set(subjects)) != len(subjects) or any(
+        not re.fullmatch(r"(?:GU|NC|NYU)\d{3}", subject) for subject in subjects
+    ):
+        raise ValueError(f"MultiAxial assignment for {owner} is empty or contains invalid or duplicate subjects.")
+    return rows
+
+
 def read_cases(output, owner):
     output = Path(output)
     locked = batch.batch_is_running(output)
     cases = []
-    for row in training_rows(owner):
+    for row in monitor_rows(output, owner):
         subject = row["subject"]
         record = read_record(output / "runs" / f"{subject}.json")
         model = output / f"m2m_{subject}"
@@ -111,6 +130,8 @@ class BatchJob:
         return tuple(s for s in self.command() if s != "--dry-run") + (batch.sha256(ASSIGNMENT),)
 
     def validate(self):
+        if (self.output / MULTIAXIAL_ASSIGNMENT).exists():
+            raise ValueError("MultiAxial folders use read-only monitoring here.")
         rows = training_rows(self.owner)
         for label, path in (("SimNIBS Python", self.python), ("CHARM", self.charm)):
             if not path.is_file() or (sys.platform != "win32" and not os.access(path, os.X_OK)):

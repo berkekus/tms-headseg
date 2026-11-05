@@ -1,4 +1,4 @@
-"""Use the reviewed E1 CLI in an owned subprocess, without torch in Qt."""
+"""Use the reviewed segmentation CLI in an owned subprocess, without torch in Qt."""
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -29,6 +29,7 @@ class InferenceJob:
     device: str = "cpu"
     tta: bool = False
     assume_mm: bool = False
+    experiment: str = "E1"
 
     @property
     def run_dir(self):
@@ -45,20 +46,23 @@ class InferenceJob:
     def command(self):
         return [str(self.python), "-u", str(DEMO), "predict", "--model", str(self.model),
                 "--mri", str(self.mri), "--out", str(self.run_dir), "--device", self.device] + (
-                    [] if self.tta else ["--disable-tta"])
+                    [] if self.tta else ["--disable-tta"]) + (
+                    ["--experiment", "E2"] if self.experiment == "E2" else [])
 
     def validate(self):
+        if self.experiment not in ("E1", "E2"):
+            raise ValueError("Choose E1 or E2.")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", self.subject):
             raise ValueError("Use a fresh run ID with letters, digits, underscores or hyphens.")
         if self.device not in ("cpu", "cuda"):
             raise ValueError("Choose CPU or CUDA.")
         if not self.python.is_file() or (sys.platform != "win32" and not os.access(self.python, os.X_OK)):
-            raise ValueError("Choose the inference environment's Python executable (Python 3.11, nnU-Net 2.8.1, torch 2.6.0).")
+            raise ValueError("Choose the inference environment's Python executable (nnU-Net 2.8.1, torch 2.6.0).")
         if not DEMO.is_file():
             raise ValueError("Keep tools/e1_training beside the desktop prototype.")
         for name in ("plans.json", "dataset.json", "fold_0/checkpoint_final.pth"):
             if not (self.model / name).is_file():
-                raise ValueError(f"Completed E1 model is missing {name}.")
+                raise ValueError(f"Completed model is missing {name}.")
         if not self.output.is_dir() or not os.access(self.output, os.W_OK):
             raise ValueError("Choose an existing writable output folder.")
         output = self.output.resolve()
@@ -77,6 +81,8 @@ class InferenceJob:
                 or not any(int(image.header[k]) > 0 for k in ("qform_code", "sform_code"))):
             raise ValueError("MRI needs a finite coded spatial transform.")
         unit = image.header.get_xyzt_units()[0]
+        if self.experiment == "E2" and unit != "mm":
+            raise ValueError("E2 requires MRI headers with known millimetre units for reversible RAS preparation.")
         if unit == "unknown" and not self.assume_mm:
             raise ValueError("MRI units are unknown. Explicitly enable the handoff mm assumption to use this original E1 MRI.")
         if unit not in ("mm", "unknown"):
@@ -93,7 +99,7 @@ class InferenceRunner(Runner):
         self.cleaned_group = False
 
     def record(self, state):
-        data = {"state": state, "mode": "inference", "mri": str(self.job.mri), "model": str(self.job.model),
+        data = {"state": state, "mode": "inference", "experiment": self.job.experiment, "mri": str(self.job.mri), "model": str(self.job.model),
                 "output": str(self.job.run_dir), "python": str(self.job.python), "device": self.job.device,
                 "tta": self.job.tta, "unknown_units_assumed_mm": self.job.assume_mm,
                 "math_threads": self.math_threads, "command": self.job.command(), "log": str(self.log_path),

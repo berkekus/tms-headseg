@@ -1,9 +1,15 @@
 # Experiment Register
 
+- [K4 E2 CPU Timing Baseline](k4-inference-timing.md) — K4-TIME-001, completed: 3/3 E2 CPU Ernie runs passed; median prediction/restore 128.628 s and desktop total 158.623 s. Source hashes preserved; one-case timing, not accuracy or model comparison.
+
+- [E2 Model Handoff and Workbench Integration](e2-handoff-review.md) — E2 selects and loads in Workbench; real GU011 CPU inference and native 3D display passed. Same-reference E1/E2 Dice 0.8161/0.9155 on one validation case.
+
 [Project map](../index.md) · [Current state](../current.md)
 
 Concurrent records retain their original IDs: the two EXP-002 notes describe distinct IXI and Ernie runs; the EXP-003 notes describe the same E1 model, with team-summary and local preparation/demo evidence respectively. Use the linked note title to distinguish them.
 
+- [EXP-008: E2 Preliminary nnU-Net on charm Labels](e2-preliminary-training.md) — EXP-008 — completed_validation_only. 100-epoch E2 on Dataset002_E2Charm (67/16, RAS copy): mean validation Dice 0.9140 against charm labels; L4 then A100 sessions.
+- [MultiAxial K2 CHARM Preflight and Launch](multiaxial-k2-preflight.md) — nine T1-only cases passed preflight; GU011 started and Workbench displays live logs.
 - [IXI K2 Batch Preparation and Preflight](ixi-k2-preflight.md) — completed_execution_qc_pending. IXI037 finished in 32:52 (batch 33.0 min), exit 0; input/output/delivery hashes passed. Native batch monitoring shows 1/15 completed. Anatomical QC and the other 14 runs remain pending.
 - [EXP-007: Envelope Seal on a Second Head (SimNIBS MNI152 Example)](mni152-envelope-seal.md) — EXP-007 — completed. The 8 mm seal filled 123.5 mL of internal air and left the outer skin in place; the surface lay 0.24 mm from charm's skin on average.
 - [EXP-006: Surfaces from Fresh charm 4.6 Labels](ernie-fresh-charm-surfaces.md) — EXP-006 — completed. Open airways entered the head surface; an 8 mm seal brought it to a 0.29 mm mean from SimNIBS 4.6's skin.

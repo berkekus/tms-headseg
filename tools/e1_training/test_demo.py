@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 import nibabel as nib
@@ -85,7 +86,7 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(result["case_mean_dice"], 1)
         self.assertIsNone(result["timing"])
         self.assertTrue(result["surface_view"]["visualization_only"])
-        html = (out / "report.html").read_text()
+        html = (out / "report.html").read_text(encoding="utf-8")
         self.assertIn("data:image/png;base64,", html)
         self.assertIn("Kaydedilmiş tahmin", html)
         self.assertTrue('<script src=' not in html, "Report must bundle its viewer library")
@@ -94,6 +95,24 @@ class DemoTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exists"):
             demo.make_report(self.mri, self.pred, out, reference=self.ref)
 
+    def test_e2_report_has_correct_experiment_without_e1_cohort_claim(self):
+        out = self.root / "e2_report"
+        demo.make_report(self.mri, self.pred, out, experiment="E2")
+        result = json.loads((out / "report.json").read_text())
+        self.assertEqual(result["experiment"], "E2")
+        page = (out / "report.html").read_text(encoding="utf-8")
+        self.assertIn("E2 ön model", page)
+        self.assertNotIn("E1 ön model", page)
+        self.assertNotIn("44 eğitim", page)
+
+    def test_saved_e2_report_cli_forwards_experiment(self):
+        arguments = ["demo.py", "report", "--mri", str(self.mri),
+                     "--recorded-prediction", str(self.pred), "--out", str(self.root / "report"),
+                     "--experiment", "E2"]
+        with patch("sys.argv", arguments), patch.object(demo, "make_report", return_value="report.html") as report:
+            demo.main()
+        self.assertEqual(report.call_args.kwargs["experiment"], "E2")
+
     def test_recorded_report_cannot_claim_live_timing(self):
         with self.assertRaisesRegex(ValueError, "timing"):
             demo.make_report(self.mri, self.pred, self.root / "report", timing={"prediction_seconds": 1})
@@ -101,7 +120,7 @@ class DemoTests(unittest.TestCase):
     def test_report_without_reference_has_no_disagreement_claim(self):
         out = self.root / "without_reference"
         demo.make_report(self.mri, self.pred, out)
-        page = (out / "report.html").read_text()
+        page = (out / "report.html").read_text(encoding="utf-8")
         self.assertTrue("Referans yok; bu MRI için Dice hesaplanmadı." in page, "Missing no-reference explanation")
         self.assertTrue("Turuncu:" not in page, "Disagreement legend requires a reference")
 
