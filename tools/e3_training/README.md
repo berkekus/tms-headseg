@@ -95,6 +95,24 @@ time. Local Mac activity does not guarantee a Colab backend remains allocated.
 
 ## Resume and completion
 
+### Recover an older section 4 missing-metadata error
+
+An earlier notebook omitted `dataset.json` when installing the frozen plan. If
+fingerprinting passed but preprocessing reports a missing
+`nnUNet_preprocessed/Dataset003_E3Face/dataset.json`, run this in a new cell and
+then rerun the failed section 4 cell. Keep the current runtime and dataset; no
+re-upload or environment reset is needed.
+
+```python
+target = PREPROCESSED / DATASET
+target.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(TRAIN_DATASET / "dataset.json", target / "dataset.json")
+print("dataset.json ready:", (target / "dataset.json").is_file())
+```
+
+The revised notebook copies this metadata before launching preprocessing. The
+five-epoch pilot starts only after section 4 completes.
+
 After a runtime reset, keep the same experiment ID and unchanged files. Rerun
 setup/audit/preprocessing to rebuild local VM data, acknowledge the data, then set:
 

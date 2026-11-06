@@ -80,3 +80,27 @@ repository `E3_Colab.ipynb` contains identical code.
 Actual upload completion, account access, CUDA/multi-worker execution and training
 duration/results remain unverified until the operator runs the GPU pilot.
 No paid training, commit or push was started by this preparation.
+
+## Colab preprocessing metadata failure and correction
+
+The user later supplied a section 4 log: dataset integrity and all 106 fingerprint
+entries passed, then `nnUNetv2_preprocess` failed because the preprocessed dataset
+folder lacked `dataset.json`. Installing a frozen plan bypassed the normal planner
+step that supplies that metadata. Earlier per-case preprocessing checks did not
+exercise this dataset-level CLI boundary.
+
+The generator now copies the audited RAS dataset JSON beside the frozen plans
+before invoking preprocessing. A new regression executes the generated cell and
+asserts metadata is staged before the CLI call. The existing Colab session can
+copy this one file and rerun section 4 without changing the scientific contract,
+re-uploading data or restarting the runtime. The supplied log does not establish
+pilot/training completion.
+
+The new regression failed with the same missing-file error before the fix and
+passes afterwards. Sixteen E3 checks plus sixteen E2 regressions now pass. A real
+one-case GU002 dataset-level CLI trial reproduced the error without metadata and
+completed after copying it. An initial sandboxed attempt encountered OpenMP SHM
+restrictions and was stopped; the native retry exited 0 and wrote the expected
+preprocessed case files. Evidence is under
+`training-runs/e3-preprocess-cli-fix-5czf51s0/`. Full remote preprocessing and GPU
+pilot completion still require the user's subsequent logs.
