@@ -72,6 +72,21 @@ Pass-only build (2026-11-05): all 54 MultiAxial runs delivered and verified. 19 
 
 Lesion rule (decided 2026-11-05, option b): for MultiAxial cases, regions that the Dataset001 reference labels CSF, that charm labels GM or WM, and that are CSF-dark on T1 become CSF when they are thick (survive a 2-voxel opening) and at least 1 mL (`csf_like_lesions`). Thin sulcal differences keep charm's convention. The reference is read from `labelsTr` next to `--ma-images` (or `--ma-labels`); `e2_manifest.csv` records `lesion_csf_ml`. The full build (`e2_full_20261105`, 83 cases, `--require-all`) adds the QC sheet `qc_K1_lesion_rule_20261105.csv` after the other sheets.
 
+## E3: face weighting (`prepare_e3.py`, 2026-11-06)
+
+E3 (`Dataset003_E3Face`) is built from a finished E2 folder and keeps its cases, label rules and validation split. It differs from E2 in two ways:
+
+1. **Ignore where there is no signal.** In training cases, voxels outside the acquisition get nnU-Net's `ignore` label (6). These are the exactly-zero voxels connected to the border (`outside_acquisition`): the MultiAxial defacing wedge and padding. E2 labels them background, which teaches "the face is air"; with `ignore`, the loss skips them. A mid-sagittal check of GU002, NC023 and NYU005 showed this region to be the anterior-inferior defacing wedge plus a thin border frame. The air around the rest of the head is noisy, not zero, so the skin–air boundary stays supervised.
+2. **Weight intact faces.** Each IXI training case appears `--ixi-weight` times (default 2, copies `<case>w2`), in training only.
+
+Validation labels are byte-identical to E2 (16 cases), so E2 and E3 compare directly. At inference, set predictions in voxels without signal to background, because the model learned nothing there; nnU-Net's own validation Dice does not do this.
+
+```powershell
+python tools/nnunet_prep/prepare_e3.py --e2 <tms-data>\e2_full_20261105 --out <new folder> [--ixi-weight 2]
+```
+
+Build (2026-11-06): `e3_face_20261106` has 90 training files (IXI 46 = 23 × 2, MultiAxial 44) and 16 validation cases. Ignored volume per training case: MultiAxial median 5.4 L (1.7–9.9), IXI median 3.5 L, mostly padding away from the head. `nnUNetv2_extract_fingerprint -d 3 --verify_dataset_integrity` passed. Handoff: `handoff_e3.zip` (1.48 GB, SHA-256 `c12f5fb2…ba7698`), with `BASLA_E3.md`. The E2 Colab notebook pins Dataset002's archive hash, so training E3 needs its dataset ID, hash and split updated.
+
 ## Run E2 on a new MRI (`predict_e2.py`)
 
 ```powershell
