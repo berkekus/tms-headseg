@@ -2,6 +2,7 @@
 
 ## 2026-11-06
 
+- **E2 through the Workbench route on the K3 machine**: The downloaded E2 checkpoint matched K4's verified hash. The Workbench's E2 command ran on the public Ernie T1 in 7.1 s load and 76.4 s CPU prediction, returned labels on the T1's PSR grid, and agreed with the EXP-001 charm labels at Dice 0.910 skin, 0.854 skull, 0.859 CSF, 0.941 GM, 0.962 WM. One subject, agreement with charm only. Recorded in [EXP-008](experiments/e2-preliminary-training.md).
 - **Hybrid mesh (K1)**: Put E2's NC023 validation labels into a copy of charm's folder and ran `charm --mesh`. It took 11.2 min, against 46 min for charm alone. Against the MultiAxial reference it scored skin/skull/CSF/GM/WM 0.832/0.823/0.756/0.839/0.893, against 0.671/0.741/0.694/0.825/0.890 for charm's own mesh. Recorded charm stage times and the reported Brainsight import of charm meshes, which is unverified. Recorded in [EXP-009](experiments/hybrid-charm-mesh.md).
 - **E2 K1 review**: Recorded per-source validation Dice and a same-case cross-scoring (E1/E2/charm against the MultiAxial reference: 0.872/0.800/0.783). The prediction failed on a wide field of view (Ernie Extended) and recovered after cropping to the head (GM 0.925 against charm). Also recorded a check on a private 6 mm clinical scan. Recorded in [EXP-008](experiments/e2-preliminary-training.md#k1-review-2026-11-06).
 

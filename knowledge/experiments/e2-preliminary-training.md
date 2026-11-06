@@ -89,6 +89,15 @@ Each model reproduces the labels it was trained on. E2 agrees with the reference
 - Ernie Extended T1 (289×421×526 voxels, PSR, head, neck and shoulders): the prediction failed, with implausible volumes and GM Dice 0.35 against charm. Cropped to the head (243×213×195; 30 mm beside and in front of and behind the charm GM extent, 60 mm below it, 20 mm above it), it ran in 18 s with Dice against charm of skin 0.882, skull 0.782, CSF 0.808, GM 0.925 and WM 0.955. The crop used charm's labels, so it is not an automatic crop. The model needs a head-only field of view; **automatic head cropping is a missing pipeline step.**
 - One private clinical T1 held locally by K1 (28 axial slices, 0.94 mm in plane, 6 mm thick), interpolated to 1 mm beforehand: the prediction ran in 34 s and its surfaces verified. Folding looked sharp in plane but smeared through plane, as expected from 6 mm slices. Against the earlier E1 prediction on the same grid, Dice was 0.92 skin, 0.75 skull, 0.74 CSF, 0.82 GM and 0.87 WM. There is no reference, so accuracy was not measured. The data and outputs stay local; no identifiers are recorded.
 
+**Workbench route on the K3 machine (2026-11-06).** The user's downloaded `checkpoint_final.pth` (246,487,600 bytes) has SHA-256 `388d2fda…c043`, the checkpoint verified in [K4-TIME-001](k4-inference-timing.md). The command the Workbench builds (`demo.py predict --experiment E2 --device cpu --disable-tta`, automatic head crop on) ran on the public Ernie T1 (`org/ernie_T1.nii.gz`, 256×256×208, PSR) in a new Python 3.13.1 environment with torch 2.6.0+cpu, nnU-Net 2.8.1 and NumPy 2.5.4 (20-core Windows machine, 31.8 GB). Model load took 7.1 s and prediction 76.4 s. The head crop kept nearly the whole volume (201×246×251). The final `prediction.nii.gz` has the T1's shape and affine (PSR). Against the mapped EXP-001 charm labels (T1 only) of the same scan:
+
+| | Skin | Skull | CSF | GM | WM |
+| --- | --- | --- | --- | --- | --- |
+| Dice vs charm | 0.910 | 0.854 | 0.859 | 0.941 | 0.962 |
+| E2 / charm volume (mL) | 2338 / 2370 | 624 / 654 | 401 / 381 | 700 / 702 | 586 / 606 |
+
+Ernie is not in the E2 training set. This is agreement with charm on one subject, not accuracy. The run folder is `tms-data/runs/e2_ernie_20261106T095733Z`, outside Git.
+
 Meshing E2 labels with charm is recorded in [EXP-009](hybrid-charm-mesh.md).
 
 ## Measurement limits
