@@ -30,16 +30,19 @@ Cases: one per center (1BA001, 1BB002, 1BC001), extracted to `tms-data\ct_eval_D
 
 **Alignment check:** In every case the CT bone outline lay on the dark skull band of the T1. Center B's MR is contrast-enhanced.
 
-**E2 (`results_e2_L4_20261105`) against CT, calvaria:**
+**E2 (`results_e2_L4_20261105`) and charm 4.6.0 (T1 only) against CT, calvaria, 300 HU.** Scores are in `scores\`.
 
-| Case | Dice (300 HU) | ASSD (mm) | HD95 (mm) | E2 / CT volume |
-| --- | --- | --- | --- | --- |
-| 1BA001 | 0.813 | 1.21 | 2.00 | 156 / 215 mL |
-| 1BB002 | 0.828 | 1.16 | 2.83 | 225 / 254 mL |
-| 1BC001 | 0.834 | 1.03 | 2.24 | 199 / 233 mL |
+| Case | E2 Dice | charm Dice | E2 ASSD | charm ASSD | E2 HD95 | charm HD95 | Volume E2 / charm / CT |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1BA001 | 0.813 | 0.816 | 1.21 mm | 1.21 mm | 2.00 mm | 2.24 mm | 156 / 159 / 215 mL |
+| 1BB002 (contrast) | 0.828 | 0.830 | 1.16 mm | 1.12 mm | 2.83 mm | 2.45 mm | 225 / 210 / 254 mL |
+| 1BC001 | 0.834 | 0.830 | 1.03 mm | 1.02 mm | 2.24 mm | 2.24 mm | 199 / 177 / 233 mL |
+
+In the whole field (skull base, face and vertebrae included), charm is slightly ahead: Dice 0.739–0.766 against 0.711–0.759 for E2. charm took 53–60 min per case.
 
 **What the pilot shows:**
-- E2 draws the skull about one voxel thinner than CT, losing bone at both the inner and outer edges.
+- In the calvaria, E2 and charm agree with CT equally well: Dice differences are 0.004 or less.
+- Both draw the skull thinner than CT, by 11–27% (E2) and 17–26% (charm). E2 loses bone at both the inner and outer edges. Because E2 learned from charm labels, it probably inherits this. A CT-informed skull label could improve on charm here.
 - At 200, 300 and 400 HU, the calvaria Dice moves by at most 0.06, rising with the threshold. The order of the cases changes, so every comparison should use the same threshold.
 - 1BA001 has an intracranial calcification larger than 1 mL near a lesion, which the reference counts as bone.
 

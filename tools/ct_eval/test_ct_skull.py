@@ -86,7 +86,7 @@ class CtSkullTest(unittest.TestCase):
         charm = np.zeros(SHAPE, np.uint8)
         charm[labels == cs.SKULL] = 7  # compact bone
         charm[labels == 1] = 5
-        p = self.save(ct=ct, mr=mr, pred=charm)
+        p = self.save(ct=ct, mr=mr, pred=charm[..., None])  # charm writes a trailing size-1 axis
         self.assertAlmostEqual(cs.evaluate(p["ct"], p["mr"], p["pred"], charm=True)["field"]["dice"], 1.0)
         moved = self.dir / "moved.nii.gz"
         affine = np.eye(4)

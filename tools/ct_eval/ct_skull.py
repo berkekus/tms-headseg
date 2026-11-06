@@ -35,7 +35,11 @@ CALVARIA_MM = 70.0
 
 
 def canonical(path):
-    img = nib.as_closest_canonical(nib.load(str(path)))
+    """Data, affine and spacing in RAS. A trailing size-1 axis (charm's final_tissues) is dropped."""
+    img = nib.load(str(path))
+    if img.ndim == 4 and img.shape[3] == 1:
+        img = img.slicer[..., 0]
+    img = nib.as_closest_canonical(img)
     return np.asanyarray(img.dataobj), img.affine, np.asarray(img.header.get_zooms()[:3], float)
 
 
