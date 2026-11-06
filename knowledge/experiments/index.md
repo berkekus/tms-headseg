@@ -1,5 +1,10 @@
 # Experiment Register
 
+- [Dataset003 E3 Training Preparation](e3-dataset003-training.md) — revised notebook ready for the required GPU pilot. Actual ZIP/SHA, 90/16 entries, ignore 6, standard uniform sampling, full RAS audit and real preprocessing checked; 15 E3 + 16 E2 tests pass. GPU training not run.
+
+- [Actual E3 Dataset003 Handoff Review](e3-data-handoff-review.md) — technical checks passed on 106 pairs; 90 training entries / 16 validation, ignore 6 and 23 IXI duplicates. ZIP/SHA ready for Drive; revised training preparation linked above.
+- [E3 Face-Preserved Case Weighting](e3-face-weighted-training.md) — earlier E2-based sampling-only preparation, superseded by the actual Dataset003 handoff. Its notebook must not be used for the supplied E3 package.
+
 - [K4 E2 CPU Timing Baseline](k4-inference-timing.md) — K4-TIME-001, completed: 3/3 E2 CPU Ernie runs passed; median prediction/restore 128.628 s and desktop total 158.623 s. Source hashes preserved; one-case timing, not accuracy or model comparison.
 
 - [E2 Model Handoff and Workbench Integration](e2-handoff-review.md) — E2 selects and loads in Workbench; real GU011 CPU inference and native 3D display passed. Same-reference E1/E2 Dice 0.8161/0.9155 on one validation case.

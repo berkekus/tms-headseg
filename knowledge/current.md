@@ -54,6 +54,21 @@ The first two choices come directly from the user; document review is not implie
 
 ## Next useful action
 
+The user supplied the [actual E3 handoff](experiments/e3-data-handoff-review.md) on
+2026-11-06. Dataset003_E3Face contains 90 training entries (67 people, including 23
+byte-identical IXI duplicates) and the same 16 validation subjects as E2. Training
+adds `ignore: 6` on boundary-connected zero-valued image regions. Archive integrity,
+all pair grids/labels, ignore masks and copy identities passed; all 16 validation
+references reproduce the recorded E2 counts. The ZIP and SHA can be uploaded to
+Drive. The [revised Dataset003 notebook](experiments/e3-dataset003-training.md) is now
+prepared with ignore-label support and standard uniform sampling over the already
+weighted entries. All 106 RAS entries passed audit; real GU002/IXI037 preprocessing,
+ignore-loss/CPU training checks and 15 E3 + 16 E2 tests passed. The earlier
+[sampler-only proposal](experiments/e3-face-weighted-training.md) remains superseded.
+Next finish the two Drive uploads, open the revised notebook in Colab and complete
+the required GPU pilot before enabling 100 epochs. No E3 training has run;
+Workbench E3 import is also pending.
+
 Workbench now offers Auto and explicit 4/2/1-voxel surface detail plus Slicer-style display smoothing for E1/E2 predictions. Native sub-10159 testing verified the 3,487,226-triangle 1-voxel view and smoothing factor 0.50, preserving the camera and input hashes. See the [display-detail evidence](experiments/e2-handoff-review.md#adjustable-desktop-surface-detail) and [smoothing evidence](experiments/e2-handoff-review.md#slicer-style-surface-smoothing).
 
 The [E2 model review and Workbench integration](experiments/e2-handoff-review.md) verified the supplied final checkpoint, epoch 100 and 16 readable validation predictions. Workbench now offers E1/E2 selection. Real E2 CPU inference on GU011 completed in about 206 seconds plus report/viewer work and opened in native 3D. Against the same reconstructed E2 reference, retained E1 and fresh E2 CPU outputs score 0.8161 / 0.9155. This is one validation case's agreement with the E2 labels. The original E2 cohort score is 0.91402824 on 16 cases. Windows execution and independent anatomical comparison remain pending. Earlier E2-pending entries below describe preparation history.
