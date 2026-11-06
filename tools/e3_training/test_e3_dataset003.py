@@ -226,6 +226,38 @@ class ContractAndNotebookTests(unittest.TestCase):
             with patch("os.path.ismount", return_value=True), self.assertRaisesRegex(ValueError, "five-epoch pilot"):
                 ns["train_stage"]("nnUNetTrainer_E3Preliminary", True, False)
 
+    def test_preprocess_cell_stages_dataset_metadata_before_cli(self):
+        import hashlib
+        import shutil
+        from build_e3_notebook import build
+        from e3_data import require, sha256
+        n = build()
+        cell = next(c["source"] for c in n["cells"] if c["source"].startswith("require(ACKNOWLEDGE_E3_DATA"))
+        class ReachedPreprocess(Exception):pass
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp);tools = root / "tools";tools.mkdir()
+            shutil.copyfile(HERE / "e3_plans.json", tools / "e3_plans.json")
+            raw = root / "raw";raw.mkdir()
+            metadata = {"labels": {"background": 0, "skin": 1, "ignore": 6}, "numTraining": 2}
+            (raw / "dataset.json").write_text(json.dumps(metadata))
+            pre = root / "pre";dataset = "Dataset003_E3Face"
+            def run_logged(command, log, env):
+                if Path(command[0]).name == "nnUNetv2_extract_fingerprint":
+                    (pre / dataset).mkdir(parents=True, exist_ok=True)
+                    (pre / dataset / "dataset_fingerprint.json").write_text("{}")
+                else:
+                    self.assertEqual(json.loads((pre / dataset / "dataset.json").read_text()), metadata)
+                    raise ReachedPreprocess
+            ns = {"ACKNOWLEDGE_E3_DATA": True, "require": require, "TOOLS": tools,
+                  "CONTRACT": {"plans_sha256": sha256(tools / "e3_plans.json")},
+                  "PREPROCESSED": pre, "report": {"semantic_dataset_sha256": "synthetic"},
+                  "LOCK_SHA256": "lock", "sha256": sha256, "hashlib": hashlib, "DATASET": dataset,
+                  "VENV": root / "venv", "DATASET_ID": "3", "RESULTS": root / "results",
+                  "run_logged": run_logged, "ENV": {}, "shutil": shutil, "TRAIN_DATASET": raw}
+            import time
+            ns["time"] = time
+            with self.assertRaises(ReachedPreprocess):exec(cell, ns)
+
 
 @unittest.skipUnless(importlib.util.find_spec("nnunetv2"), "nnU-Net environment required")
 class RealTrainingTests(unittest.TestCase):

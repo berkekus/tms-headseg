@@ -114,6 +114,7 @@ def build():
                     run_logged([str(VENV / "bin/nnUNetv2_extract_fingerprint"), "-d", DATASET_ID, "--verify_dataset_integrity", "-np", "1"],
                                RESULTS / "logs" / f"fingerprint_{time.time_ns()}.log", ENV)
                     plan_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(TRAIN_DATASET / "dataset.json", plan_path.parent / "dataset.json")
                     shutil.copyfile(frozen_plan, plan_path)
                     run_logged([str(VENV / "bin/nnUNetv2_preprocess"), "-d", DATASET_ID, "-c", "3d_fullres", "-np", "1"],
                                RESULTS / "logs" / f"preprocess_{time.time_ns()}.log", ENV)
