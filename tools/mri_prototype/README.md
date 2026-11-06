@@ -139,6 +139,14 @@ Select **3D view** to rotate with left drag, pan with Shift-drag, and zoom with 
 
 **Show MRI slice planes** places the three current MRI slices into the same physical coordinate system as the mesh. Slice positions and contrast follow the inspection tab's controls. Original mesh node coordinates are retained in subject-world millimeters; the MRI affine places the image planes. No additional mesh transform, smoothing, decimation, or registration is applied. Visual checks remain necessary; bounding-box overlap alone does not establish anatomical alignment.
 
+**Brain regions** (3D view sidebar) colors the cortex of a charm or hybrid model folder with an atlas. The folder needs `surfaces/{lh,rh}.pial.gii` and `sphere.reg.gii`. DK40 and a2009s ship with the tool, so SimNIBS need not be installed; HCP-MMP1 appears only when SimNIBS 4 is installed.
+- **Atlas:** choose DK40, a2009s or HCP-MMP1. Off removes the layer.
+- **Highlight TMS targets:** paints motor cortex red and the middle frontal regions around DLPFC orange (approximate) on a gray cortex.
+- **Region list:** hides or shows single regions.
+- **Click:** a click without dragging marks the point with a white dot and names its region. The name appears in the 3D view's top-left corner, in the Brain regions box and in the status line. Dragging still rotates the view.
+
+While regions show, the gray matter surface is hidden because the pial layer would overlap it; Off restores it. AI segmentations and exported models have no charm surfaces yet, so the box stays disabled for them with an explanation. See [`tools/brain_regions`](../brain_regions/README.md).
+
 To preload an existing model without starting CHARM:
 
 ```bash

@@ -394,6 +394,8 @@ class Window(LauncherWindow):
         self.tabs.addTab(self.reference_shell, "Reference tools")
         self.mesh_view = MeshView()
         self.mesh_view.detail_requested.connect(self.change_surface_detail)
+        self.mesh_view.regions_requested.connect(self.change_regions)
+        self.mesh_view.region_picked.connect(lambda name: self.feedback.setText(f"Brain region · {name}"))
         self.tabs.addTab(self.mesh_view, "3D view")
         self.inference = InferencePanel()
         self.inference_scroll = QScrollArea()
@@ -552,6 +554,24 @@ class Window(LauncherWindow):
                       error_title="Surface detail could not be updated",
                       recovery="The previous preview is still open. Try a coarser voxel step or less smoothing, then apply again.",
                       activity="Updating 3D surface detail and smoothing")
+
+    def change_regions(self, atlas):
+        """Color charm's cortex with an atlas, computed in the background; an empty atlas removes it."""
+        model = self.head_model
+        if not atlas or model is None or model.kind != "simnibs":
+            self.mesh_view.set_regions(None)
+            return
+        from mesh_viewer import regions_module
+        subject_regions = regions_module().subject_regions
+        def loaded(regions):
+            self.mesh_view.set_regions(regions)
+            self.feedback.setText(f"Brain regions · {atlas} · {len(regions.regions())} regions on charm's pial surface. "
+                                  "Click the cortex to name a region.")
+        self.feedback.setText(f"Mapping the {atlas} atlas onto the cortex…")
+        self.run_task(lambda: subject_regions(model.directory, atlas), loaded,
+                      error_title="Brain regions could not be colored",
+                      recovery="Check that SimNIBS 4 is installed and the folder has charm surfaces, then choose the atlas again.",
+                      activity="Coloring brain regions")
 
     def clear_model(self):
         self.head_model = None

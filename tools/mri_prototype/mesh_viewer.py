@@ -2,11 +2,15 @@
 
 import numpy as np
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QSurfaceFormat
+from PySide6.QtGui import QColor, QIcon, QPixmap, QSurfaceFormat
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDoubleSpinBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSlider,
-    QVBoxLayout, QWidget,
+    QCheckBox, QComboBox, QDoubleSpinBox, QGroupBox, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton,
+    QScrollArea, QSlider, QVBoxLayout, QWidget,
 )
+
+REGION_ATLASES = (("Off", ""), ("DK40 · 34 regions per side", "DK40"), ("a2009s · 74 regions per side", "a2009s"),
+                  ("HCP-MMP1 · 180 regions per side", "HCP_MMP1"))
+PICK_RADIUS_MM = 5.0
 
 from viewer import label_color
 from visual_theme import compact_action, compact_choice
@@ -65,8 +69,65 @@ def plane_actor(volume, axis, index, level, width):
     return actor
 
 
+def regions_module():
+    """tools/brain_regions, imported on demand so the viewer starts without it."""
+    import sys
+    from pathlib import Path
+    tools = str(Path(__file__).resolve().parents[1])
+    if tools not in sys.path:
+        sys.path.insert(0, tools)
+    from brain_regions import regions
+    return regions
+
+
+def region_triangles(hemi, hidden):
+    """Triangles to draw: those whose first vertex lies in a region that is not hidden."""
+    hidden_labels = [label for name, label in hidden if name == hemi.name]
+    return ~np.isin(hemi.labels[hemi.triangles[:, 0]], hidden_labels)
+
+
+def colored_actor(points, triangles, colors):
+    """A surface actor that takes its color from per-vertex RGB values."""
+    from vtkmodules.util.numpy_support import numpy_to_vtk, numpy_to_vtkIdTypeArray
+    from vtkmodules.vtkCommonCore import vtkPoints
+    from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData
+    from vtkmodules.vtkFiltersCore import vtkPolyDataNormals
+    from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper
+    vtk_points = vtkPoints()
+    vtk_points.SetData(numpy_to_vtk(np.ascontiguousarray(points, float), deep=True))
+    cells = vtkCellArray()
+    cells.SetData(numpy_to_vtkIdTypeArray(np.arange(0, triangles.size + 1, 3, dtype=np.int64), deep=True),
+                  numpy_to_vtkIdTypeArray(triangles.astype(np.int64).ravel(), deep=True))
+    poly = vtkPolyData()
+    poly.SetPoints(vtk_points)
+    poly.SetPolys(cells)
+    scalars = numpy_to_vtk(np.ascontiguousarray(colors, np.uint8), deep=True)
+    scalars.SetName("region_rgb")
+    poly.GetPointData().SetScalars(scalars)
+    normals = vtkPolyDataNormals()
+    normals.SetInputData(poly)
+    normals.SplittingOff()
+    normals.ConsistencyOn()
+    mapper = vtkPolyDataMapper()
+    mapper.SetInputConnection(normals.GetOutputPort())
+    mapper.ScalarVisibilityOn()
+    mapper.SetScalarModeToUsePointData()
+    mapper.SetColorModeToDirectScalars()
+    actor = vtkActor()
+    actor.SetMapper(mapper)
+    return actor
+
+
+def color_icon(rgb):
+    pixmap = QPixmap(14, 14)
+    pixmap.fill(QColor(*rgb))
+    return QIcon(pixmap)
+
+
 class MeshView(QWidget):
     detail_requested = Signal(object, float)
+    regions_requested = Signal(str)
+    region_picked = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -78,6 +139,15 @@ class MeshView(QWidget):
         self.indices = [0, 0, 0]
         self.level, self.width = 0., 1.
         self.detail_available = True
+        self.regions = None
+        self.region_actors = []
+        self.region_trees = {}
+        self.hidden_regions = set()
+        self.regions_supported = False
+        self.restore_brain = None
+        self.press_position = None
+        self.picker = None
+        self.pick_props = []
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 16, 0, 0)
         sidebar = QWidget()
@@ -138,6 +208,7 @@ class MeshView(QWidget):
         self.detail_button.clicked.connect(lambda: self.detail_requested.emit(self.detail.currentData(), self.smoothing.value()))
         appearance_layout.addWidget(self.detail_button)
         controls.addWidget(appearance)
+        self.build_region_controls(controls)
         self.set_detail_available(True)
         self.show_planes = QCheckBox("Show MRI slice planes")
         self.show_planes.toggled.connect(self.update_planes)
@@ -165,6 +236,7 @@ class MeshView(QWidget):
         self.presets = {}
 
     def clear(self):
+        self.reset_regions()
         self.model = None
         self.actors.clear()
         self.planes.clear()
@@ -204,6 +276,7 @@ class MeshView(QWidget):
         self.detail.setCurrentIndex(self.detail.findData(model.surface_step))
         self.smoothing.setValue(model.surface_smoothing)
         self.set_detail_available(self.detail_available)
+        self.update_region_support(model)
         count = sum(len(surface.triangles) for surface in model.surfaces)
         title = model.labels[0].name if model.kind == "e1" else model.directory.name
         self.summary.setText("\n".join((title, f"{len(model.surfaces)} surfaces · {count:,} triangles",
@@ -276,6 +349,7 @@ class MeshView(QWidget):
             from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
             self.canvas.SetInteractorStyle(vtkInteractorStyleTrackballCamera())
             self.canvas.Initialize()
+            self.install_picker()
             self.build_scene()
 
     def build_scene(self):
@@ -312,6 +386,9 @@ class MeshView(QWidget):
             actor.SetVisibility(self.checks[surface.tag].isChecked())
             self.renderer.AddActor(actor)
             self.actors[surface.tag] = actor
+        self.region_actors = []  # RemoveAllViewProps dropped them; draw them again
+        self.pick_props = []
+        self.build_region_actors()
         self.add_orientation_marker()
         self.update_planes()
         self.reset_camera()
@@ -351,6 +428,10 @@ class MeshView(QWidget):
             check.setChecked(tag == selected)
         if not brain:
             self.sliders[selected].setValue(100)
+        elif self.regions is not None:
+            # The colored pial layer replaces the gray matter surface it would otherwise overlap.
+            self.checks[selected].setChecked(False)
+            self.restore_brain = selected
         self.reset_camera()
 
     def reset_camera(self):
@@ -380,6 +461,260 @@ class MeshView(QWidget):
     def render(self):
         if self.canvas is not None:
             self.canvas.GetRenderWindow().Render()
+
+    # Brain regions: an atlas mapped onto charm's pial surface, drawn as a separate colored layer.
+
+    def build_region_controls(self, controls):
+        box = QGroupBox("Brain regions")
+        layout = QVBoxLayout(box)
+        layout.setContentsMargins(12, 16, 12, 12)
+        layout.setSpacing(8)
+        layout.addWidget(QLabel("Atlas"))
+        self.region_atlas = QComboBox()
+        self.region_atlas.setAccessibleName("Brain region atlas")
+        for title, value in REGION_ATLASES:
+            self.region_atlas.addItem(title, value)
+        compact_choice(self.region_atlas)
+        self.region_atlas.currentIndexChanged.connect(
+            lambda *_: self.regions_requested.emit(self.region_atlas.currentData() or ""))
+        layout.addWidget(self.region_atlas)
+        self.region_targets = QCheckBox("Highlight TMS targets (M1, DLPFC)")
+        self.region_targets.setToolTip("Motor cortex in red; middle frontal regions around DLPFC in orange. "
+                                       "The DLPFC mark is an atlas approximation, not a treatment target.")
+        self.region_targets.toggled.connect(lambda *_: self.refresh_regions())
+        layout.addWidget(self.region_targets)
+        self.region_hint = QLabel()
+        self.region_hint.setObjectName("subtitle")
+        self.region_hint.setWordWrap(True)
+        layout.addWidget(self.region_hint)
+        self.region_picked_label = QLabel("Click the cortex to name a region.")
+        self.region_picked_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.region_picked_label.setWordWrap(True)
+        self.region_picked_label.setStyleSheet("font-weight: 600;")
+        layout.addWidget(self.region_picked_label)
+        self.region_list = QListWidget()
+        self.region_list.setAccessibleName("Brain regions shown in 3D")
+        self.region_list.setMinimumHeight(180)
+        self.region_list.itemChanged.connect(self.region_item_changed)
+        layout.addWidget(self.region_list)
+        buttons = QHBoxLayout()
+        self.region_buttons = []
+        for text, visible in (("Show all", True), ("Hide all", False)):
+            button = QPushButton(text)
+            compact_action(button)
+            button.clicked.connect(lambda checked=False, visible=visible: self.set_all_regions(visible))
+            buttons.addWidget(button)
+            self.region_buttons.append(button)
+        layout.addLayout(buttons)
+        controls.addWidget(box)
+        self.set_region_controls(False, "Open a charm or hybrid model folder to color brain regions.")
+
+    def set_region_controls(self, supported, hint=None):
+        self.regions_supported = supported
+        shown = supported and self.regions is not None
+        self.region_atlas.setEnabled(supported)
+        for widget in (self.region_targets, self.region_list, *self.region_buttons):
+            widget.setEnabled(shown)
+        if hint is not None:
+            self.region_hint.setText(hint)
+
+    def update_region_support(self, model):
+        try:
+            regions = regions_module()
+        except ImportError:
+            self.set_region_controls(False, "Brain regions are unavailable: tools/brain_regions is missing.")
+            return
+        if model.kind != "simnibs":
+            self.set_region_controls(False, "Brain regions need charm's cortical surfaces. AI segmentations and "
+                                            "exported models do not have them yet.")
+        elif not regions.has_cortex(model.directory):
+            self.set_region_controls(False, "This model folder has no charm cortical surfaces (surfaces/*.pial.gii).")
+        else:
+            available = regions.available_atlases()
+            for index in range(self.region_atlas.count()):
+                value = self.region_atlas.itemData(index)
+                if value:
+                    item = self.region_atlas.model().item(index)
+                    item.setEnabled(value in available)
+                    item.setToolTip("" if value in available else
+                                    "Needs a SimNIBS 4 install; its data use terms keep it out of this repository.")
+            missing = "" if "HCP_MMP1" in available else " HCP-MMP1 needs SimNIBS 4 installed."
+            self.set_region_controls(bool(available), "Choose an atlas to color the cortex, then click the cortex "
+                                                      "to name a region." + missing)
+
+    def reset_regions(self):
+        self.set_regions(None)
+        self.region_atlas.blockSignals(True)
+        self.region_atlas.setCurrentIndex(0)
+        self.region_atlas.blockSignals(False)
+
+    def set_regions(self, regions):
+        """Show an atlas (CortexRegions) on the cortex, or remove it with None."""
+        self.regions = regions
+        self.hidden_regions.clear()
+        self.region_trees = {}
+        self.region_list.blockSignals(True)
+        self.region_list.clear()
+        self.clear_pick()
+        if regions is None:
+            if self.restore_brain is not None:
+                tag = self.restore_brain
+                self.restore_brain = None
+                if tag in self.checks:
+                    self.checks[tag].setChecked(True)
+        else:
+            from scipy.spatial import cKDTree
+            by_name = {hemi.name: hemi for hemi in regions.hemispheres}
+            for hemi_name, label, name, color in regions.regions():
+                target = regions.target_of(by_name[hemi_name], label)
+                item = QListWidgetItem(color_icon(color), f"{name} · {target}" if target else name)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Checked)
+                item.setData(Qt.ItemDataRole.UserRole, (hemi_name, label))
+                self.region_list.addItem(item)
+            self.region_trees = {hemi.name: cKDTree(hemi.points) for hemi in regions.hemispheres}
+            brain = self.presets.get("brain")
+            if brain in self.checks and self.checks[brain].isChecked() and self.restore_brain is None:
+                self.restore_brain = brain  # the pial layer sits on the gray matter surface; avoid overlap
+                self.checks[brain].setChecked(False)
+            count = len(regions.regions())
+            self.region_hint.setText(f"{regions.atlas} on charm's pial surface · {count} regions, left and right "
+                                     "listed separately. Gray marks the medial wall, which is not cortex.")
+        self.region_list.blockSignals(False)
+        self.set_region_controls(self.regions_supported)
+        self.refresh_regions()
+
+    def refresh_regions(self):
+        if self.renderer is not None:
+            self.build_region_actors()
+            self.render()
+
+    def build_region_actors(self):
+        if self.renderer is None:
+            return
+        for actor in self.region_actors:
+            self.renderer.RemoveActor(actor)
+        self.region_actors = []
+        if self.regions is None:
+            return
+        for hemi in self.regions.hemispheres:
+            keep = region_triangles(hemi, self.hidden_regions)
+            if not keep.any():
+                continue
+            colors = self.regions.vertex_colors(hemi, self.region_targets.isChecked())
+            actor = colored_actor(hemi.points, hemi.triangles[keep], colors)
+            self.renderer.AddActor(actor)
+            self.region_actors.append(actor)
+
+    def region_item_changed(self, item):
+        key = tuple(item.data(Qt.ItemDataRole.UserRole))
+        if item.checkState() == Qt.CheckState.Checked:
+            self.hidden_regions.discard(key)
+        else:
+            self.hidden_regions.add(key)
+        self.refresh_regions()
+
+    def set_all_regions(self, visible):
+        self.region_list.blockSignals(True)
+        state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
+        self.hidden_regions.clear()
+        for row in range(self.region_list.count()):
+            item = self.region_list.item(row)
+            item.setCheckState(state)
+            if not visible:
+                self.hidden_regions.add(tuple(item.data(Qt.ItemDataRole.UserRole)))
+        self.region_list.blockSignals(False)
+        self.refresh_regions()
+
+    def region_at(self, point):
+        """Name of the region at a world point (mm), or None when no cortex lies within PICK_RADIUS_MM."""
+        if self.regions is None:
+            return None
+        module = regions_module()
+        best = None
+        for hemi in self.regions.hemispheres:
+            distance, index = self.region_trees[hemi.name].query(point)
+            if distance <= PICK_RADIUS_MM and (best is None or distance < best[0]):
+                best = (distance, hemi, int(index))
+        if best is None:
+            return None
+        _, hemi, index = best
+        label = int(hemi.labels[index])
+        if label == module.UNKNOWN:
+            return f"{module.HEMISPHERE_NAMES[hemi.name]} medial wall · not cortex"
+        name = module.display_name(hemi, label)
+        target = self.regions.target_of(hemi, label)
+        return f"{name} · {target}" if target else name
+
+    def install_picker(self):
+        """A click (press and release without dragging) on the colored cortex names its region."""
+        from vtkmodules.vtkRenderingCore import vtkCellPicker
+        self.picker = vtkCellPicker()
+        self.picker.SetTolerance(0.0005)
+        interactor = self.canvas.GetRenderWindow().GetInteractor()
+        interactor.AddObserver("LeftButtonPressEvent", self.on_press, 1.0)
+        interactor.AddObserver("LeftButtonReleaseEvent", self.on_release, 1.0)
+
+    def on_press(self, interactor, event):
+        self.press_position = interactor.GetEventPosition()
+
+    def on_release(self, interactor, event):
+        start, self.press_position = self.press_position, None
+        if start is None or not self.region_actors:
+            return
+        x, y = interactor.GetEventPosition()
+        if abs(x - start[0]) + abs(y - start[1]) > 4:  # a drag rotated the view
+            return
+        self.picker.InitializePickList()
+        for actor in self.region_actors:
+            self.picker.AddPickList(actor)
+        self.picker.PickFromListOn()
+        if self.picker.Pick(x, y, 0, self.renderer):
+            point = np.array(self.picker.GetPickPosition())
+            name = self.region_at(point)
+            if name:
+                self.show_pick(point, name)
+
+    def show_pick(self, point, name):
+        """Mark the clicked point and name its region in the sidebar, the 3D corner and the status line."""
+        self.clear_pick()
+        self.region_picked_label.setText(name)
+        self.region_picked.emit(name)
+        if self.renderer is None:
+            return
+        from vtkmodules.vtkFiltersSources import vtkSphereSource
+        from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper, vtkTextActor
+        sphere = vtkSphereSource()
+        sphere.SetCenter(*point)
+        sphere.SetRadius(2.5)
+        sphere.SetThetaResolution(24)
+        sphere.SetPhiResolution(24)
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputConnection(sphere.GetOutputPort())
+        marker = vtkActor()
+        marker.SetMapper(mapper)
+        marker.GetProperty().SetColor(1.0, 1.0, 1.0)
+        marker.PickableOff()
+        text = vtkTextActor()
+        text.SetInput(name)
+        text.GetTextProperty().SetFontSize(20)
+        text.GetTextProperty().SetColor(1.0, 1.0, 1.0)
+        text.GetTextProperty().SetBackgroundColor(0.0, 0.0, 0.0)
+        text.GetTextProperty().SetBackgroundOpacity(0.55)
+        text.GetPositionCoordinate().SetCoordinateSystemToNormalizedViewport()
+        text.SetPosition(0.02, 0.93)
+        for prop in (marker, text):
+            self.renderer.AddActor(prop)
+            self.pick_props.append(prop)
+        self.render()
+
+    def clear_pick(self):
+        if self.renderer is not None:
+            for prop in self.pick_props:
+                self.renderer.RemoveActor(prop)
+        self.pick_props = []
+        if hasattr(self, "region_picked_label"):
+            self.region_picked_label.setText("Click the cortex to name a region.")
 
     def shutdown(self):
         if self.canvas is not None:
