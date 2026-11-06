@@ -1,5 +1,7 @@
 # Experiment Register
 
+- [EXP-010: CT Skull Reference Pilot](ct-skull-pilot.md) — pilot completed on three SynthRAD2023 cases. In the calvaria, E2 and charm score equally against CT bone (Dice 0.813–0.834); both draw the skull 11–27% thinner than CT. The next steps are proposals, not decisions.
+
 - [Dataset003 E3 Training Preparation](e3-dataset003-training.md) — revised notebook ready for the required GPU pilot. Actual ZIP/SHA, 90/16 entries, ignore 6, standard uniform sampling, full RAS audit and real preprocessing checked; 15 E3 + 16 E2 tests pass. GPU training not run.
 
 - [Actual E3 Dataset003 Handoff Review](e3-data-handoff-review.md) — technical checks passed on 106 pairs; 90 training entries / 16 validation, ignore 6 and 23 IXI duplicates. ZIP/SHA ready for Drive; revised training preparation linked above.

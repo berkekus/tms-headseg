@@ -2,6 +2,8 @@
 
 ## 2026-11-06
 
+- **CT skull pilot (K1)**: Scored E2 and charm skulls against CT bone (above 300 HU) on three SynthRAD2023 brain cases, one per center. In the calvaria, Dice was 0.813–0.834 for E2 and 0.816–0.830 for charm. Both draw the skull 11–27% thinner than CT, which charm-label scoring could not show. Added `tools/ct_eval`. Proposed scaling to 180 cases and a CT-corrected skull label; not decided. Recorded in [EXP-010](experiments/ct-skull-pilot.md).
+
 - **Actual Dataset003 E3 notebook ready for pilot**: Adapted the standalone Colab flow to the supplied ZIP/SHA, Dataset003 and 90/16 entry split. Removed the old weighted loader; standard sampling uses the physical IXI copies and standard loss skips ignore 6. Full RAS audit and real GU002/IXI037 nnU-Net preprocessing passed; 15 E3 + 16 E2 tests pass, including ignore-loss gradients, uniform sampling and a CPU update. Source bytes and RAS values/grid are frozen separately. The revised portable notebook has a distinct name and experiment directory; live Colab/GPU execution remains pending. [Evidence and launch](experiments/e3-dataset003-training.md).
 
 - **Actual E3 data inspected**: Reviewed the supplied `handoff_e3.zip` (Dataset003_E3Face), matching its SHA, checking CRCs, 83 distinct image/label pairs and 23 byte-identical IXI duplicates. The 90/16 entry split retains the E2 underlying subjects; exact border-connected ignore masks passed. All 16 supplied validation references reproduce every class count in retained E2 metrics. The actual package adds ignore 6 as well as IXI duplication, superseding the earlier E2-based sampler-only preparation. ZIP/SHA can be uploaded; Dataset003 notebook adaptation remains necessary and no training started. [Review](experiments/e3-data-handoff-review.md).
