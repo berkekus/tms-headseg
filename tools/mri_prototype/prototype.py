@@ -3,12 +3,13 @@
 from pathlib import Path
 from html import escape
 import sys
+from tempfile import TemporaryDirectory
 
-from PySide6.QtCore import QElapsedTimer, QThread, QTimer, Qt, Signal
+from PySide6.QtCore import QElapsedTimer, QObject, QStandardPaths, QThread, QTimer, Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu,
-    QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSlider,
+    QApplication, QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu,
+    QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSlider,
     QStackedWidget, QTabWidget, QToolButton, QVBoxLayout, QWidget,
 )
 
@@ -21,10 +22,14 @@ from volume import load_labels, load_volume
 from model import load_e1_model, load_model
 from mesh_viewer import MeshView, configure_surface_format
 from inference_panel import InferencePanel
+from inference_runner import validate_model_files, validate_output_folder
 from batch_panel import BatchPanel
-from visual_theme import bind_disclosure, center_page_content, centered_page, compact_action, refresh_style, stylesheet
+from visual_theme import apply_light_theme, bind_disclosure, center_page_content, centered_page, compact_action, refresh_style, stylesheet
 
 from headmodel.build_model import build_model
+from physician_workspace import PhysicianWorkspace
+from workspace_login import SignIn, show_account_form, STORE_ERRORS
+from workspace_store import ROLES, WorkspaceStore
 
 
 class LoadTask(QThread):
@@ -43,7 +48,9 @@ class LoadTask(QThread):
 
 
 class Window(LauncherWindow):
-    def __init__(self):
+    session_closed = Signal(bool)
+
+    def __init__(self, store=None, account=None):
         configure_surface_format()
         super().__init__()
         self.cancel_button.clicked.disconnect()
@@ -63,6 +70,10 @@ class Window(LauncherWindow):
         self.export_source = None
         self.inference = None
         self.batch = None
+        self.physician = None
+        self.store, self.account = store, account
+        self.switching_account = False
+        self.next_workspace = "choose"
         self.setWindowTitle("MRI Workbench · TMS HeadSeg prototype")
         self.resize(1440, 900)
         self.setMinimumSize(1100, 740)
@@ -134,31 +145,34 @@ class Window(LauncherWindow):
         self.notifications.addWidget(self.ready_banner)
         self.error_banner = QWidget()
         self.error_banner.setObjectName("errorBanner")
-        error_layout = QVBoxLayout(self.error_banner)
+        error_layout = QHBoxLayout(self.error_banner)
         error_layout.setContentsMargins(10, 5, 10, 5)
-        error_layout.setSpacing(2)
-        error_heading = QHBoxLayout()
+        error_copy = QVBoxLayout()
+        error_copy.setSpacing(2)
         self.error_title = QLabel()
         self.error_title.setObjectName("errorTitle")
         self.error_title.setTextFormat(Qt.TextFormat.PlainText)
         self.error_title.setWordWrap(True)
-        error_heading.addWidget(self.error_title, 1)
+        error_copy.addWidget(self.error_title)
+        self.error_detail = ""
         self.error_details_button = QPushButton("Details…")
         self.error_details_button.clicked.connect(self.show_error_details)
-        error_heading.addWidget(self.error_details_button)
+        self.error_details_button.hide()
         self.dismiss_error_button = QPushButton("Dismiss")
         self.dismiss_error_button.clicked.connect(self.clear_task_error)
-        error_heading.addWidget(self.dismiss_error_button)
-        error_layout.addLayout(error_heading)
         self.error_message = QLabel()
         self.error_message.setTextFormat(Qt.TextFormat.PlainText)
         self.error_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.error_message.setWordWrap(True)
         self.error_message.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.error_recovery = QLabel()
         self.error_recovery.setTextFormat(Qt.TextFormat.PlainText)
         self.error_recovery.setWordWrap(True)
-        error_layout.addWidget(self.error_message)
-        error_layout.addWidget(self.error_recovery)
+        error_copy.addWidget(self.error_message)
+        error_copy.addWidget(self.error_recovery)
+        error_layout.addLayout(error_copy, 1)
+        error_layout.addWidget(self.error_details_button)
+        error_layout.addWidget(self.dismiss_error_button)
         self.notifications.addWidget(self.error_banner)
         self.activity_banner = QWidget()
         self.activity_banner.setObjectName("activityBanner")
@@ -198,7 +212,12 @@ class Window(LauncherWindow):
         self.activity_timer.timeout.connect(self.refresh_activity)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
-        self.setCentralWidget(root)
+        if account is not None and account.role == "technical":
+            self.workspace_pages = QStackedWidget()
+            self.workspace_pages.addWidget(root)
+            self.setCentralWidget(self.workspace_pages)
+        else:
+            self.setCentralWidget(root)
 
         inspection = QWidget()
         row = QHBoxLayout(inspection)
@@ -219,7 +238,7 @@ class Window(LauncherWindow):
         self.open_model_button = QPushButton("Open model folder…")
         self.open_model_button.clicked.connect(self.choose_model)
         sidebar_layout.addWidget(self.open_model_button)
-        more_actions = QPushButton("More file actions ▸")
+        more_actions = self.more_file_actions = QPushButton("More file actions ▸")
         more_actions.setCheckable(True)
         controls.addWidget(more_actions)
         extra_actions = QWidget()
@@ -430,6 +449,114 @@ class Window(LauncherWindow):
             panel.slider.valueChanged.connect(self.refresh_slices)
         self.update_controls()
         self.setStyleSheet(stylesheet())
+        if account is not None:
+            self.configure_workspace(header, layout)
+
+    def configure_workspace(self, header, layout):
+        setup = self.store.setup(self.account)
+        physician = self.account.role == "physician"
+        if physician:
+            self.inference.python.clear()
+            self.inference.model.clear()
+            self.inference.model_paths = {"E1": "", "E2": ""}
+            if setup is None:
+                setup = self.local_physician_setup()
+        if not physician:
+            self.inference.restore_local_defaults()
+        if setup is not None:
+            defaults = setup if physician else {key: value for key, value in setup.items() if key not in ("mri", "output")}
+            self.inference.apply_local_defaults(defaults)
+            for key, field in (("charm", self.charm), ("charm_output", self.output)):
+                if key in setup:
+                    field.setText(setup[key])
+        account_button = self.account_button = QToolButton()
+        account_button.setText(f"{ROLES[self.account.role]} · {self.account.username}")
+        account_button.setObjectName("importOptions")
+        account_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(account_button)
+        menu.setObjectName("accountMenu")
+        menu.setFont(account_button.font())
+        account_button.setMenu(menu)
+        header.addWidget(account_button)
+        if physician:
+            self.inference.mri.clear()
+            self.notifications.setFixedHeight(80)
+            self.physician = PhysicianWorkspace(self, self.store, self.account, setup, header, layout)
+        else:
+            output = setup.get("output", "") if setup is not None else self.inference.output.text()
+            self.inference.add_physician_setup(output, self.save_workstation_setup)
+            menu.addAction("Physician model setup…", self.open_physician_setup)
+            menu.addAction("Create local account…", self.create_local_account)
+            menu.addAction("Open Physician workspace…", lambda: self.switch_account("physician"))
+            menu.addSeparator()
+        menu.addAction("Switch account…", lambda: self.switch_account("choose"))
+        menu.addAction("Sign out", lambda: self.switch_account("signin"))
+
+    def open_physician_setup(self):
+        self.tabs.setCurrentWidget(self.inference_scroll)
+        self.inference.setup_button.setChecked(True)
+        self.inference_scroll.verticalScrollBar().setValue(0)
+
+    def validate_physician_setup(self, setup):
+        experiment = setup.get("experiment")
+        models = setup.get("models")
+        if experiment not in ("E1", "E2") or not isinstance(models, dict):
+            raise ValueError("Choose a segmentation model version.")
+        runtime, weights = setup.get("python"), models.get(experiment)
+        if not isinstance(runtime, str) or not runtime.strip() or not isinstance(weights, str) or not weights.strip():
+            raise ValueError("Choose Inference Python and a Trained model folder in Model setup.")
+        model = Path(weights).expanduser()
+        validate_model_files(Path(runtime).expanduser(), model)
+        output = Path(setup["output"]).expanduser() if setup.get("output") else self.store.directory
+        validate_output_folder(output, model)
+
+    def local_physician_setup(self):
+        local = self.inference.read_local_defaults() or {}
+        keys = ("experiment", "models", "python", "output", "device", "tta")
+        setup = {key: local[key] for key in keys if key in local}
+        try:
+            self.validate_physician_setup(setup)
+        except (OSError, TypeError, ValueError):
+            return None
+        return setup
+
+    def save_workstation_setup(self):
+        if self.account is None or self.account.role != "technical" or self.busy:
+            return
+        settings = self.inference.workstation_defaults()
+        settings.update(charm=self.charm.text().strip(), charm_output=self.output.text().strip())
+        try:
+            self.validate_physician_setup(settings)
+            self.store.save_setup(self.account, settings)
+        except STORE_ERRORS as error:
+            self.show_notice("error", "Setup could not be saved", str(error))
+            return
+        self.show_notice("success", "Physician model saved",
+                         "New physician sessions use this setup with the T1 MRI opened in each study.")
+
+    def create_local_account(self):
+        if self.account is None or self.account.role != "technical" or self.busy:
+            return
+        if self.workspace_pages.currentIndex() != 0:
+            return
+        form = show_account_form(self.workspace_pages, self.store, actor=self.account)
+        form.created.connect(lambda account: self.show_notice(
+            "success", "Account created", f"The {ROLES[account.role]} account is ready to sign in."))
+
+    def switch_account(self, destination="choose"):
+        if self.busy:
+            self.show_notice("info", "Study operation in progress", "Finish or stop the current operation before signing out.")
+            return
+        title, message = ("Sign out?", "End this session and return to sign-in?") if destination == "signin" else (
+            "Switch account?", "End this session and sign in to another workspace?")
+        answer = QMessageBox.question(self, title, message,
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                     QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes:
+            self.switching_account = True
+            self.next_workspace = destination
+            if not self.close():
+                self.switching_account = False
 
     def refresh_import_options(self):
         assumed = self.e1_assume_mm.isChecked()
@@ -486,6 +613,8 @@ class Window(LauncherWindow):
         if self.batch is not None:
             self.batch.set_available(self.task is None and not self.timer.isActive()
                                      and not (self.inference is not None and self.inference.busy))
+        if self.physician is not None:
+            self.physician.refresh()
         if self.closing and not busy:
             QTimer.singleShot(0, self.close)
 
@@ -531,6 +660,11 @@ class Window(LauncherWindow):
                       on_error=on_error, activity="Opening segmentation and building its 3D preview")
 
     def inference_completed(self, job):
+        if self.closing:
+            return
+        if self.physician is not None:
+            self.physician.inference_completed(job)
+            return
         self.e1_assume_mm.setChecked(job.assume_mm)
         self.load_e1_prediction(job.mri, job.prediction, assume_mm=job.assume_mm, show_3d=True)
 
@@ -615,7 +749,7 @@ class Window(LauncherWindow):
         if path:
             self.export_model(path)
 
-    def export_model(self, out):
+    def export_model(self, out, *, callback=None):
         if self.busy or self.export_source is None:
             return
         t1, labels, scheme = self.export_source
@@ -625,7 +759,7 @@ class Window(LauncherWindow):
             build_model(t1, labels, out, label_scheme=scheme)
             return load_model(out)
 
-        self.run_task(build, self.export_finished, "Could not export: ",
+        self.run_task(build, callback or self.export_finished, "Could not export: ",
                       error_title="Model could not be exported",
                       recovery="Check the error details and choose a new output folder outside Git before retrying.",
                       activity="Exporting and verifying head model")
@@ -642,6 +776,8 @@ class Window(LauncherWindow):
     def tab_changed(self, index):
         if index == 2:
             self.mesh_view.ensure_renderer()
+        if self.physician is not None:
+            self.physician.refresh()
 
     def load_ernie(self):
         self.use_ernie()
@@ -653,27 +789,41 @@ class Window(LauncherWindow):
         self.error_title.clear()
         self.error_message.clear()
         self.error_recovery.clear()
+        self.error_detail = ""
+        self.error_details_button.hide()
         if self.volume is None:
             for panel in self.panels:
                 panel.canvas.set_empty_message("Open a T1 MRI to inspect slices")
 
     def show_error_details(self):
-        dialog = QMessageBox(self)
+        if not self.error_detail:
+            return
+        dialog = QDialog(self)
+        dialog.setObjectName("workspaceDialog")
         dialog.setWindowTitle(self.error_title.text())
-        dialog.setIcon(QMessageBox.Icon.Warning)
-        dialog.setTextFormat(Qt.TextFormat.PlainText)
-        dialog.setText(self.error_title.text())
-        dialog.setInformativeText(self.error_recovery.text())
-        dialog.setDetailedText(self.error_message.text())
+        dialog.resize(640, 330)
+        layout = QVBoxLayout(dialog)
+        details = QPlainTextEdit(self.error_detail)
+        details.setReadOnly(True)
+        layout.addWidget(details, 1)
+        controls = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        controls.rejected.connect(dialog.reject)
+        layout.addWidget(controls)
         dialog.exec()
+        dialog.deleteLater()
 
-    def show_notice(self, level, title, message):
+    def show_notice(self, level, title, message, *, recovery=""):
         if level == "error":
+            first_line = message.strip().partition("\n")[0].strip()
+            summary = first_line if len(first_line) <= 150 else first_line[:147].rstrip() + "…"
             self.error_title.setText(title)
-            self.error_message.setText(message)
-            self.error_message.setToolTip(message)
-            self.error_recovery.setText("Review the details, correct the inputs and retry. Existing files are preserved.")
+            self.error_message.setText(summary)
+            self.error_recovery.setText(recovery)
+            self.error_recovery.setVisible(bool(recovery))
+            self.error_detail = message if summary != message.strip() else ""
+            self.error_details_button.setVisible(bool(self.error_detail))
             self.notifications.setCurrentWidget(self.error_banner)
+            message = summary
         else:
             self.result_banner.setProperty("level", level)
             self.result_banner.style().unpolish(self.result_banner)
@@ -682,6 +832,7 @@ class Window(LauncherWindow):
             self.result_message.setText(message)
             self.result_message.setToolTip(message)
             self.notifications.setCurrentWidget(self.result_banner)
+        self.notifications.show()
         if hasattr(self, "feedback") and self.task is None:
             self.feedback.setText(title + " · " + message)
 
@@ -716,8 +867,7 @@ class Window(LauncherWindow):
         self.task.loaded.connect(loaded)
         def failed(error):
             self.feedback.setText(failure + error)
-            self.show_notice("error", error_title, error)
-            self.error_recovery.setText(recovery)
+            self.show_notice("error", error_title, error, recovery=recovery)
             if self.volume is None:
                 for panel in self.panels:
                     panel.canvas.set_empty_message("No MRI preview\nCheck the error above, then choose a valid T1 MRI.")
@@ -825,13 +975,17 @@ class Window(LauncherWindow):
     def start_job(self):
         if self.busy or (self.batch is not None and self.batch.external_active):
             return
-        if self.volume is None or self.volume.path != Path(self.t1.text()).expanduser().resolve():
+        selected = Path(self.t1.text()).expanduser().resolve()
+        source = self.volume.path if self.volume is not None else None
+        if self.physician is not None:
+            source = self.physician.source_path
+        if source != selected:
             self.feedback.setText("Load and inspect the selected T1 MRI before starting CHARM.")
             self.show_notice("error", "MRI inspection required", self.feedback.text())
             self.tabs.setCurrentIndex(0)
             return
         super().start_job()
-        if self.timer.isActive():
+        if self.timer.isActive() and self.physician is None:
             self.show_notice("info", "CHARM reconstruction started", "Follow live output in Reference tools. Review the result before use.")
         self.update_controls()
 
@@ -845,7 +999,10 @@ class Window(LauncherWindow):
             elif not self.runner.complete or self.run_error:
                 self.show_notice("error", "Reconstruction did not complete", self.status.text())
             if self.runner.complete and not self.run_error and not self.closing:
-                self.load_head_model(self.runner.job.model_dir)
+                if self.physician is not None:
+                    self.physician.reconstruction_completed(self.runner.job.model_dir)
+                else:
+                    self.load_head_model(self.runner.job.model_dir)
 
     def confirm_reconstruction_cancel(self):
         if not self.timer.isActive():
@@ -885,6 +1042,10 @@ class Window(LauncherWindow):
                     QTimer.singleShot(0, self.close)
             event.ignore()
             return
+        if not self.busy and self.physician is not None and not self.physician.confirm_leave():
+            self.closing = False
+            event.ignore()
+            return
         super().closeEvent(event)
         if event.isAccepted():
             if self.batch is not None:
@@ -892,34 +1053,95 @@ class Window(LauncherWindow):
             if self.inference.runner is not None:
                 self.inference.runner.close()
             self.mesh_view.shutdown()
+            if self.physician is not None:
+                self.physician.progress_timer.stop()
+            if self.store is not None:
+                self.session_closed.emit(self.switching_account)
 
 
-def main():
-    app = QApplication(sys.argv)
-    app.setApplicationName("MRI Workbench")
-    window = Window()
-    window.inference.restore_local_defaults()
-    window.show_fitted()
-    if "--model" in sys.argv:
-        index = sys.argv.index("--model")
-        if index + 1 >= len(sys.argv):
-            raise SystemExit("--model needs an m2m folder path")
-        window.load_head_model(sys.argv[index + 1])
-    elif "--ernie" in sys.argv:
+def open_startup_selection(window, args):
+    if "--model" in args:
+        window.load_head_model(args[args.index("--model") + 1])
+    elif "--ernie" in args:
         window.load_ernie()
-    if "--batch" in sys.argv or "--batch-output" in sys.argv:
-        if "--batch-output" in sys.argv:
-            index = sys.argv.index("--batch-output")
-            if index + 1 >= len(sys.argv):
-                raise SystemExit("--batch-output needs a batch output folder path")
-            window.batch.output.setText(sys.argv[index + 1])
+    if "--batch" in args or "--batch-output" in args:
+        if "--batch-output" in args:
+            window.batch.output.setText(args[args.index("--batch-output") + 1])
         window.tabs.setCurrentIndex(1)
         window.processing_tabs.setCurrentIndex(1)
         window.batch.monitor()
+
+
+class WorkspaceSession(QObject):
+    def __init__(self, app, store, startup_args=()):
+        super().__init__(app)
+        self.app, self.store = app, store
+        self.window = None
+        self.dialog = None
+        self.startup_args = list(startup_args)
+        self.app.setQuitOnLastWindowClosed(False)
+
+    def start(self):
+        technical_cli = any(option in self.startup_args for option in ("--model", "--ernie", "--batch", "--batch-output"))
+        self.open_sign_in("technical" if technical_cli else None, animate=True)
+
+    def open_sign_in(self, role=None, *, animate=False):
+        self.dialog = SignIn(self.store, role=role, animate=animate)
+        self.dialog.finished.connect(self.finish_sign_in)
+        self.dialog.showMaximized()
+
+    def finish_sign_in(self, _):
+        account = self.dialog.account
+        self.dialog.deleteLater()
+        self.dialog = None
+        if account is None:
+            self.app.quit()
+            return
+        try:
+            authenticated = Window(self.store, account)
+        except STORE_ERRORS as error:
+            QMessageBox.critical(None, "Workspace unavailable", str(error))
+            self.open_sign_in()
+            return
+        self.window = authenticated
+        authenticated.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        authenticated.session_closed.connect(self.finish_workspace)
+        authenticated.show_fitted()
+        startup_args, self.startup_args = self.startup_args, []
+        if account.role == "technical":
+            open_startup_selection(authenticated, startup_args)
+
+    def finish_workspace(self, switch):
+        destination = self.window.next_workspace
+
+        def return_from_session():
+            self.window = None
+            if not switch:
+                self.app.quit()
+                return
+            self.open_sign_in(destination if destination in ROLES else None)
+
+        QTimer.singleShot(0, return_from_session)
+
+
+def main():
+    for option in ("--model", "--batch-output"):
+        if option in sys.argv and sys.argv.index(option) + 1 >= len(sys.argv):
+            raise SystemExit(f"{option} needs a folder path")
+    app = QApplication(sys.argv)
+    app.setApplicationName("MRI Workbench")
+    app.setOrganizationName("TMS HeadSeg")
+    apply_light_theme(app)
     if "--smoke-test" in sys.argv:
-        timer = QTimer()
-        timer.timeout.connect(lambda: app.quit() if window.task is None else None)
-        timer.start(500)
+        with TemporaryDirectory(prefix="workbench-smoke-") as directory:
+            session = WorkspaceSession(app, WorkspaceStore(directory))
+            session.start()
+            QTimer.singleShot(2600, session.dialog.close)
+            code = app.exec()
+        sys.exit(code)
+    store = WorkspaceStore(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation))
+    session = WorkspaceSession(app, store, sys.argv[1:])
+    session.start()
     sys.exit(app.exec())
 
 

@@ -38,7 +38,7 @@ class InferencePanel(QWidget):
         title = QLabel("Create a segmentation")
         title.setStyleSheet("font-size: 23px; font-weight: 600;")
         layout.addWidget(title)
-        note = QLabel("1. Choose your MRI and model.  2. Create the result.  3. Review it in the MRI images and 3D view. Your original files stay unchanged.")
+        note = self.intro = QLabel("1. Choose your MRI and model.  2. Create the result.  3. Review it in the MRI images and 3D view. Your original files stay unchanged.")
         note.setWordWrap(True)
         layout.addWidget(note)
         self.inputs = QWidget()
@@ -54,7 +54,7 @@ class InferencePanel(QWidget):
         self.setup_button.setCheckable(True)
         form.addRow("", self.setup_button)
         self.setup_inputs = QWidget()
-        setup_form = QFormLayout(self.setup_inputs)
+        setup_form = self.setup_form = QFormLayout(self.setup_inputs)
         setup_form.setContentsMargins(0, 0, 0, 0)
         form.addRow("", self.setup_inputs)
         self.setup_button.toggled.connect(self.setup_inputs.setVisible)
@@ -66,6 +66,8 @@ class InferencePanel(QWidget):
         self.python.setToolTip("Separate inference environment with nnU-Net 2.8.1 / torch 2.6.0. Keep its venv executable path; do not select SimNIBS Python.")
         self.model = self.path_field(setup_form, "Trained model folder", "folder")
         self.model.setToolTip("Your trusted model folder containing plans.json, dataset.json and fold_0/checkpoint_final.pth.")
+        self.test_inputs_form = form
+        self.workstation_output = None
         self.mri = self.path_field(form, "Source T1 MRI", "image")
         self.output = self.path_field(form, "Save results in", "folder")
         self.advanced_button = QPushButton("Advanced settings ▸")
@@ -132,6 +134,7 @@ class InferencePanel(QWidget):
         self.metrics.setTextFormat(Qt.TextFormat.PlainText)
         self.progress_text = ""
         self.progress_signature = None
+        self.previous_elapsed = None
         self.progress_seen = 0.
         layout.addWidget(self.metrics)
         self.status = QLabel("Ready. This runs inference only; no training or CHARM job starts.")
@@ -159,38 +162,84 @@ class InferencePanel(QWidget):
         self.model_paths[self.selected_experiment] = self.model.text()
         self.selected_experiment = experiment
         self.model.setText(self.model_paths[experiment])
-        self.run_button.setText(f"Create {experiment} segmentation")
+        label = "Run test" if self.workstation_output is not None else "Create"
+        self.run_button.setText(f"{label} {experiment} segmentation")
         self.assume_mm.setEnabled(experiment == "E1")
         self.status.setText(f"{experiment} selected. Choose your MRI, then click Create {experiment} segmentation.")
 
     def restore_local_defaults(self, path=None):
         """Prefill reviewed local paths; never start work or enable unit assumptions."""
+        self.apply_local_defaults(self.read_local_defaults(path))
+
+    @staticmethod
+    def read_local_defaults(path=None):
         path = Path(path) if path is not None else Path(__file__).resolve().parents[2] / "outputs/workbench/settings.json"
         try:
             if path.stat().st_size > 32_768:
-                return
+                return None
             data = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                return
-            for key, field, is_file in (("python", self.python, True), ("mri", self.mri, True), ("output", self.output, False)):
-                value = data.get(key)
-                if isinstance(value, str) and (Path(value).is_file() if is_file else Path(value).is_dir()):
-                    field.setText(value)
-            models = data.get("models", {})
-            if isinstance(models, dict):
-                for experiment in ("E1", "E2"):
-                    value = models.get(experiment)
-                    if isinstance(value, str) and Path(value).is_dir():
-                        self.model_paths[experiment] = value
-            experiment = data.get("experiment")
-            if experiment in ("E1", "E2"):
-                self.experiment.setCurrentText(experiment)
-                self.model.setText(self.model_paths[experiment])
-            if self.python.text() and Path(self.python.text()).is_file() and all(
-                    (Path(self.model.text()) / name).is_file() for name in ("plans.json", "dataset.json", "fold_0/checkpoint_final.pth")):
-                self.setup_button.setChecked(False)
+            return data if isinstance(data, dict) else None
         except (OSError, ValueError):
+            return None
+
+    def apply_local_defaults(self, data):
+        if not isinstance(data, dict):
             return
+        for key, field, is_file in (("python", self.python, True), ("mri", self.mri, True), ("output", self.output, False)):
+            value = data.get(key)
+            if isinstance(value, str) and (Path(value).is_file() if is_file else Path(value).is_dir()):
+                field.setText(value)
+        models = data.get("models")
+        experiment = data.get("experiment", self.experiment.currentText())
+        if experiment in ("E1", "E2"):
+            self.experiment.setCurrentText(experiment)
+        if isinstance(models, dict):
+            for key in ("E1", "E2"):
+                value = models.get(key)
+                if isinstance(value, str):
+                    self.model_paths[key] = value if Path(value).is_dir() and value else ""
+            self.model.setText(self.model_paths[self.experiment.currentText()])
+        device = self.device.findData(data.get("device"))
+        if device >= 0:
+            self.device.setCurrentIndex(device)
+        if type(data.get("tta")) is bool:
+            self.tta.setChecked(data["tta"])
+        if self.python.text() and Path(self.python.text()).is_file() and self.model.text() and all(
+                (Path(self.model.text()) / name).is_file() for name in ("plans.json", "dataset.json", "fold_0/checkpoint_final.pth")):
+            self.setup_button.setChecked(False)
+
+    def workstation_defaults(self):
+        experiment = self.experiment.currentText()
+        output = self.output if self.workstation_output is None else self.workstation_output
+        return {"experiment": experiment, "python": self.python.text().strip(),
+                "models": {**self.model_paths, experiment: self.model.text().strip()},
+                "output": output.text().strip(), "device": self.device.currentData(),
+                "tta": self.tta.isChecked()}
+
+    def add_physician_setup(self, output, save):
+        self.intro.setText("Use Model setup to save the model for physicians. A test run is optional.")
+        test_title = QLabel("Optional test run")
+        test_title.setObjectName("cardTitle")
+        row, _ = self.test_inputs_form.getWidgetPosition(self.mri.parentWidget())
+        self.test_inputs_form.insertRow(row, test_title)
+        for field, title in ((self.mri, "Test T1 MRI"), (self.output, "Test results folder")):
+            self.test_inputs_form.labelForField(field.parentWidget()).setText(title)
+            field.setAccessibleName(title)
+        self.workstation_output = self.path_field(self.setup_form, "Physician results folder", "folder")
+        self.workstation_output.setText(output)
+        note = QLabel("Saving uses the selected model, inference Python and run settings. Each physician opens their own T1 MRI.")
+        note.setWordWrap(True)
+        self.setup_form.addRow(note)
+        self.save_workstation_button = QPushButton("Save for Physician workspace")
+        self.save_workstation_button.setObjectName("primary")
+        compact_action(self.save_workstation_button)
+        self.save_workstation_button.clicked.connect(save)
+        self.setup_form.addRow("", self.save_workstation_button)
+        self.run_button.setObjectName("")
+        self.run_button.setText(f"Run test {self.experiment.currentText()} segmentation")
+        self.run_button.setToolTip("Choose a Test T1 MRI to run an optional technical test.")
+        self.mri.textChanged.connect(lambda: self.set_available(self.available))
+        self.set_available(self.available)
 
     def path_field(self, form, label, kind):
         row = QWidget()
@@ -202,10 +251,11 @@ class InferencePanel(QWidget):
         field.setClearButtonEnabled(True)
         button = QPushButton("Browse…")
         def choose():
+            title = field.accessibleName()
             if kind == "folder":
-                path = QFileDialog.getExistingDirectory(self, label, field.text() or str(Path.home()))
+                path = QFileDialog.getExistingDirectory(self, title, field.text() or str(Path.home()))
             else:
-                path, _ = QFileDialog.getOpenFileName(self, label, field.text() or str(Path.home()),
+                path, _ = QFileDialog.getOpenFileName(self, title, field.text() or str(Path.home()),
                     "NIfTI images (*.nii *.nii.gz)" if kind == "image" else "All files (*)")
             if path:
                 field.setText(path)
@@ -222,7 +272,8 @@ class InferencePanel(QWidget):
     def set_available(self, available):
         self.available = available
         self.inputs.setEnabled(available and not self.busy)
-        self.run_button.setEnabled(available and not self.busy)
+        test_mri_ready = self.workstation_output is None or bool(self.mri.text().strip())
+        self.run_button.setEnabled(available and not self.busy and test_mri_ready)
 
     def start(self):
         if self.busy or not self.available:
@@ -256,6 +307,7 @@ class InferencePanel(QWidget):
         self.runner, self.error = runner, ""
         self.progress_text = ""
         self.progress_signature = None
+        self.previous_elapsed = runner.previous_elapsed()
         self.logs.setPlainText(f"New inference · {job.device.upper()} · mirror augmentation {'on' if job.tta else 'off'}\nOutput: {job.run_dir}\nLog: {runner.log_path}\n")
         self.progress.setRange(0, 0)
         self.status.setText(f"Creating an {job.experiment} segmentation. Follow the current step below; stop the run if needed.")
@@ -309,7 +361,6 @@ class InferencePanel(QWidget):
         complete = runner.complete and not self.error
         self.progress.setRange(0, 1)
         self.progress.setTextVisible(False)
-        self.progress.setTextVisible(False)
         self.progress.setValue(1 if complete else 0)
         self.cancel_button.setEnabled(False)
         self.folder_button.setEnabled(True)
@@ -335,8 +386,12 @@ class InferencePanel(QWidget):
         elapsed = max(0, time.monotonic() - self.runner.started_at)
         progress = prediction_progress(self.progress_text)
         self.progress.setTextVisible(False)
+        earlier_estimate = None
+        if self.previous_elapsed is not None and self.previous_elapsed > elapsed:
+            earlier_estimate = f"~{duration(max(1, self.previous_elapsed - elapsed))} from a previous run"
         if progress is None:
-            stage, estimate = "Preparing the model and MRI", "Calculating…"
+            stage = "Preparing the model and MRI"
+            estimate = earlier_estimate or "Available after the first tile"
             self.progress.setRange(0, 0)
         elif progress['stage'] == 'saving':
             stage, estimate = "Saving the result and building the report", "Not available for this step"
@@ -348,14 +403,15 @@ class InferencePanel(QWidget):
             age = time.monotonic() - self.progress_seen
             remaining = progress['remaining']
             stage = f"Segmenting the MRI · {progress['done']} / {progress['total']} tiles"
-            estimate = (f"~{duration(max(1, remaining - age))} for prediction only"
-                        if remaining is not None and age < 30 and remaining > age else "Updating estimate…")
+            estimate = "Waiting for the next tile" if progress['done'] else (earlier_estimate or "Waiting for the first tile")
+            if remaining and age < 30 and remaining > age:
+                estimate = f"~{duration(max(1, remaining - age))} for prediction only"
             self.progress.setRange(0, progress['total'])
             self.progress.setValue(progress['done'])
             self.progress.setFormat("%v / %m prediction tiles")
             self.progress.setTextVisible(True)
         self.metrics.setText(f"Elapsed: {duration(elapsed)} · Remaining estimate: {estimate}\n{stage}")
-        self.metrics.setToolTip("The estimate uses measured prediction speed, may change, and excludes saving, report generation and 3D loading. A full prediction bar is not completion of the entire workflow.")
+        self.metrics.setToolTip("During preparation, a matching earlier run can provide an estimate. Live tile estimates cover prediction. Loading the 3D view is a separate step.")
 
     def open_output(self):
         if self.runner is not None:

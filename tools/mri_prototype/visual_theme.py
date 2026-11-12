@@ -2,10 +2,34 @@
 
 from pathlib import Path
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QColor, QIcon, QPalette
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QSizePolicy, QWidget
 
 ASSETS = Path(__file__).with_name("assets")
+
+
+def apply_light_theme(app):
+    """Keep the Workbench's established palette independent of OS dark mode."""
+    app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+    palette = QPalette()
+    for role, color in (
+        (QPalette.ColorRole.Window, "#f5f7fa"),
+        (QPalette.ColorRole.WindowText, "#243449"),
+        (QPalette.ColorRole.Base, "#ffffff"),
+        (QPalette.ColorRole.AlternateBase, "#f0f4f7"),
+        (QPalette.ColorRole.Text, "#243449"),
+        (QPalette.ColorRole.Button, "#ffffff"),
+        (QPalette.ColorRole.ButtonText, "#334b61"),
+        (QPalette.ColorRole.ToolTipBase, "#ffffff"),
+        (QPalette.ColorRole.ToolTipText, "#243449"),
+        (QPalette.ColorRole.Highlight, "#0f766e"),
+        (QPalette.ColorRole.HighlightedText, "#ffffff"),
+        (QPalette.ColorRole.PlaceholderText, "#52677a"),
+    ):
+        palette.setColor(role, QColor(color))
+    for role in (QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText, QPalette.ColorRole.WindowText):
+        palette.setColor(QPalette.ColorGroup.Disabled, role, QColor("#8b98a6"))
+    app.setPalette(palette)
 
 
 def compact_choice(combo):
@@ -63,12 +87,23 @@ def bind_disclosure(button, title):
 def stylesheet():
     icons = ASSETS.as_posix()
     return r'''
-        QMainWindow, QDialog { background: #f5f7fa; }
         QWidget { color: #243449; font-size: 13px; background: transparent; }
+        QMainWindow, QDialog, QDialog#workspaceDialog { background: #f5f7fa; }
         QWidget#workbenchRoot { background: #f5f7fa; }
         QLabel#workbenchTitle { font-size: 26px; font-weight: 600; color: #152b3b; }
         QLabel#subtitle { color: #52677a; font-size: 12px; }
         QLabel#welcomeTitle { font-size: 24px; font-weight: 600; color: #152b3b; }
+        QLabel#welcomeHero { font-size: 52px; font-weight: 700; color: #152b3b; }
+        QLabel#welcomeSubtitle { font-size: 18px; color: #52677a; }
+        QLabel#welcomeMark { font-size: 24px; color: #0f766e; background: #e4f2ef; border-radius: 12px; }
+        QFrame#welcomeLine { background: #0f766e; }
+        QFrame#authHeader { background: #ffffff; border-bottom: 1px solid #d9e3ea; }
+        QLabel#authTitle { font-size: 38px; font-weight: 650; color: #152b3b; }
+        QFrame#authCard { background: #ffffff; border: 1px solid #d9e3ea; border-radius: 14px; }
+        QWidget#workspaceChoices QLabel, QFrame#authCard QLabel { font-size: 16px; }
+        QWidget#workspaceChoices QLabel#authTitle, QFrame#authCard QLabel#authTitle { font-size: 38px; }
+        QFrame#authCard QLabel#cardTitle { font-size: 20px; }
+        QFrame#authCard QLineEdit { min-height: 27px; font-size: 16px; }
         QLabel#badge { color: #52677a; font-size: 10px; letter-spacing: 1px; }
         QFrame#startCard { background: #ffffff; border: 1px solid #d9e3ea; border-radius: 14px; padding: 12px; }
         QFrame#startCard QLabel { border: 0; background: transparent; padding: 0; }
@@ -87,6 +122,7 @@ def stylesheet():
                         color: #425a70; padding: 10px 18px; margin: 2px 7px 7px 0; }
         QTabBar::tab:hover { background: #e8f6f3; border-color: #83bdb4; color: #115e59; }
         QTabBar::tab:selected { background: #0f766e; color: #ffffff; border-color: #0f766e; font-weight: 600; }
+        QTabBar#inspectorTabs::tab { padding: 7px 8px; margin-right: 4px; }
         QFrame#referencePanel { background: #ffffff; border: 1px solid #d6e0e8; border-radius: 12px; }
         QLabel#referenceTitle { color: #152b3b; font-size: 20px; font-weight: 600; }
         QTabWidget#referenceModes::pane { background: #ffffff; border: 0; }
@@ -97,7 +133,8 @@ def stylesheet():
         QFrame#referencePanel QGroupBox { margin-top: 28px; padding-top: 14px; }
         QFrame#referencePanel QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left;
                                                left: 14px; top: 2px; padding: 0 6px 3px 6px; }
-        QPushButton { background: #ffffff; border: 2px solid #d6e0e8; border-radius: 9px; padding: 8px 12px; color: #334b61; }
+        QPushButton, QToolButton#importOptions { min-height: 22px; min-width: 76px; padding: 7px 12px; font-size: 13px;
+                                                background: #ffffff; border: 2px solid #d6e0e8; border-radius: 9px; color: #334b61; }
         QPushButton:hover { background: #f0fdfa; border-color: #88bdb5; color: #115e59; }
         QPushButton:pressed { background: #d5eee8; border-color: #0f766e; }
         QPushButton:focus { border-color: #0f766e; }
@@ -114,7 +151,7 @@ def stylesheet():
         QPushButton:disabled, QPushButton#primary:disabled, QPushButton#stopAction:disabled {
             color: #8b98a6; background: #eef2f6; border-color: #e1e7ee; }
         QToolButton#importOptions { background: #ffffff; border: 2px solid #d6e0e8; border-radius: 9px;
-                                    padding: 8px 30px 8px 12px; color: #425a70; }
+                                    padding-right: 30px; color: #425a70; }
         QToolButton#importOptions:hover, QToolButton#importOptions[menuOpen="true"] { background: #e8f6f3; border-color: #0f766e; color: #115e59; }
         QToolButton#importOptions[attention="true"] { background: #fff7e6; border-color: #d7a54d; color: #85500c; }
         QToolButton#importOptions:focus { border-color: #0f766e; }
@@ -128,6 +165,10 @@ def stylesheet():
         QMenu::indicator { width: 17px; height: 17px; border: 1px solid #aebfca; border-radius: 4px; }
         QMenu::indicator:checked { image: url("__ICONS__/check.svg"); background: #0f766e; border-color: #0f766e; }
         QMenu::separator { height: 1px; background: #e0e7ed; margin: 6px 4px; }
+        QMenu#accountMenu { background: #ffffff; border: 1px solid #d6e0e8; border-radius: 9px; padding: 4px; }
+        QMenu#accountMenu::item { min-width: 145px; padding: 8px 16px; color: #334b61; }
+        QMenu#accountMenu::item:selected { background: #e8f6f3; color: #115e59; }
+        QMenu#accountMenu::separator { margin: 4px 6px; }
         QLineEdit, QDoubleSpinBox, QComboBox { background: #ffffff; border: 1px solid #c5d3df; border-radius: 8px; padding: 8px; color: #243449; }
         QLineEdit:focus, QDoubleSpinBox:focus, QComboBox:focus { border-color: #0f766e; background: #f6fffc; }
         QLineEdit:disabled, QDoubleSpinBox:disabled, QComboBox:disabled { background: #edf2f6; color: #7d8d9b; border-color: #dce4ec; }
