@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
-from PySide6.QtCore import QCoreApplication, QEvent, QTimer, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
 
@@ -282,12 +282,11 @@ class WorkspaceTests(unittest.TestCase):
             window.mesh_view.sliders[4].setValue(78)
             state = flow.view_state()
             study, result = flow.study_id, flow.result_id
-            def save_and_leave():
-                dialog = self.app.activeModalWidget()
-                next(button for button in dialog.buttons() if button.text() == "Save and leave").click()
+            def save_and_leave(dialog):
+                return next(button for button in dialog.buttons() if button.text() == "Save and leave")
 
-            QTimer.singleShot(0, save_and_leave)
-            flow.back_button.click()
+            with patch.object(QMessageBox, "exec"), patch.object(QMessageBox, "clickedButton", new=save_and_leave):
+                flow.back_button.click()
             self.assertIsNone(window.volume)
             self.assertEqual(self.store.studies(self.technical), [])
             with self.assertRaises(PermissionError):

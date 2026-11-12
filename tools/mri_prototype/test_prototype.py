@@ -13,8 +13,7 @@ from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QPlainTextEdit
+from PySide6.QtWidgets import QApplication, QDialog, QPlainTextEdit
 
 from prototype import Window
 from viewer import render_slice, label_color
@@ -162,13 +161,12 @@ class PrototypeTests(unittest.TestCase):
         self.assertLess(len(window.error_message.text()), len(full_error))
         captured = []
 
-        def close_details():
-            dialog = self.app.activeModalWidget()
+        def read_details(dialog):
             captured.append(dialog.findChild(QPlainTextEdit).toPlainText())
-            dialog.reject()
+            return QDialog.DialogCode.Rejected
 
-        QTimer.singleShot(0, close_details)
-        window.error_details_button.click()
+        with patch.object(QDialog, "exec", new=read_details):
+            window.error_details_button.click()
         self.assertEqual(captured, [full_error])
         window.dismiss_error_button.click()
         self.app.processEvents()

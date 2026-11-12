@@ -250,20 +250,23 @@ child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
         script=self.standin("import time;time.sleep(30)")
         with patch.object(inference.InferenceJob,'command',return_value=[sys.executable,'-u',str(script)]):
             panel.start()
-            self.assertIn('from a previous run', panel.metrics.text())
-            panel.progress_text='Predicting x:\n0%| | 0/27 [00:00<?, ?it/s]'
-            panel.update_metrics()
-            self.assertIn('from a previous run', panel.metrics.text())
-            panel.progress_text='Predicting x:\n4%|# | 1/27 [00:05<02:16, 5s/it]'
-            panel.update_metrics()
-            self.assertIn('for prediction only',panel.metrics.text())
-            self.assertEqual(panel.progress.maximum(),27)
-            panel.progress_text+='\r100%|##| 27/27 [02:04<00:00, 5s/it]'
-            panel.update_metrics()
-            self.assertIn('Saving',panel.metrics.text())
-            self.assertEqual(panel.progress.maximum(),0)
-            self.assertTrue(panel.busy)
-            panel.cancel();self.wait_window(window)
+            try:
+                self.assertIn('from a previous run', panel.metrics.text())
+                panel.progress_text = 'Predicting x:\n0%| | 0/27 [00:00<?, ?it/s]'
+                panel.update_metrics()
+                self.assertIn('from a previous run', panel.metrics.text())
+                panel.progress_text = 'Predicting x:\n4%|# | 1/27 [00:05<02:16, 5s/it]'
+                panel.update_metrics()
+                self.assertIn('for prediction only', panel.metrics.text())
+                self.assertEqual(panel.progress.maximum(), 27)
+                panel.progress_text += '\r100%|##| 27/27 [02:04<00:00, 5s/it]'
+                panel.update_metrics()
+                self.assertIn('Saving', panel.metrics.text())
+                self.assertEqual(panel.progress.maximum(), 0)
+                self.assertTrue(panel.busy)
+            finally:
+                panel.cancel()
+                self.wait_window(window)
 
     def test_cancel_button_requires_confirmation_and_preserves_partial_output(self):
         window=Window();self.addCleanup(window.close)
