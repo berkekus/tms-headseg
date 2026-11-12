@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPixmap, QSurfaceFormat
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDoubleSpinBox, QGroupBox, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton,
-    QScrollArea, QSlider, QVBoxLayout, QWidget,
+    QScrollArea, QSlider, QTabWidget, QVBoxLayout, QWidget,
 )
 
 REGION_ATLASES = (("Off", ""), ("DK40 · 34 regions per side", "DK40"), ("a2009s · 74 regions per side", "a2009s"),
@@ -152,6 +152,7 @@ class MeshView(QWidget):
         layout.setContentsMargins(0, 16, 0, 0)
         sidebar = QWidget()
         controls = QVBoxLayout(sidebar)
+        self.controls = controls
         controls.setContentsMargins(0, 0, 12, 0)
         controls.setSpacing(10)
         self.controls_scroll = QScrollArea()
@@ -172,11 +173,13 @@ class MeshView(QWidget):
             button.setEnabled(False)
             self.preset_buttons[brain] = button
         controls.addLayout(presets)
-        reset = QPushButton("Reset camera")
-        compact_action(reset)
-        reset.clicked.connect(self.reset_camera)
-        controls.addWidget(reset)
+        self.reset_button = QPushButton("Reset camera")
+        compact_action(self.reset_button)
+        self.reset_button.setEnabled(False)
+        self.reset_button.clicked.connect(self.reset_camera)
+        controls.addWidget(self.reset_button)
         appearance = QGroupBox("Surface appearance")
+        self.appearance = appearance
         appearance_layout = QVBoxLayout(appearance)
         appearance_layout.setContentsMargins(12, 16, 12, 12)
         appearance_layout.setSpacing(9)
@@ -213,7 +216,8 @@ class MeshView(QWidget):
         self.show_planes = QCheckBox("Show MRI slice planes")
         self.show_planes.toggled.connect(self.update_planes)
         controls.addWidget(self.show_planes)
-        controls.addWidget(QLabel("Tissue visibility / opacity"))
+        self.tissue_label = QLabel("Tissue visibility / opacity")
+        controls.addWidget(self.tissue_label)
         self.tissue_controls = QWidget()
         self.tissue_layout = QVBoxLayout(self.tissue_controls)
         self.tissue_layout.setContentsMargins(0, 0, 8, 0)
@@ -235,9 +239,87 @@ class MeshView(QWidget):
         self.sliders = {}
         self.presets = {}
 
+    def group_inspector(self):
+        """Keep the existing controls in three pages within the same viewer."""
+        tabs = QTabWidget()
+        tabs.tabBar().setObjectName("inspectorTabs")
+        for title, widgets in (("Tissues", (self.tissue_label, self.tissue_controls)),
+                               ("Surface", (self.appearance,)),
+                               ("Brain regions", (self.regions_box,))):
+            page = QWidget()
+            layout = QVBoxLayout(page)
+            layout.setContentsMargins(6, 8, 6, 4)
+            for widget in widgets:
+                self.controls.removeWidget(widget)
+                layout.addWidget(widget)
+            layout.addStretch(1)
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(page)
+            tabs.addTab(scroll, title)
+        self.controls.insertWidget(self.controls.indexOf(self.show_planes) + 1, tabs, 1)
+        self.controls.takeAt(self.controls.indexOf(self.coordinate_note) - 1)
+        self.inspector = tabs
+        self.show_planes.setToolTip("Planes follow the slice positions in MRI images.")
+
+    def view_state(self):
+        camera = self.renderer.GetActiveCamera() if self.renderer is not None else None
+        return {
+            "camera": None if camera is None else {
+                "position": list(camera.GetPosition()), "focal": list(camera.GetFocalPoint()),
+                "up": list(camera.GetViewUp()), "parallel": bool(camera.GetParallelProjection()),
+                "scale": camera.GetParallelScale(), "angle": camera.GetViewAngle(),
+            },
+            "tissues": {str(tag): [check.isChecked(), self.sliders[tag].value()]
+                        for tag, check in self.checks.items()},
+            "planes": self.show_planes.isChecked(),
+            "surface_step": self.model.surface_step,
+            "surface_smoothing": self.model.surface_smoothing,
+            "atlas": self.regions.atlas if self.regions is not None else "",
+            "hidden_regions": [list(key) for key in sorted(self.hidden_regions)],
+            "highlight": self.region_targets.isChecked(),
+            "restore_brain": self.restore_brain,
+        }
+
+    def restore_view(self, state, regions):
+        if self.regions is not regions:
+            self.set_regions(regions)
+        self.region_atlas.blockSignals(True)
+        self.region_atlas.setCurrentIndex(max(0, self.region_atlas.findData(state["atlas"])))
+        self.region_atlas.blockSignals(False)
+        self.region_targets.blockSignals(True)
+        self.region_targets.setChecked(state["highlight"])
+        self.region_targets.blockSignals(False)
+        self.hidden_regions = {tuple(key) for key in state["hidden_regions"]}
+        self.restore_brain = state["restore_brain"]
+        self.region_list.blockSignals(True)
+        for row in range(self.region_list.count()):
+            item = self.region_list.item(row)
+            key = tuple(item.data(Qt.ItemDataRole.UserRole))
+            item.setCheckState(Qt.CheckState.Unchecked if key in self.hidden_regions else Qt.CheckState.Checked)
+        self.region_list.blockSignals(False)
+        for tag, (visible, opacity) in state["tissues"].items():
+            tag = int(tag)
+            if tag in self.checks:
+                self.checks[tag].setChecked(visible)
+                self.sliders[tag].setValue(opacity)
+        self.show_planes.setChecked(state["planes"])
+        if state["camera"] is not None and self.renderer is not None:
+            view = state["camera"]
+            camera = self.renderer.GetActiveCamera()
+            camera.SetPosition(*view["position"])
+            camera.SetFocalPoint(*view["focal"])
+            camera.SetViewUp(*view["up"])
+            camera.SetParallelProjection(view["parallel"])
+            camera.SetParallelScale(view["scale"])
+            camera.SetViewAngle(view["angle"])
+            self.renderer.ResetCameraClippingRange()
+        self.refresh_regions()
+
     def clear(self):
         self.reset_regions()
         self.model = None
+        self.reset_button.setEnabled(False)
         self.actors.clear()
         self.planes.clear()
         if hasattr(self, "marker"):
@@ -391,6 +473,7 @@ class MeshView(QWidget):
         self.build_region_actors()
         self.add_orientation_marker()
         self.update_planes()
+        self.reset_button.setEnabled(True)
         self.reset_camera()
 
     def add_orientation_marker(self):
@@ -435,14 +518,26 @@ class MeshView(QWidget):
         self.reset_camera()
 
     def reset_camera(self):
-        if not self.actors:
+        if self.renderer is None or not self.actors:
             return
-        center = np.mean([surface.points.mean(axis=0) for surface in self.model.surfaces], axis=0)
+        from vtkmodules.vtkCommonDataModel import vtkBoundingBox
+        box = vtkBoundingBox()
+        box.SetBounds(self.renderer.ComputeVisiblePropBounds())
+        if not box.IsValid():
+            for actor in self.actors.values():
+                box.AddBounds(actor.GetBounds())
+        bounds = [0.0] * 6
+        box.GetBounds(bounds)
+        center = np.asarray(bounds).reshape(3, 2).mean(axis=1)
         camera = self.renderer.GetActiveCamera()
         camera.SetFocalPoint(*center)
         camera.SetPosition(*(center + [250, 400, 120]))
         camera.SetViewUp(0, 0, 1)
-        self.renderer.ResetCamera()
+        camera.SetParallelProjection(False)
+        camera.SetViewAngle(30.0)
+        camera.SetWindowCenter(0.0, 0.0)
+        self.renderer.ResetCamera(bounds)
+        self.renderer.ResetCameraClippingRange(bounds)
         self.render()
 
     def update_planes(self, *args):
@@ -460,12 +555,13 @@ class MeshView(QWidget):
 
     def render(self):
         if self.canvas is not None:
-            self.canvas.GetRenderWindow().Render()
+            self.canvas.Render()
 
     # Brain regions: an atlas mapped onto charm's pial surface, drawn as a separate colored layer.
 
     def build_region_controls(self, controls):
         box = QGroupBox("Brain regions")
+        self.regions_box = box
         layout = QVBoxLayout(box)
         layout.setContentsMargins(12, 16, 12, 12)
         layout.setSpacing(8)

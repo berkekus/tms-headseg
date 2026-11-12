@@ -49,6 +49,16 @@ py -3 -m venv tools/mri_prototype/.venv
 
 SimNIBS must be installed separately to create a model. MRI and existing-model inspection do not require an installed SimNIBS runtime. Do not install these dependencies in SimNIBS's bundled Python environment. Embedded 3D uses VTK and PyVistaQt's Qt framebuffer adapter, with a desktop OpenGL context. The framebuffer adapter avoids the native-window repaint loop observed with the stock VTK Qt widget on this Mac.
 
+## Physician and Technical Team workspaces
+
+1. The light **Welcome** animation leads to workspace selection and **Sign in**. Use **Create Physician account** to register as a physician, including on a new workstation. **Set up first Technical Team account** is available until a technical account exists. Both forms open in the sign-in window and return to sign-in for the new account's role. Existing Technical Team members can create additional accounts within the Workbench from the account menu.
+2. In **AI segmentation → Model setup**, choose the model version, trained model folder, inference Python, and physician results folder. Select **Save for Physician workspace**. The account menu's **Physician model setup** shortcut opens the same section. **Test T1 MRI** and **Test results folder** are for optional technical test runs. Until the first save, Workbench can use a valid existing `outputs/workbench/settings.json` model configuration. Physician runs always use the T1 MRI opened in the study. For optional detailed head reconstruction, set the CHARM launcher in **Reference tools** before saving. Choose output folders outside Git.
+3. Signing in as **Technical Team** opens the original **Start here** page. Select **Physician** at sign-in, or use **Open Physician workspace** from the Technical Team account menu and sign in with physician credentials. Select **Open T1 MRI**, inspect the slices, then choose **Build 3D view**. **Create detailed head model** is a separate CHARM path. A matching T2 can be added there if available.
+4. Use **Tissues**, **Surface**, and **Brain regions** in the 3D inspector. **Reset camera** restores the default orientation and fits the visible geometry. The available controls depend on the result. Tissue detail and smoothing use segmentation labels. Atlas colors, region visibility, click-to-identify, and M1/DLPFC highlighting use compatible CHARM cortical surfaces and locally available atlas data. Eye surfaces are listed when present in the model.
+5. Select **Save view** to keep a named camera and display state. **Back to studies** is at the lower right of an open study and prompts about unsaved view changes. **Open saved study** reopens the linked result and the active saved view. If the source moved, **Locate original MRI** verifies the file before opening it. Keep the original NIfTI and result files in place for subsequent review.
+
+Accounts, workstation settings, and saved-study records are local to the operating-system user profile. The Workbench checks roles and study ownership inside the application. Files accessible to the operating-system user remain accessible outside the application. Study records link to existing files and generated results on this workstation.
+
 ## Workflow
 
 The first screen offers three tasks: **Open an MRI**, **Open a saved result**, and

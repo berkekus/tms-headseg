@@ -124,6 +124,10 @@ def main():
         assert view.actors[tag].GetProperty().GetOpacity() == .37
         view.sliders[tag].setValue(opacity)
         camera = view.renderer.GetActiveCamera()
+        assert view.reset_button.isEnabled(), "Reset camera is disabled with a model open"
+        view.reset_button.click()
+        pump(app)
+        default_camera = view.view_state()["camera"]
         before = np.array(camera.GetPosition())
         point = QPoint(view.canvas.width() // 2, view.canvas.height() // 2)
         QTest.mousePress(view.canvas, Qt.MouseButton.LeftButton, pos=point)
@@ -131,9 +135,21 @@ def main():
         QTest.mouseRelease(view.canvas, Qt.MouseButton.LeftButton, pos=point + QPoint(60, 25))
         pump(app)
         assert not np.allclose(camera.GetPosition(), before), "Mouse rotation did not move the camera"
-        view.reset_camera()
-        view.render()
+        camera.SetFocalPoint(*(np.array(camera.GetFocalPoint()) + [12, 4, -5]))
+        camera.Dolly(1.5)
+        camera.SetViewAngle(16)
+        camera.SetParallelProjection(True)
+        camera.SetWindowCenter(.12, .04)
+        render_events = []
+        render_window = view.canvas.GetRenderWindow()
+        event = render_window.AddObserver("EndEvent", lambda *_: render_events.append(True))
+        view.reset_button.click()
         pump(app)
+        render_window.RemoveObserver(event)
+        assert render_events, "Reset camera did not repaint the native viewport"
+        for key, value in view.view_state()["camera"].items():
+            np.testing.assert_allclose(value, default_camera[key], err_msg=f"Reset camera did not restore {key}")
+        np.testing.assert_allclose(camera.GetWindowCenter(), (0, 0))
         pixels = capture(view.canvas.GetRenderWindow())
         height, width = pixels.shape[:2]
         center = pixels[height // 4:3 * height // 4, width // 4:3 * width // 4]
@@ -160,7 +176,7 @@ def main():
         window.tabs.setCurrentIndex(2)
         pump(app)
         assert view.actors, "Reopening lost the 3D scene"
-        print("Native 3D check passed: plane texture registration, geometry, mouse rotation, visibility, opacity, linked MRI planes, and model reopening.", flush=True)
+        print("Native 3D check passed: plane texture registration, geometry, rotation, camera reset and repaint, visibility, opacity, linked MRI planes, and model reopening.", flush=True)
     finally:
         window.close()
 

@@ -290,8 +290,11 @@ class Window(QMainWindow):
             self.open_path(path)
 
     def open_model(self):
-        mesh = self.runner.job.model_dir / f"{self.runner.job.subject}.msh"
-        directory = self.runner.job.charm.parent
+        job = self.runner.job
+        self.open_mesh(job.model_dir / f"{job.subject}.msh", job.charm)
+
+    def open_mesh(self, mesh, charm):
+        directory = Path(charm).parent
         viewer = next((directory / name for name in ("gmsh.cmd", "gmsh.exe", "gmsh")
                        if (directory / name).is_file()), None)
         if viewer is None:

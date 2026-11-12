@@ -6,7 +6,7 @@ from time_estimates import clock_seconds, prediction_progress, queued_batch_esti
 class EstimateTests(unittest.TestCase):
     def test_prediction_eta_is_stage_specific_and_needs_measured_iterations(self):
         text="Predicting prediction_model:\n 4%|# | 1/27 [00:05<02:16, 5s/it]"
-        self.assertIsNone(prediction_progress(text)["remaining"])
+        self.assertEqual(prediction_progress(text)["remaining"],136)
         text+="\r 7%|# | 2/27 [00:09<01:57, 4s/it]"
         value=prediction_progress(text)
         self.assertEqual((value['done'],value['total'],value['remaining']),(2,27,117))

@@ -13,7 +13,8 @@ from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication, QPlainTextEdit
 
 from prototype import Window
 from viewer import render_slice, label_color
@@ -152,12 +153,23 @@ class PrototypeTests(unittest.TestCase):
         self.assertEqual(action.mapTo(window, action.rect().center()), open_position)
         self.assertTrue(action.isVisible())
         self.assertTrue(window.open_button.isEnabled())
-        window.show_notice("error", "Long error", "<not markup> " + "long-path/" * 1000)
+        self.assertFalse(window.error_details_button.isVisible())
+        full_error = "<not markup> " + "long-path/" * 1000
+        window.show_notice("error", "Long error", full_error)
         self.app.processEvents()
         self.assertEqual(window.tabs.geometry(), tab_bounds)
-        with patch("prototype.QMessageBox") as dialog:
-            window.error_details_button.click()
-            dialog.return_value.setDetailedText.assert_called_once_with(window.error_message.text())
+        self.assertTrue(window.error_details_button.isVisible())
+        self.assertLess(len(window.error_message.text()), len(full_error))
+        captured = []
+
+        def close_details():
+            dialog = self.app.activeModalWidget()
+            captured.append(dialog.findChild(QPlainTextEdit).toPlainText())
+            dialog.reject()
+
+        QTimer.singleShot(0, close_details)
+        window.error_details_button.click()
+        self.assertEqual(captured, [full_error])
         window.dismiss_error_button.click()
         self.app.processEvents()
         self.assertEqual(window.tabs.geometry(), tab_bounds)

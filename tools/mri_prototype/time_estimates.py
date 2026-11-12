@@ -44,9 +44,12 @@ def prediction_progress(text):
         return None
     if done == total:
         return {"stage": "saving", "done": done, "total": total, "remaining": None}
+    elapsed = clock_seconds(elapsed)
+    estimate = clock_seconds(remaining) if done else None
+    if not estimate and done and elapsed:
+        estimate = elapsed * (total - done) / done
     return {"stage": "predicting", "done": done, "total": total,
-            "remaining": clock_seconds(remaining) if done >= 2 else None,
-            "elapsed": clock_seconds(elapsed)}
+            "remaining": estimate, "elapsed": elapsed}
 
 
 def queued_batch_estimate(cases):

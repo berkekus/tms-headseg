@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import signal
+from statistics import median
 import sys
 import time
 
@@ -17,6 +18,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "charm_gui"))
 from runner import Runner
 
 DEMO = Path(__file__).resolve().parents[1] / "e1_training/demo.py"
+
+
+def validate_model_files(python, model):
+    if not python.is_file() or (sys.platform != "win32" and not os.access(python, os.X_OK)):
+        raise ValueError("Choose the inference environment's Python executable (nnU-Net 2.8.1, torch 2.6.0).")
+    if not DEMO.is_file():
+        raise ValueError("Keep tools/e1_training beside the desktop prototype.")
+    for name in ("plans.json", "dataset.json", "fold_0/checkpoint_final.pth"):
+        if not (model / name).is_file():
+            raise ValueError(f"Completed model is missing {name}.")
+
+
+def validate_output_folder(output, model):
+    if not output.is_dir() or not os.access(output, os.W_OK):
+        raise ValueError("Choose an existing writable output folder.")
+    output = output.resolve()
+    if any((p / ".git").exists() for p in (output, *output.parents)):
+        raise ValueError("Keep inference outputs outside Git.")
+    if output.is_relative_to(model.resolve()):
+        raise ValueError("Output must be outside the model folder.")
 
 
 @dataclass(frozen=True)
@@ -56,20 +77,8 @@ class InferenceJob:
             raise ValueError("Use a fresh run ID with letters, digits, underscores or hyphens.")
         if self.device not in ("cpu", "cuda"):
             raise ValueError("Choose CPU or CUDA.")
-        if not self.python.is_file() or (sys.platform != "win32" and not os.access(self.python, os.X_OK)):
-            raise ValueError("Choose the inference environment's Python executable (nnU-Net 2.8.1, torch 2.6.0).")
-        if not DEMO.is_file():
-            raise ValueError("Keep tools/e1_training beside the desktop prototype.")
-        for name in ("plans.json", "dataset.json", "fold_0/checkpoint_final.pth"):
-            if not (self.model / name).is_file():
-                raise ValueError(f"Completed model is missing {name}.")
-        if not self.output.is_dir() or not os.access(self.output, os.W_OK):
-            raise ValueError("Choose an existing writable output folder.")
-        output = self.output.resolve()
-        if any((p / ".git").exists() for p in (output, *output.parents)):
-            raise ValueError("Keep inference outputs outside Git.")
-        if output.is_relative_to(self.model.resolve()):
-            raise ValueError("Output must be outside the model folder.")
+        validate_model_files(self.python, self.model)
+        validate_output_folder(self.output, self.model)
         if os.path.lexists(self.run_dir) or os.path.lexists(self.record_path):
             raise ValueError("Run already exists; choose a fresh run ID.")
         if not self.mri.is_file() or not str(self.mri).lower().endswith((".nii", ".nii.gz")):
@@ -116,6 +125,42 @@ class InferenceRunner(Runner):
         except OSError:
             self.close()
             raise
+
+    def previous_elapsed(self):
+        """Use prior completed desktop timings for the same source and run settings."""
+        job = self.job
+        roots = [job.output]
+        if job.output.parent.name == ".workbench-users":
+            roots.append(job.output.parent.parent)
+        try:
+            modified = max(path.stat().st_mtime_ns for path in
+                           (job.mri, job.model / "fold_0/checkpoint_final.pth", job.model / "plans.json"))
+            files = sorted((path for root in roots for path in root.glob(f"{job.experiment.lower()}_*.desktop.json")),
+                           key=lambda path: path.name, reverse=True)[:32]
+        except OSError:
+            return None
+        paths = {"mri": job.mri, "model": job.model, "python": job.python}
+        settings = {"state": "completed", "experiment": job.experiment, "device": job.device,
+                    "tta": job.tta, "unknown_units_assumed_mm": job.assume_mm, "math_threads": self.math_threads}
+        samples = []
+        for file in files:
+            try:
+                stat = file.stat()
+                if stat.st_mtime_ns < modified or stat.st_size > 32_768:
+                    continue
+                record = json.loads(file.read_text(encoding="utf-8"))
+                if any(record.get(key) != value for key, value in settings.items()):
+                    continue
+                if any(Path(record[key]) != value for key, value in paths.items()):
+                    continue
+                seconds = record["elapsed_seconds"]
+                if type(seconds) in (int, float) and 0 < seconds <= 7 * 86400:
+                    samples.append(seconds)
+                    if len(samples) == 3:
+                        break
+            except (OSError, AttributeError, KeyError, TypeError, ValueError):
+                continue
+        return median(samples) if samples else None
 
     @property
     def complete(self):
