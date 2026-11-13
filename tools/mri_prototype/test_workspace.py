@@ -262,11 +262,11 @@ class WorkspaceTests(unittest.TestCase):
                 flow.home_open_button.click()
             self.wait_idle(window)
             self.assertEqual(choose.call_count, 1)
-            self.assertEqual(flow.source_path, paths[0])
+            self.assertEqual(flow.source_path, paths[0].resolve())
             with patch.object(flow, "output_directory", return_value=self.root), patch.object(window.inference, "start") as start:
                 flow.build_button.click()
             start.assert_called_once_with()
-            self.assertEqual(window.inference.mri.text(), str(paths[0]))
+            self.assertEqual(Path(window.inference.mri.text()), paths[0].resolve())
             window.inference.completed.emit(SimpleNamespace(mri=paths[0], prediction=paths[1], assume_mm=False))
             self.wait_idle(window)
             self.assertEqual(window.tabs.currentIndex(), 2, window.feedback.text())

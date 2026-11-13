@@ -241,7 +241,9 @@ child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
         window=Window();self.addCleanup(window.close)
         panel=window.inference
         panel.python.setText(sys.executable);panel.model.setText(str(self.model));panel.mri.setText(str(self.mri));panel.output.setText(str(self.root))
-        old_job = self.job(subject="e1_previous")
+        # Use aliases in the historical record, as on Windows runners with short temp paths.
+        old_job = self.job(subject="e1_previous", mri=self.model / ".." / self.mri.name,
+                           model=self.model / ".." / self.model.name)
         previous = inference.InferenceRunner(old_job)
         previous.started_at = time.monotonic() - 200
         previous.record("completed")
