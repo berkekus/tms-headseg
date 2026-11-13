@@ -590,17 +590,41 @@ class PhysicianWorkspace(QObject):
     def confirm_leave(self):
         if not self.dirty():
             return True
-        dialog = QMessageBox(self.window)
+        dialog = QDialog(self.window)
+        dialog.setObjectName("workspaceDialog")
         dialog.setWindowTitle("Unsaved 3D view")
-        dialog.setText("Save view changes before leaving?")
-        dialog.setInformativeText("The study result remains available.")
-        stay = dialog.addButton("Stay in study", QMessageBox.ButtonRole.RejectRole)
-        discard = dialog.addButton("Discard view changes", QMessageBox.ButtonRole.DestructiveRole)
-        save = dialog.addButton("Save and leave", QMessageBox.ButtonRole.AcceptRole)
-        dialog.setDefaultButton(stay)
-        dialog.setEscapeButton(stay)
-        dialog.exec()
-        return dialog.clickedButton() == discard or (dialog.clickedButton() == save and self.save_view())
+        dialog.setStyleSheet(self.window.styleSheet())
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(10)
+        heading = QLabel("Save view changes before leaving?")
+        heading.setObjectName("cardTitle")
+        layout.addWidget(heading)
+        layout.addWidget(QLabel("The study result remains available."))
+
+        discard_code = 2
+        stay = self.button("Stay in study", dialog.reject)
+        discard = self.button("Discard view changes", lambda: dialog.done(discard_code))
+        save = self.button("Save and leave", dialog.accept, primary=True)
+        stay.setDefault(True)
+        stay.setFocus()
+        actions = QHBoxLayout()
+        actions.setSpacing(8)
+        actions.addStretch(1)
+        for button in (stay, discard, save):
+            actions.addWidget(button)
+        layout.addLayout(actions)
+        dialog.ensurePolished()
+        for button in (stay, discard, save):
+            button.ensurePolished()
+            # Leave room for the text plus the Workbench button border and padding.
+            width = max(button.fontMetrics().horizontalAdvance(button.text()),
+                        self.window.fontMetrics().horizontalAdvance(button.text()))
+            button.setMinimumWidth(max(button.sizeHint().width(), width + 32))
+
+        choice = dialog.exec()
+        dialog.deleteLater()
+        return choice == discard_code or (choice == QDialog.DialogCode.Accepted and self.save_view())
 
     def fill_views_menu(self):
         self.views_menu.clear()

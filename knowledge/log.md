@@ -1,5 +1,9 @@
 # Knowledge Update Log
 
+## 2026-11-13
+
+- **Unsaved 3D view prompt**: Replaced the native message-box button layout with the Workbench dialog layout on `codex/workbench-usability`. The Windows save-and-resume check verified that all three labels fit at normal and 150% Qt scaling and that Save and leave restores the saved view on reopening.
+
 ## 2026-11-06
 
 - **CT skull pilot (K1)**: Scored E2 and charm skulls against CT bone (above 300 HU) on three SynthRAD2023 brain cases, one per center. In the calvaria, Dice was 0.813–0.834 for E2 and 0.816–0.830 for charm. Both draw the skull 11–27% thinner than CT, which charm-label scoring could not show. Added `tools/ct_eval`. Proposed scaling to 180 cases and a CT-corrected skull label; not decided. Recorded in [EXP-010](experiments/ct-skull-pilot.md).

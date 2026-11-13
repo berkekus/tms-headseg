@@ -15,7 +15,7 @@ import nibabel as nib
 import numpy as np
 from PySide6.QtCore import QCoreApplication, QEvent, Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QInputDialog, QMessageBox, QPushButton, QStyle, QStyleOptionButton
 
 from prototype import Window, WorkspaceSession
 from visual_theme import apply_light_theme
@@ -282,11 +282,28 @@ class WorkspaceTests(unittest.TestCase):
             window.mesh_view.sliders[4].setValue(78)
             state = flow.view_state()
             study, result = flow.study_id, flow.result_id
-            def save_and_leave(dialog):
-                return next(button for button in dialog.buttons() if button.text() == "Save and leave")
+            button_sizes = {}
 
-            with patch.object(QMessageBox, "exec"), patch.object(QMessageBox, "clickedButton", new=save_and_leave):
+            def save_and_leave(dialog):
+                dialog.show()
+                dialog.layout().activate()
+                buttons = dialog.findChildren(QPushButton)
+                for button in buttons:
+                    option = QStyleOptionButton()
+                    option.initFrom(button)
+                    option.text = button.text()
+                    contents = button.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, option, button)
+                    button_sizes[button.text()] = (contents.width(), button.fontMetrics().horizontalAdvance(button.text()),
+                                                   dialog.rect().contains(button.geometry()))
+                next(button for button in buttons if button.text() == "Save and leave").click()
+                return dialog.result()
+
+            with patch.object(QDialog, "exec", new=save_and_leave):
                 flow.back_button.click()
+            self.assertEqual(set(button_sizes), {"Stay in study", "Discard view changes", "Save and leave"})
+            for label, (available, required, in_dialog) in button_sizes.items():
+                self.assertGreaterEqual(available, required, label)
+                self.assertTrue(in_dialog, label)
             self.assertIsNone(window.volume)
             self.assertEqual(self.store.studies(self.technical), [])
             with self.assertRaises(PermissionError):
