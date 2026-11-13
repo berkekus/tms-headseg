@@ -139,7 +139,9 @@ class InferenceRunner(Runner):
                            key=lambda path: path.name, reverse=True)[:32]
         except OSError:
             return None
-        paths = {"mri": job.mri, "model": job.model, "python": job.python}
+        # Normalize aliases without resolving the executable symlink out of its venv.
+        mri, model = job.mri.resolve(), job.model.resolve()
+        python = job.python.parent.resolve() / job.python.name
         settings = {"state": "completed", "experiment": job.experiment, "device": job.device,
                     "tta": job.tta, "unknown_units_assumed_mm": job.assume_mm, "math_threads": self.math_threads}
         samples = []
@@ -151,7 +153,10 @@ class InferenceRunner(Runner):
                 record = json.loads(file.read_text(encoding="utf-8"))
                 if any(record.get(key) != value for key, value in settings.items()):
                     continue
-                if any(Path(record[key]) != value for key, value in paths.items()):
+                recorded_python = Path(record["python"])
+                if (Path(record["mri"]).resolve() != mri
+                        or Path(record["model"]).resolve() != model
+                        or recorded_python.parent.resolve() / recorded_python.name != python):
                     continue
                 seconds = record["elapsed_seconds"]
                 if type(seconds) in (int, float) and 0 < seconds <= 7 * 86400:
