@@ -1,5 +1,7 @@
 # Experiment Register
 
+- [Workbench Surface Display Defaults](workbench-surface-defaults.md) — both roles default to 1 voxel / smoothing 0.50; 116 tests and native existing-E2 3D rendering/reopening passed, without new inference. Saved custom views remain intact.
+
 - [E3 Technical Team Inference](e3-technical-inference.md) — downloaded model audited; 114 GUI and 28 inference/report tests pass. Native rehearsal stopped at user request after a first-tile wait; no native E3 success claimed. Physician stays E2.
 
 - [Workbench Update and E2 Demo Rehearsal](workbench-demo-rehearsal-20261119.md) — main updated to d6d6c85; 110 tests and real native E2 CPU inference/automatic 3D opening passed in 140.3 s. Local demo configuration selects E2; E3 inference is not integrated and no local E3 checkpoint was found.

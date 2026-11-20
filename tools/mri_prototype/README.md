@@ -59,6 +59,8 @@ SimNIBS must be installed separately to create a model. MRI and existing-model i
 
 Accounts, workstation settings, and saved-study records are local to the operating-system user profile. The Workbench checks roles and study ownership inside the application. Files accessible to the operating-system user remain accessible outside the application. Study records link to existing files and generated results on this workstation.
 
+Segmentation results start with **1-voxel surface detail** and **0.50 surface smoothing** in both workspaces, including results reopened without a saved view. Users can change them; saved views keep their explicit settings. Imported meshes retain their original geometry.
+
 **E3 technical test:** Sign in as **Technical Team**, open **AI segmentation**, select **E3**, then choose the completed `nnUNetTrainer_E3Preliminary__nnUNetPlans__3d_fullres` folder. Use the 100-epoch main model, not `E3Smoke`. Choose a Test T1 MRI and Test results folder, then **Run test E3 segmentation**. E3 cannot be saved for Physician workspace; its selector remains E1/E2 and the local demo configuration remains E2. The same separate inference Python is used for all models. See [E3 inference details](INFERENCE.md#e3-technical-team-only).
 
 ## Workflow

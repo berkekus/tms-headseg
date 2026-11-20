@@ -13,6 +13,7 @@ REGION_ATLASES = (("Off", ""), ("DK40 · 34 regions per side", "DK40"), ("a2009s
 PICK_RADIUS_MM = 5.0
 
 from viewer import label_color
+from model import DEFAULT_SURFACE_STEP, DEFAULT_SURFACE_SMOOTHING
 from visual_theme import compact_action, compact_choice
 
 
@@ -189,14 +190,16 @@ class MeshView(QWidget):
         for title, value in (("Auto · fast preview", None), ("4 voxels · coarse", 4),
                              ("2 voxels · medium", 2), ("1 voxel · full detail", 1)):
             self.detail.addItem(title, value)
+        self.detail.setCurrentIndex(self.detail.findData(DEFAULT_SURFACE_STEP))
         compact_choice(self.detail)
-        self.detail.setToolTip("Step in source voxels, not millimetres. Smaller steps retain more detail and require more memory. Applies to E1/E2 display surfaces.")
+        self.detail.setToolTip("Step in source voxels, not millimetres. Smaller steps retain more detail and require more memory. Applies to segmentation display surfaces; default is 1 voxel.")
         appearance_layout.addWidget(self.detail)
         appearance_layout.addWidget(QLabel("Surface smoothing"))
         self.smoothing = QDoubleSpinBox()
         self.smoothing.setRange(0.0, 1.0)
         self.smoothing.setSingleStep(0.1)
         self.smoothing.setDecimals(2)
+        self.smoothing.setValue(DEFAULT_SURFACE_SMOOTHING)
         self.smoothing.setAccessibleName("Surface smoothing factor")
         self.smoothing.setSpecialValueText("0 · raw surface")
         self.smoothing.setToolTip("0 keeps the raw surface; 0.50 matches Slicer's default smoothing strength. Stronger smoothing can remove small features. Display only.")

@@ -90,6 +90,7 @@ def main():
     check_plane_texture_registration()
     app = QApplication([])
     window = Window()
+    window.setWindowTitle("MRI Workbench · 3D display check")
     window.show()
     def load():
         if e1:
@@ -107,6 +108,8 @@ def main():
         if e1:
             assert window.head_model.kind == "e1"
             assert window.head_model.mesh_path is None
+            assert window.head_model.surface_step == view.detail.currentData() == 1
+            assert window.head_model.surface_smoothing == view.smoothing.value() == 0.5
             assert set(view.checks) == set(window.head_model.tissues) & set(window.head_model.labels[2])
             if window.head_model.units_assumed:
                 assert "assumed" in window.metadata.text().lower()

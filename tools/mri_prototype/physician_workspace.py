@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMenu, QMessageBox, QPushButton, QToolButton, QVBoxLayout, QWidget,
 )
 
-from model import load_e1_model, load_model
+from model import DEFAULT_SURFACE_STEP, DEFAULT_SURFACE_SMOOTHING, load_e1_model, load_model
 from mesh_viewer import regions_module
 from volume import load_volume
 from visual_theme import centered_page, compact_action
@@ -498,8 +498,8 @@ class PhysicianWorkspace(QObject):
                 return self.load_source(original, study["digest"])
             path = self.allowed_path(result["path"])
             model = (load_e1_model(original, path, assume_mm=bool(result["assume_mm"]),
-                                   surface_step=state["surface_step"] if state else None,
-                                   surface_smoothing=state["surface_smoothing"] if state else 0)
+                                   surface_step=state["surface_step"] if state else DEFAULT_SURFACE_STEP,
+                                   surface_smoothing=state["surface_smoothing"] if state else DEFAULT_SURFACE_SMOOTHING)
                      if result["kind"] == "prediction" else load_model(path))
             if result_identity(model) != result["digest"] or fingerprint(original) != study["digest"]:
                 raise ValueError("The source MRI or result differs from the saved study.")

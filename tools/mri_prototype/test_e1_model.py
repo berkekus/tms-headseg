@@ -72,6 +72,17 @@ class E1ModelTests(unittest.TestCase):
         self.assertIn("display", loaded.geometry_note.lower())
         self.assertEqual([p.read_bytes() for p in (self.mri, self.pred)], before)
 
+    def test_default_display_uses_one_voxel_and_half_smoothing_with_explicit_overrides(self):
+        before = [p.read_bytes() for p in (self.mri, self.pred)]
+        loaded = self.load()
+        self.assertEqual(loaded.surface_step, 1)
+        self.assertEqual(loaded.surface_smoothing, 0.5)
+        coarse = self.load(surface_step=4, surface_smoothing=0)
+        self.assertEqual(coarse.surface_step, 4)
+        self.assertEqual(coarse.surface_smoothing, 0)
+        np.testing.assert_array_equal(loaded.labels[1], coarse.labels[1])
+        self.assertEqual([p.read_bytes() for p in (self.mri, self.pred)], before)
+
     def test_unknown_units_require_explicit_opt_in_and_stay_visible(self):
         unknown = self.save("unknown.nii.gz", self.labels.astype(np.float32), units="unknown")
         unknown_pred = self.save("unknown_pred.nii.gz", self.labels, units="unknown")
@@ -90,6 +101,8 @@ class E1ModelTests(unittest.TestCase):
         self.addCleanup(window.close)
         before = [p.read_bytes() for p in (self.mri, self.pred)]
         window.load_e1_prediction(self.mri, self.pred)
+        self.wait_idle(window)
+        window.change_surface_detail(4, 0)
         self.wait_idle(window)
         view = window.mesh_view
         view.checks[1].setChecked(False)
@@ -111,7 +124,7 @@ class E1ModelTests(unittest.TestCase):
 
     def test_smoothing_changes_display_vertices_without_changing_labels_or_connectivity(self):
         before = [p.read_bytes() for p in (self.mri, self.pred)]
-        raw = self.load(surface_step=1)
+        raw = self.load(surface_step=1, surface_smoothing=0)
         smooth = self.load(surface_step=1, surface_smoothing=0.5)
         self.assertEqual(smooth.surface_smoothing, 0.5)
         self.assertIn("Slicer surface smoothing 0.50", smooth.geometry_note)
@@ -125,7 +138,7 @@ class E1ModelTests(unittest.TestCase):
             self.load(surface_smoothing=1.1)
 
     def test_smoothing_uses_voxel_space_before_anisotropic_world_transform(self):
-        surface = self.load(surface_step=1).surfaces[0]
+        surface = self.load(surface_step=1, surface_smoothing=0).surfaces[0]
         a = model.smooth_display_surface(surface, self.affine, 0.5)
         voxel_points = (surface.points - self.affine[:3, 3]) @ np.linalg.inv(self.affine[:3, :3]).T
         voxel_surface = model.Surface(surface.tag, voxel_points, surface.triangles)
@@ -140,7 +153,7 @@ class E1ModelTests(unittest.TestCase):
         self.wait_idle(window)
         previous = window.head_model
         with patch("prototype.load_e1_model", side_effect=ValueError("geometry exceeds limit")):
-            window.change_surface_detail(1)
+            window.change_surface_detail(2)
             self.wait_idle(window)
         self.assertIs(window.head_model, previous)
         self.assertIn("geometry exceeds limit", window.error_message.text())

@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- **Full-detail surface defaults**: Set both workspaces' segmentation display defaults to 1 voxel and smoothing 0.50, including Physician reopening without a saved view. Explicit saved choices remain preserved. 116 GUI tests and native existing-E2 3D checks passed; no input changes, new inference or E3 test resume. [Evidence](experiments/workbench-surface-defaults.md).
+
 - **E3 technical option; native test stopped**: Audited the downloaded epoch-100 E3 checkpoint/summary and added technical-only inference. 114 GUI and 28 inference/report tests pass; real E2 loading remains compatible. At user request, stopped the stalled native E3 rehearsal without interrupting the Physician E2/Ernie run, which completed. No E3 native pass is claimed. [Disposition](experiments/e3-technical-inference.md).
 
 - **Latest Workbench and E2 demo rehearsal**: Fast-forwarded main to `d6d6c85`, preserving 17 pre-existing local files and upstream additions. Dependencies are present, 110 tests passed, and real GU011 CPU inference plus automatic native 3D opening passed in 140.3 s with unchanged input/model hashes. Ignored local settings select E2. E3 training remains separate: no E3 inference route or local checkpoint was found. Normal app left at workspace selection; user account setup remains. [Evidence](experiments/workbench-demo-rehearsal-20261119.md).

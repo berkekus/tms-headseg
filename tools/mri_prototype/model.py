@@ -24,6 +24,9 @@ E1_TISSUES = {label: (name, tuple(bytes.fromhex(COLORS[label][1:])))
               for label, name in enumerate(("Background", "Skin", "Skull", "CSF", "Gray matter", "White matter"))
               if label}
 
+DEFAULT_SURFACE_STEP = 1
+DEFAULT_SURFACE_SMOOTHING = 0.5
+
 SIMNIBS_WHITE_MATTER, SIMNIBS_GRAY_MATTER, SIMNIBS_SKIN = 1001, 1002, 1005
 _PROJECT_TISSUES = {"skin": ("Skin", (255, 166, 133)), "skull": ("Skull", (255, 239, 179)),
                     "csf": ("CSF", (104, 163, 255)), "gray_matter": ("Gray matter", (129, 129, 129)),
@@ -215,7 +218,8 @@ def smooth_display_surface(surface, affine, factor):
                    surface.name, surface.color, surface.role)
 
 
-def load_e1_model(mri_path, prediction_path, assume_mm=False, surface_step=None, surface_smoothing=0.0):
+def load_e1_model(mri_path, prediction_path, assume_mm=False, surface_step=DEFAULT_SURFACE_STEP,
+                  surface_smoothing=DEFAULT_SURFACE_SMOOTHING):
     """Read paired E1 volumes; extract display surfaces without changing originals."""
     volume = load_volume(mri_path, assume_mm=assume_mm)
     path, source, prediction_assumed = read_image(prediction_path, assume_mm=assume_mm)

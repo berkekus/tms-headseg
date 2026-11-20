@@ -103,6 +103,13 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(saved["experiment"], "E2")
         self.assertNotIn("E3", saved["models"])
 
+    def test_both_workspaces_start_with_one_voxel_and_half_smoothing(self):
+        for account in (self.technical, self.physician):
+            with self.subTest(role=account.role):
+                window = Window(self.store, account)
+                self.addCleanup(window.close)
+                self.assertEqual(window.mesh_view.detail.currentData(), 1)
+                self.assertEqual(window.mesh_view.smoothing.value(), 0.5)
 
     def test_welcome_precedes_sign_in_and_routes_to_the_original_workspaces(self):
         hints = self.app.styleHints()
@@ -305,6 +312,20 @@ class WorkspaceTests(unittest.TestCase):
             window.inference.completed.emit(SimpleNamespace(mri=paths[0], prediction=paths[1], assume_mm=False))
             self.wait_idle(window)
             self.assertEqual(window.tabs.currentIndex(), 2, window.feedback.text())
+
+            self.assertEqual(window.head_model.surface_step, 1)
+            self.assertEqual(window.head_model.surface_smoothing, 0.5)
+            unsaved = Window(self.store, self.physician)
+            self.addCleanup(unsaved.close)
+            unsaved.physician.open_record(flow.study_id, paths[0])
+            self.wait_idle(unsaved)
+            self.assertEqual(unsaved.head_model.surface_step, 1)
+            self.assertEqual(unsaved.head_model.surface_smoothing, 0.5)
+
+            window.change_surface_detail(2, 0.2)
+            self.wait_idle(window)
+            self.assertEqual(window.head_model.surface_step, 2)
+            self.assertEqual(window.head_model.surface_smoothing, 0.2)
 
             window.mesh_view.checks[1].setChecked(False)
             window.mesh_view.sliders[4].setValue(62)

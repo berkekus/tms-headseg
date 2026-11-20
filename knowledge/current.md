@@ -23,6 +23,10 @@ sources:
 
 # Current State
 
+## Surface display defaults — 2026-11-19
+
+At the user's request, both workspaces now default to **1-voxel surface detail / 0.50 smoothing**, including results reopened without a saved view. Manual overrides and saved custom views remain supported. All 116 GUI tests and the existing native E2-result 3D check passed; source hashes were unchanged. No new inference or resumed E3 test was run. The existing user session remains open on its loaded code; reopen the app to use the update. [Evidence](experiments/workbench-surface-defaults.md).
+
 ## E3 technical option — later on 2026-11-19
 
 The user subsequently supplied the E3 run. Its epoch-100 checkpoint and fixed sixteen-case summary passed local audit. Technical-only E3 inference is implemented with 114 GUI and 28 inference/report tests passing; Physician remains E2. **Native E3 verification is incomplete:** the user stopped the separate first-tile-stalled rehearsal. Its processes were terminated without interrupting the Physician E2 run, which completed. Do not resume E3 testing without further user direction. [Audit and disposition](experiments/e3-technical-inference.md).
