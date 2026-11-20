@@ -1,5 +1,11 @@
 # Knowledge Update Log
 
+## 2026-11-19
+
+- **E3 technical option; native test stopped**: Audited the downloaded epoch-100 E3 checkpoint/summary and added technical-only inference. 114 GUI and 28 inference/report tests pass; real E2 loading remains compatible. At user request, stopped the stalled native E3 rehearsal without interrupting the Physician E2/Ernie run, which completed. No E3 native pass is claimed. [Disposition](experiments/e3-technical-inference.md).
+
+- **Latest Workbench and E2 demo rehearsal**: Fast-forwarded main to `d6d6c85`, preserving 17 pre-existing local files and upstream additions. Dependencies are present, 110 tests passed, and real GU011 CPU inference plus automatic native 3D opening passed in 140.3 s with unchanged input/model hashes. Ignored local settings select E2. E3 training remains separate: no E3 inference route or local checkpoint was found. Normal app left at workspace selection; user account setup remains. [Evidence](experiments/workbench-demo-rehearsal-20261119.md).
+
 ## 2026-11-13
 
 - **Unsaved 3D view prompt**: Replaced the native message-box button layout with the Workbench dialog layout on `codex/workbench-usability`. The Windows save-and-resume check verified that all three labels fit at normal and 150% Qt scaling and that Save and leave restores the saved view on reopening.

@@ -333,7 +333,7 @@ class Window(LauncherWindow):
         for title, description, button, action in (
             ("1  View MRI images", "Open a T1 MRI (.nii or .nii.gz). Move through three slice views and adjust the contrast.", self.welcome_open_button, self.choose_mri),
             ("2  Review a saved result", "Choose the matching MRI and segmentation files. View tissue overlays and a 3D preview.", self.welcome_saved_button, self.choose_e1_prediction),
-            ("3  Create a new result", "Use our trained E1 or E2 model to segment an MRI. Review the result when it is ready.", self.welcome_generate_button, lambda: self.tabs.setCurrentIndex(3)),
+            ("3  Create a new result", "Use a trained model to segment an MRI. Review the result when it is ready.", self.welcome_generate_button, lambda: self.tabs.setCurrentIndex(3)),
         ):
             card = QFrame()
             card.setObjectName("startCard")
@@ -416,7 +416,7 @@ class Window(LauncherWindow):
         self.mesh_view.regions_requested.connect(self.change_regions)
         self.mesh_view.region_picked.connect(lambda name: self.feedback.setText(f"Brain region · {name}"))
         self.tabs.addTab(self.mesh_view, "3D view")
-        self.inference = InferencePanel()
+        self.inference = InferencePanel(technical=account is None or account.role == "technical")
         self.inference_scroll = QScrollArea()
         self.inference_scroll.setWidgetResizable(True)
         self.inference_scroll.setWidget(self.inference)
@@ -428,7 +428,7 @@ class Window(LauncherWindow):
             "Open an MRI, move through its slices, and add a saved tissue overlay.",
             "Optional SimNIBS CHARM reconstruction and batch monitoring. Not needed to view an MRI or use our AI model.",
             "Rotate the loaded result and show or hide its tissues and MRI planes.",
-            "Generate a new segmentation with a trained E1 or E2 model; this is not model training.",
+            "Generate a new segmentation with a trained model; E3 is Technical Team only. This is not model training.",
         )):
             self.tabs.setTabToolTip(index, help_text)
         self.inference.busy_changed.connect(self.update_controls)
@@ -499,6 +499,8 @@ class Window(LauncherWindow):
 
     def validate_physician_setup(self, setup):
         experiment = setup.get("experiment")
+        if experiment == "E3":
+            raise ValueError("E3 is Technical Team only. Keep E1 or E2 for Physician workspace.")
         models = setup.get("models")
         if experiment not in ("E1", "E2") or not isinstance(models, dict):
             raise ValueError("Choose a segmentation model version.")
@@ -524,6 +526,7 @@ class Window(LauncherWindow):
         if self.account is None or self.account.role != "technical" or self.busy:
             return
         settings = self.inference.workstation_defaults()
+        settings["models"] = {key: value for key, value in settings["models"].items() if key in ("E1", "E2")}
         settings.update(charm=self.charm.text().strip(), charm_output=self.output.text().strip())
         try:
             self.validate_physician_setup(settings)

@@ -125,6 +125,29 @@ print('new prediction complete',flush=True)
         panel.experiment.setCurrentText("E2")
         self.assertEqual(panel.model.text(), str(self.root / "E2-model"))
 
+    def test_e3_has_explicit_command_and_requires_known_mm_units(self):
+        job = self.job(experiment="E3")
+        command = job.command()
+        self.assertIn("--experiment", command)
+        self.assertEqual(command[command.index("--experiment") + 1], "E3")
+        job.validate()
+        self.save(self.mri, units="unknown")
+        with self.assertRaisesRegex(ValueError, "known millimetre"):
+            self.job(experiment="E3", assume_mm=True).validate()
+
+    def test_e3_switch_and_local_settings_preserve_independent_model_paths(self):
+        from inference_panel import InferencePanel
+        panel = InferencePanel()
+        self.addCleanup(panel.close)
+        self.assertGreaterEqual(panel.experiment.findText("E3"), 0)
+        panel.apply_local_defaults({"experiment": "E2", "models": {"E2": str(self.model), "E3": str(self.root)}})
+        panel.experiment.setCurrentText("E3")
+        self.assertEqual(panel.model.text(), str(self.root))
+        self.assertFalse(panel.assume_mm.isEnabled())
+        self.assertIsNone(panel.runner)
+        panel.experiment.setCurrentText("E2")
+        self.assertEqual(panel.model.text(), str(self.model))
+
     def test_local_setup_only_prefills_paths_and_never_runs_or_assumes_units(self):
         window=Window();self.addCleanup(window.close)
         panel=window.inference

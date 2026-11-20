@@ -69,6 +69,41 @@ class WorkspaceTests(unittest.TestCase):
         self.store.save_setup(self.technical, {"experiment": "E2"})
         self.assertEqual(self.store.setup(self.physician), {"experiment": "E2"})
 
+    def test_e3_is_technical_only_and_cannot_replace_physician_model(self):
+        self.store.save_setup(self.technical, {"experiment": "E2"})
+        with self.assertRaisesRegex(ValueError, "Technical"):
+            self.store.save_setup(self.technical, {"experiment": "E3"})
+        self.assertEqual(self.store.setup(self.physician), {"experiment": "E2"})
+        technical = Window(self.store, self.technical)
+        physician = Window(self.store, self.physician)
+        self.addCleanup(technical.close)
+        self.addCleanup(physician.close)
+        self.assertGreaterEqual(technical.inference.experiment.findText("E3"), 0)
+        self.assertEqual(physician.inference.experiment.findText("E3"), -1)
+        technical.inference.experiment.setCurrentText("E3")
+        self.assertFalse(technical.inference.save_workstation_button.isEnabled())
+        technical.save_workstation_setup()
+        self.assertEqual(self.store.setup(self.physician), {"experiment": "E2"})
+
+    def test_physician_save_excludes_technical_e3_path(self):
+        technical = Window(self.store, self.technical)
+        self.addCleanup(technical.close)
+        model = self.root / "e2-model"
+        (model / "fold_0").mkdir(parents=True)
+        for name in ("plans.json", "dataset.json", "fold_0/checkpoint_final.pth"):
+            (model / name).touch()
+        panel = technical.inference
+        panel.experiment.setCurrentText("E2")
+        panel.python.setText(sys.executable)
+        panel.model.setText(str(model))
+        panel.model_paths["E3"] = str(self.root / "e3-model")
+        panel.workstation_output.setText(str(self.root))
+        technical.save_workstation_setup()
+        saved = self.store.setup(self.physician)
+        self.assertEqual(saved["experiment"], "E2")
+        self.assertNotIn("E3", saved["models"])
+
+
     def test_welcome_precedes_sign_in_and_routes_to_the_original_workspaces(self):
         hints = self.app.styleHints()
         self.addCleanup(hints.setColorScheme, hints.colorScheme())

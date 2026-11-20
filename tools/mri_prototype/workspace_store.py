@@ -142,6 +142,8 @@ class WorkspaceStore:
     def save_setup(self, account, settings):
         with self.connection() as database:
             self.require_account(database, account, "technical")
+            if settings.get("experiment") == "E3":
+                raise ValueError("E3 is Technical Team only; it cannot be saved for Physician workspace.")
             database.execute("INSERT OR REPLACE INTO settings VALUES ('workstation', ?)", (json.dumps(settings),))
 
     def studies(self, account):

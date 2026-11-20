@@ -23,6 +23,14 @@ sources:
 
 # Current State
 
+## E3 technical option — later on 2026-11-19
+
+The user subsequently supplied the E3 run. Its epoch-100 checkpoint and fixed sixteen-case summary passed local audit. Technical-only E3 inference is implemented with 114 GUI and 28 inference/report tests passing; Physician remains E2. **Native E3 verification is incomplete:** the user stopped the separate first-tile-stalled rehearsal. Its processes were terminated without interrupting the Physician E2 run, which completed. Do not resume E3 testing without further user direction. [Audit and disposition](experiments/e3-technical-inference.md).
+
+## Local demo setup — 2026-11-19
+
+The user requested the latest checkout before the November 20 demo. Local main is now `d6d6c85`, with pre-existing work preserved. The ignored workstation configuration selects **E2**, CPU and no TTA. All 110 Workbench tests passed; a real GU011 E2 run completed and opened automatically in native 3D in 140.3 s. The normal app is open at workspace selection; first local account creation/sign-in remains with the user. **E3 is not supported by the current inference selector/CLI**, and no E3 checkpoint was found in the inspected local model directories. See the [rehearsal evidence and remaining E3 work](experiments/workbench-demo-rehearsal-20261119.md). Older entries below retain their original observation dates.
+
 Last substantive update: 2026-11-03. Project stage: preliminary E1 validation and baseline exploration.
 
 ## Confirmed direction

@@ -1,4 +1,4 @@
-"""Desktop controls for a fresh E1/E2 inference job and live local logs."""
+"""Desktop controls for a fresh E1/E2/E3 inference job and live local logs."""
 
 from datetime import datetime, timezone
 import json
@@ -26,8 +26,9 @@ class InferencePanel(QWidget):
     completed = Signal(object)
     notice = Signal(str, str, str)
 
-    def __init__(self):
+    def __init__(self, *, technical=True):
         super().__init__()
+        self.experiments = ("E1", "E2", "E3") if technical else ("E1", "E2")
         self.runner = None
         self.error = ""
         self.available = True
@@ -46,7 +47,7 @@ class InferencePanel(QWidget):
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.experiment = QComboBox()
-        self.experiment.addItems(["E1", "E2"])
+        self.experiment.addItems(self.experiments)
         compact_choice(self.experiment)
         self.experiment.setAccessibleName("Segmentation model version")
         form.addRow("Model version", self.experiment)
@@ -155,6 +156,8 @@ class InferencePanel(QWidget):
         layout.addStretch()
         e2 = Path.home() / "Downloads/E2_L4_001/Dataset002_E2Charm/nnUNetTrainer_E2Preliminary__nnUNetPlans__3d_fullres"
         self.model_paths = {"E1": self.model.text(), "E2": str(e2) if (e2 / "fold_0/checkpoint_final.pth").is_file() else ""}
+        if technical:
+            self.model_paths["E3"] = ""
         self.selected_experiment = "E1"
         self.experiment.currentTextChanged.connect(self.change_experiment)
 
@@ -165,7 +168,10 @@ class InferencePanel(QWidget):
         label = "Run test" if self.workstation_output is not None else "Create"
         self.run_button.setText(f"{label} {experiment} segmentation")
         self.assume_mm.setEnabled(experiment == "E1")
-        self.status.setText(f"{experiment} selected. Choose your MRI, then click Create {experiment} segmentation.")
+        if self.workstation_output is not None:
+            self.save_workstation_button.setEnabled(experiment != "E3")
+        restriction = " Technical Team only; the Physician model stays unchanged." if experiment == "E3" else ""
+        self.status.setText(f"{experiment} selected. Choose your MRI, then click {label} {experiment} segmentation." + restriction)
 
     def restore_local_defaults(self, path=None):
         """Prefill reviewed local paths; never start work or enable unit assumptions."""
@@ -191,10 +197,10 @@ class InferencePanel(QWidget):
                 field.setText(value)
         models = data.get("models")
         experiment = data.get("experiment", self.experiment.currentText())
-        if experiment in ("E1", "E2"):
+        if experiment in self.experiments:
             self.experiment.setCurrentText(experiment)
         if isinstance(models, dict):
-            for key in ("E1", "E2"):
+            for key in self.experiments:
                 value = models.get(key)
                 if isinstance(value, str):
                     self.model_paths[key] = value if Path(value).is_dir() and value else ""
@@ -231,6 +237,8 @@ class InferencePanel(QWidget):
         note.setWordWrap(True)
         self.setup_form.addRow(note)
         self.save_workstation_button = QPushButton("Save for Physician workspace")
+        self.save_workstation_button.setEnabled(self.experiment.currentText() != "E3")
+        self.save_workstation_button.setToolTip("E1/E2 can be saved for physicians. E3 is a Technical Team experiment only.")
         self.save_workstation_button.setObjectName("primary")
         compact_action(self.save_workstation_button)
         self.save_workstation_button.clicked.connect(save)

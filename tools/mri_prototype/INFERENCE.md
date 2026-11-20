@@ -1,4 +1,4 @@
-# Run our E1 or E2 model in MRI Workbench
+# Run our E1, E2 or E3 model in MRI Workbench
 
 The **AI segmentation** tab creates a new prediction using the selected model version. The header's **Open saved result…** action opens an already-saved prediction.
 
@@ -9,6 +9,18 @@ Select **E2** under **Model version**, then choose the completed E2 model direct
 E2 rebuilds the reviewed standard architecture from its plans, loads the epoch-100 weights strictly and manually initializes nnU-Net. The original E2 notebook and custom trainer source are optional for this inference route. MRI headers must declare millimetre units. K3's `headmodel.model_io` prepares a lossless RAS copy and restores predicted labels to the input grid. The run retains `model_input_0000.nii.gz`, `geometry.json` and `prediction_model.nii.gz` alongside the final source-grid `prediction.nii.gz`. E1 retains its existing loading and stored-axis behavior.
 
 For an E1/E2 comparison, use the same MRI and mirror-augmentation setting. A validation score against E2's CHARM-based labels measures agreement with that reference. The E1 and E2 cohort scores use different references and cohort sizes.
+
+## E3: Technical Team only
+
+Technical Team can select **E3** in **AI segmentation** for an optional test run. Choose the completed `Dataset003_E3Face/nnUNetTrainer_E3Preliminary__nnUNetPlans__3d_fullres` folder with `plans.json`, `dataset.json` and `fold_0/checkpoint_final.pth`. The five-epoch smoke checkpoint and E1/E2 checkpoints are rejected for E3. E3 requires known millimetre MRI units and uses the same reversible RAS preparation, head crop and source-grid restoration as E2.
+
+The exact E3 label mapping includes training-only `ignore: 6`; the network still has six output heads (background plus five tissues), and predictions contain labels 0–5. Checkpoint loading uses the standard architecture and restricted deserialization, without importing the downloaded trainer code. Main trainer identity, epoch 100, plans/dataset agreement, finite weights and strict network shape checks are enforced. Reports and desktop records explicitly identify E3, including the checkpoint hash.
+
+**Save for Physician workspace** is disabled for E3, and programmatic attempts to save E3 as the physician model are rejected. Saving E1/E2 physician setup excludes the technical E3 path. Adding an E3 path to local defaults does not change the selected physician model. Reopen Workbench after updating its code; do not interrupt an active study to restart it.
+
+E3's sixteen-case validation score was lower than E2's on the same references; its face-specific benefit remains unmeasured. Availability in this technical menu does not establish superiority or clinical acceptance.
+
+Native E3 CPU verification remains incomplete: the November 19 rehearsal was stopped at the user's request after a first-tile wait. Unit checks passed, but no completed native E3 prediction is claimed. Use E2 for the physician demo.
 
 ## First run
 

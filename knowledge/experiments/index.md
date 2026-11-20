@@ -1,8 +1,12 @@
 # Experiment Register
 
+- [E3 Technical Team Inference](e3-technical-inference.md) — downloaded model audited; 114 GUI and 28 inference/report tests pass. Native rehearsal stopped at user request after a first-tile wait; no native E3 success claimed. Physician stays E2.
+
+- [Workbench Update and E2 Demo Rehearsal](workbench-demo-rehearsal-20261119.md) — main updated to d6d6c85; 110 tests and real native E2 CPU inference/automatic 3D opening passed in 140.3 s. Local demo configuration selects E2; E3 inference is not integrated and no local E3 checkpoint was found.
+
 - [EXP-010: CT Skull Reference Pilot](ct-skull-pilot.md) — pilot completed on three SynthRAD2023 cases. In the calvaria, E2 and charm score equally against CT bone (Dice 0.813–0.834); both draw the skull 11–27% thinner than CT. The next steps are proposals, not decisions.
 
-- [Dataset003 E3 Training Preparation](e3-dataset003-training.md) — revised notebook ready for the required GPU pilot. Actual ZIP/SHA, 90/16 entries, ignore 6, standard uniform sampling, full RAS audit and real preprocessing checked; 15 E3 + 16 E2 tests pass. GPU training not run.
+- [Dataset003 E3 Training and Validation](e3-dataset003-training.md) — supplied log confirms 100 epochs and all 16 validation cases completed in 230.8 min; final raw Dice 0.90690635 (E2 0.91402824). Artifact audit and face evaluation pending.
 
 - [Actual E3 Dataset003 Handoff Review](e3-data-handoff-review.md) — technical checks passed on 106 pairs; 90 training entries / 16 validation, ignore 6 and 23 IXI duplicates. ZIP/SHA ready for Drive; revised training preparation linked above.
 - [E3 Face-Preserved Case Weighting](e3-face-weighted-training.md) — earlier E2-based sampling-only preparation, superseded by the actual Dataset003 handoff. Its notebook must not be used for the supplied E3 package.

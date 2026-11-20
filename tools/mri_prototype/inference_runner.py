@@ -68,11 +68,11 @@ class InferenceJob:
         return [str(self.python), "-u", str(DEMO), "predict", "--model", str(self.model),
                 "--mri", str(self.mri), "--out", str(self.run_dir), "--device", self.device] + (
                     [] if self.tta else ["--disable-tta"]) + (
-                    ["--experiment", "E2"] if self.experiment == "E2" else [])
+                    ["--experiment", self.experiment] if self.experiment in ("E2", "E3") else [])
 
     def validate(self):
-        if self.experiment not in ("E1", "E2"):
-            raise ValueError("Choose E1 or E2.")
+        if self.experiment not in ("E1", "E2", "E3"):
+            raise ValueError("Choose E1, E2 or E3.")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", self.subject):
             raise ValueError("Use a fresh run ID with letters, digits, underscores or hyphens.")
         if self.device not in ("cpu", "cuda"):
@@ -90,8 +90,8 @@ class InferenceJob:
                 or not any(int(image.header[k]) > 0 for k in ("qform_code", "sform_code"))):
             raise ValueError("MRI needs a finite coded spatial transform.")
         unit = image.header.get_xyzt_units()[0]
-        if self.experiment == "E2" and unit != "mm":
-            raise ValueError("E2 requires MRI headers with known millimetre units for reversible RAS preparation.")
+        if self.experiment in ("E2", "E3") and unit != "mm":
+            raise ValueError(f"{self.experiment} requires MRI headers with known millimetre units for reversible RAS preparation.")
         if unit == "unknown" and not self.assume_mm:
             raise ValueError("MRI units are unknown. Explicitly enable the handoff mm assumption to use this original E1 MRI.")
         if unit not in ("mm", "unknown"):

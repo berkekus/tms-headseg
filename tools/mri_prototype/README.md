@@ -1,6 +1,6 @@
 # MRI Workbench prototype
 
-A local PySide6 desktop tool for inspecting NIfTI MRI, reopening SimNIBS head models and exported project models, displaying E1/E2 predictions, viewing tissue surfaces in 3D, exporting a model, and launching installed CHARM. It imports the `tools/charm_gui` window and runner and the `tools/headmodel` geometry package, and reuses `tools/e1_training/surface_view.py` for E1 display geometry; keep those sibling folders together.
+A local PySide6 desktop tool for inspecting NIfTI MRI, reopening SimNIBS head models and exported project models, displaying E1/E2/E3 predictions, viewing tissue surfaces in 3D, exporting a model, and launching installed CHARM. E3 inference is available to Technical Team only. It imports the `tools/charm_gui` window and runner and the `tools/headmodel` geometry package, and reuses `tools/e1_training/surface_view.py` for display geometry; keep those sibling folders together.
 
 ## Run
 
@@ -58,6 +58,8 @@ SimNIBS must be installed separately to create a model. MRI and existing-model i
 5. Select **Save view** to keep a named camera and display state. **Back to studies** is at the lower right of an open study and prompts about unsaved view changes. **Open saved study** reopens the linked result and the active saved view. If the source moved, **Locate original MRI** verifies the file before opening it. Keep the original NIfTI and result files in place for subsequent review.
 
 Accounts, workstation settings, and saved-study records are local to the operating-system user profile. The Workbench checks roles and study ownership inside the application. Files accessible to the operating-system user remain accessible outside the application. Study records link to existing files and generated results on this workstation.
+
+**E3 technical test:** Sign in as **Technical Team**, open **AI segmentation**, select **E3**, then choose the completed `nnUNetTrainer_E3Preliminary__nnUNetPlans__3d_fullres` folder. Use the 100-epoch main model, not `E3Smoke`. Choose a Test T1 MRI and Test results folder, then **Run test E3 segmentation**. E3 cannot be saved for Physician workspace; its selector remains E1/E2 and the local demo configuration remains E2. The same separate inference Python is used for all models. See [E3 inference details](INFERENCE.md#e3-technical-team-only).
 
 ## Workflow
 

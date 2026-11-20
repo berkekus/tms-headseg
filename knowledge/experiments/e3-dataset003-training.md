@@ -3,7 +3,7 @@ type: Experiment
 title: Dataset003 E3 Colab training preparation
 description: Revised standalone notebook for the actual 90/16 entry handoff, ignore 6 and uniform sampling of physical IXI copies.
 status: draft
-experiment_state: prepared_not_run
+experiment_state: completed_validation_per_supplied_log_artifact_audit_pending
 sources:
 - id: handoff
   resource: e3-data-handoff-review.md
@@ -16,9 +16,59 @@ sources:
 # Dataset003 E3 training preparation
 
 On 2026-11-06 the user requested the final notebook while uploading the reviewed
-ZIP/SHA to `My Drive/TMS_E3/`. The notebook now targets the actual handoff. **No E3
-GPU training or model result is established.** The earlier sampler-only preparation
+ZIP/SHA to `My Drive/TMS_E3/`. The notebook targets the actual handoff. At preparation
+time, no E3 GPU run was established; the later completed pilot is recorded below. The earlier sampler-only preparation
 is superseded and preserved under `training-runs/e3-sampler-only-superseded-60r2wsu9/`.
+
+## Main run completed per supplied Colab log (received 2026-11-07)
+
+The user supplied the full main-run console output. It contains every epoch 0–99,
+`Training done.`, every expected validation subject exactly once, `Validation
+complete`, and `Raw E3 validation saved`. CUDA execution, the 90-entry / 16-subject
+split and frozen 3d_fullres configuration are shown. No traceback or nonfinite
+loss/metric token was found. The invocation reports **230.8 minutes** (about 3 h
+51 min). The console timestamps show 2026-11-06; their timezone was not independently
+verified. The earlier browser connectivity report did not prevent this run from
+reaching completion according to the supplied output.
+
+Mean final raw validation Dice: **0.9069063477804425**. This is the final full-volume
+metric, not the last epoch's patch pseudo-Dice (or its EMA).
+
+| Cohort | Cases | E2 raw Dice | E3 raw Dice |
+| --- | ---: | ---: | ---: |
+| Overall | 16 | 0.91402824 | 0.90690635 |
+| IXI | 6 | 0.91371844 | 0.91135380 |
+| MultiAxial | 10 | 0.91421412 | 0.90423788 |
+
+These cohorts and reference labels are held fixed. Overall E3 is lower by
+0.00712189 Dice (0.712 percentage points on the 0–100 Dice scale); the larger source
+subgroup decline is in MultiAxial. Do not claim overall validation superiority.
+E3's facial-surface goal, failure patterns and outside-acquisition inference masking
+still require separate evaluation; these raw scores alone do not resolve them.
+Two training factors changed, so a cause cannot be isolated from this comparison.
+
+The log indicates the notebook reached its saved-success branch. The actual
+checkpoint, final summary JSON, per-class/case arithmetic, weights and remote Drive
+contents have not yet been downloaded/reviewed independently. Runtime release is
+also unverified. Preserve/download the entire
+`MyDrive/TMS_E3/runs/E3_Dataset003_001/` folder before local artifact review and
+Workbench integration. No independent test or clinical/Module A acceptance is claimed.
+Evidence: `training-runs/e3-preparation/colab-main-completion.txt` and
+`colab-main-summary.json`.
+
+## Observed Colab GPU pilot completion (2026-11-06)
+
+The supplied console log confirms CUDA execution of epochs 0–4 using the fixed
+90-entry training / 16-subject validation split and the saved 3d_fullres plan.
+`Training done.` and `Validation complete` are present; every expected validation
+ID appears exactly once. Mean full-volume validation Dice is **0.8206177438457288**.
+The entire invocation reports 15.5 minutes. Epoch times are 141.01, 133.46, 133.47,
+133.48 and 133.46 seconds; median post-first-epoch time projects **3.70736 hours**
+for the 100-epoch loop, excluding checkpoint/plot overhead and final validation.
+This is a completed smoke/pilot result, not the main model or independent anatomy
+acceptance. The optional hiddenlayer plot dependency and old-plan advisory did not
+prevent successful completion. Main-run start is not yet observed. Evidence:
+`training-runs/e3-preparation/colab-pilot-completion.txt` and `colab-pilot-summary.json`.
 
 ## Fixed experiment
 

@@ -1,4 +1,4 @@
-"""E1/E2 single-MRI inference and saved-result presentation. Never trains or rewrites inputs."""
+"""E1/E2/E3 single-MRI inference and saved-result presentation. Never trains or rewrites inputs."""
 
 import argparse
 import base64
@@ -142,7 +142,7 @@ def cohort_metrics(path, experiment="E1"):
     data = json.loads(Path(path).read_text())
     rows = data["metric_per_case"]
     ids = [Path(row["reference_file"]).name.removesuffix(".nii.gz") for row in rows]
-    expected = E2_VALIDATION_CASES if experiment == "E2" else VALIDATION_CASES
+    expected = E2_VALIDATION_CASES if experiment in ("E2", "E3") else VALIDATION_CASES
     require(len(ids) == len(expected) and set(ids) == set(expected), "Expected the fixed validation cases for this experiment.")
     means = {str(i): float(np.mean([row["metrics"][str(i)]["Dice"] for row in rows])) for i in range(1, 6)}
     require(all(np.isfinite(x) and 0 <= x <= 1 for x in means.values()), "Invalid validation Dice.")
@@ -152,7 +152,7 @@ def cohort_metrics(path, experiment="E1"):
 
 
 def make_report(mri, prediction, output, reference=None, mode="recorded", timing=None, summary=None, model=None, experiment="E1"):
-    require(experiment in ("E1", "E2"), "Choose E1 or E2.")
+    require(experiment in ("E1", "E2", "E3"), "Choose E1, E2 or E3.")
     require(mode in ("recorded", "inference"), "Unknown demo mode.")
     require(mode != "recorded" or timing is None, "Recorded predictions cannot claim live inference timing.")
     require(mode != "inference" or timing is not None, "New inference requires measured timing.")
@@ -196,15 +196,19 @@ h1{{font-size:32px;margin:10px 0}}.badge{{display:inline-block;background:#e7f0f
     return folder / "report.html"
 
 
-def validate_model(folder):
+def validate_model(folder, experiment="E1"):
+    require(experiment in ("E1", "E2", "E3"), "Choose E1, E2 or E3.")
     folder = Path(folder)
     require((folder / "dataset.json").is_file(), "Model dataset.json is missing.")
     dataset = json.loads((folder / "dataset.json").read_text())
-    require(dataset.get("labels") == LABELS, "Model labels differ from the project mapping.")
+    expected_labels = LABELS | {"ignore": 6} if experiment == "E3" else LABELS
+    require(dataset.get("labels") == expected_labels, "Model labels differ from the project mapping.")
     require(dataset.get("channel_names") == {"0": "T1"} and dataset.get("file_ending") == ".nii.gz", "Expected a T1 model.")
     require((folder / "plans.json").is_file(), "Model plans.json is missing.")
     plans = json.loads((folder / "plans.json").read_text())
     require("3d_fullres" in plans.get("configurations", {}), "Model lacks 3d_fullres.")
+    if experiment == "E3":
+        require(plans.get("dataset_name") == "Dataset003_E3Face", "Expected E3 Dataset003_E3Face plans.")
     checkpoint = folder / "fold_0/checkpoint_final.pth"
     require(checkpoint.is_file() and zipfile.is_zipfile(checkpoint), "Final checkpoint is missing or incomplete.")
     with zipfile.ZipFile(checkpoint) as archive:
@@ -223,8 +227,9 @@ def register_trainer():
         target.write_text(source)
 
 
-def initialize_e2(predictor, model_folder):
-    """Restore this E2 architecture from its plans without installing trainer code."""
+def initialize_planned(predictor, model_folder, experiment):
+    """Restore E2/E3 from plans and restricted weights without installing trainer code."""
+    require(experiment in ("E2", "E3"), "Expected an E2 or E3 planned model.")
     import torch
     import inspect
     from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
@@ -237,16 +242,22 @@ def initialize_e2(predictor, model_folder):
                                            (np.core.multiarray.scalar, "numpy.core.multiarray.scalar"), np.dtype,
                                            type(np.dtype("float32")), type(np.dtype("float64"))]):
         checkpoint = torch.load(folder / "fold_0/checkpoint_final.pth", map_location="cpu", weights_only=True)
-    require(checkpoint.get("trainer_name") == "nnUNetTrainer_E2Preliminary", "Expected the completed E2 model.")
-    require(checkpoint.get("current_epoch") == 100, "Expected a completed 100-epoch E2 checkpoint.")
+    require(checkpoint.get("trainer_name") == f"nnUNetTrainer_{experiment}Preliminary",
+            f"Expected the completed {experiment} model.")
+    require(checkpoint.get("current_epoch") == 100, f"Expected a completed 100-epoch {experiment} checkpoint.")
     plans_data = json.loads((folder / "plans.json").read_text())
     dataset = json.loads((folder / "dataset.json").read_text())
     require(checkpoint["init_args"]["plans"] == plans_data, "Checkpoint and model plans disagree.")
-    require(checkpoint["init_args"]["configuration"] == "3d_fullres", "Expected E2 3d_fullres.")
+    require(checkpoint["init_args"]["configuration"] == "3d_fullres", f"Expected {experiment} 3d_fullres.")
+    if experiment == "E3":
+        require(dataset.get("labels") == LABELS | {"ignore": 6}, "E3 model labels differ from the project mapping.")
+        require(plans_data.get("dataset_name") == "Dataset003_E3Face", "Expected E3 Dataset003_E3Face plans.")
+        require(checkpoint["init_args"].get("dataset_json") == dataset, "Checkpoint and model dataset disagree.")
     plans = PlansManager(plans_data)
     configuration = plans.get_configuration("3d_fullres")
     num_input = determine_num_input_channels(plans, configuration, dataset)
     num_output = plans.get_label_manager(dataset).num_segmentation_heads
+    require(num_output == 6, "Expected six output heads for labels 0–5; ignore is training-only.")
     builder = nnUNetTrainer.build_network_architecture
     if "plans_manager" in inspect.signature(builder).parameters:
         network = builder(plans, configuration, num_input, num_output, enable_deep_supervision=False)
@@ -255,19 +266,32 @@ def initialize_e2(predictor, model_folder):
                           configuration.network_arch_init_kwargs_req_import,
                           num_input, num_output, enable_deep_supervision=False)
     weights = checkpoint["network_weights"]
+    require(isinstance(weights, dict) and bool(weights)
+            and all(isinstance(value, torch.Tensor) and torch.isfinite(value).all().item() for value in weights.values()),
+            "Checkpoint weights must be finite tensors.")
     network.load_state_dict(weights, strict=True)
     predictor.manual_initialization(network, plans, configuration, [weights], dataset,
                                     checkpoint["trainer_name"], checkpoint.get("inference_allowed_mirroring_axes"))
 
 
+def initialize_e2(predictor, model_folder):
+    """Keep the existing E2 entry point and its experiment guard."""
+    initialize_planned(predictor, model_folder, "E2")
+
+
+def initialize_e3(predictor, model_folder):
+    """Restore only the completed E3 model; ignore label 6 is never an output head."""
+    initialize_planned(predictor, model_folder, "E3")
+
+
 def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, summary=None, experiment="E1",
             head_crop=True):
-    require(experiment in ("E1", "E2"), "Choose E1 or E2.")
+    require(experiment in ("E1", "E2", "E3"), "Choose E1, E2 or E3.")
     require(device in ("cpu", "cuda"), "Use cpu or cuda.")
     require(not Path(output).resolve().is_relative_to(Path(model_folder).resolve()),
             "Output must be outside the model directory.")
     read_volume(mri)
-    model = validate_model(model_folder)
+    model = validate_model(model_folder, experiment=experiment)
     model["experiment"] = experiment
     folder = fresh_directory(output)
     status = folder / "status.json"
@@ -291,8 +315,8 @@ def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, s
         inference_mri = Path(mri).resolve()
         destination = folder / "prediction"
         crop = None
-        if experiment == "E2":
-            initialize_e2(predictor, model_folder)
+        if experiment in ("E2", "E3"):
+            (initialize_e3 if experiment == "E3" else initialize_e2)(predictor, model_folder)
             import sys
             sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
             from headmodel.model_io import prepare, restore_labels
@@ -300,7 +324,7 @@ def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, s
             canonical = folder / "model_input_ras.nii.gz"
             prepare(mri, canonical, folder / "geometry.json")
             inference_mri = canonical
-            if head_crop:  # E2 fails on neck and shoulders (EXP-008); the model sees the head only
+            if head_crop:  # Reuse the head-only E2 path (EXP-008) for E3.
                 inference_mri = folder / "model_input_0000.nii.gz"
                 crop = crop_file(canonical, inference_mri)
                 (folder / "head_crop.json").write_text(json.dumps(crop, indent=2) + "\n")
@@ -312,7 +336,7 @@ def predict(model_folder, mri, output, reference=None, device="cpu", tta=True, s
         loaded = time.perf_counter()
         predictor.predict_from_files([[str(inference_mri)]], [str(destination)], save_probabilities=False,
                                      overwrite=False, num_processes_preprocessing=1, num_processes_segmentation_export=1)
-        if experiment == "E2":
+        if experiment in ("E2", "E3"):
             model_output = destination.with_suffix(".nii.gz")
             if crop is not None:
                 model_output = folder / "prediction_model_full.nii.gz"
@@ -342,7 +366,7 @@ def main():
         command.add_argument("--reference", type=Path)
         command.add_argument("--summary", type=Path)
         command.add_argument("--out", type=Path, required=True)
-        command.add_argument("--experiment", choices=("E1", "E2"), default="E1")
+        command.add_argument("--experiment", choices=("E1", "E2", "E3"), default="E1")
         if name == "report":
             command.add_argument("--recorded-prediction", type=Path, required=True)
         else:
@@ -350,7 +374,7 @@ def main():
             command.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
             command.add_argument("--disable-tta", action="store_true")
             command.add_argument("--no-head-crop", action="store_true",
-                                 help="E2: feed the whole field of view instead of the head crop")
+                                 help="E2/E3: feed the whole field of view instead of the head crop")
     args = parser.parse_args()
     if args.command == "report":
         report = make_report(args.mri, args.recorded_prediction, args.out, reference=args.reference,

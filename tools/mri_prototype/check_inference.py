@@ -27,7 +27,7 @@ def main():
     parser.add_argument("--mri", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="Existing parent outside Git for fresh outputs/screenshots")
     parser.add_argument("--assume-mm", action="store_true")
-    parser.add_argument("--experiment", choices=("E1", "E2"), default="E1")
+    parser.add_argument("--experiment", choices=("E1", "E2", "E3"), default="E1")
     args = parser.parse_args()
     output = args.output.resolve()
     assert output.is_dir() and not any((p / ".git").exists() for p in (output, *output.parents))
